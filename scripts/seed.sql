@@ -8,7 +8,8 @@ INSERT INTO
         id,
         username,
         email,
-        password,
+        hashed_password,
+        role,
         created_at,
         updated_at
     )
@@ -17,7 +18,8 @@ VALUES
         1,
         'Test User',
         'test@example.com',
-        '{bcrypt}$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
+        '$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
+        'user',
         NOW (),
         NOW ()
     ),
@@ -25,7 +27,8 @@ VALUES
         2,
         'Test User 2',
         'test2@example.com',
-        '{bcrypt}$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
+        '$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
+        'user',
         NOW (),
         NOW ()
     );
