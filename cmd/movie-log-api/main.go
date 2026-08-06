@@ -8,10 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/handler"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/repository"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/usecase"
+	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
+	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
+	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
+	authrepository "github.com/masaya-nishimura-09/movie-log-api/internal/repository/auth"
+	userrepository "github.com/masaya-nishimura-09/movie-log-api/internal/repository/user"
 	"github.com/ulule/limiter/v3"
 	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -27,7 +30,6 @@ func main() {
 		log.Fatalf("environment variable JWT_SECRET is required")
 	}
 	secret := []byte(s)
-	tokenRepo := repository.NewTokenRepo(secret)
 
 	router := gin.Default()
 
@@ -43,21 +45,32 @@ func main() {
 	store := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
 
-	userRepo := repository.NewUserRepo(db)
-	userUsecase := usecase.NewUserUsecase(userRepo, tokenRepo)
-	userHandler := handler.NewUserHandler(userUsecase)
+	// repository
+	refreshTokenRepo := authrepository.NewRefreshTokenRepo(secret)
+	userRepo := userrepository.NewUserRepo(db)
+
+	// usecase
+	authUsecase := authusecase.NewAuthUsecase(userRepo, refreshTokenRepo, secret)
+	userUsecase := userusecase.NewUserUsecase(userRepo)
+
+	// handler
+	authHandler := authhandler.NewAuthHandler(authUsecase)
+	userHandler := userhandler.NewUserHandler(userUsecase)
+
+	auth := router.Group("/auth")
+	{
+		auth.POST("/login", loginLimiter, authHandler.Login)
+	}
 
 	users := router.Group("/users")
 	{
-		users.POST("/login", loginLimiter, userHandler.Login)
 		users.POST("/register", userHandler.CreateUser)
 	}
 
 	authUsers := router.Group("/users")
-	authUsers.Use(middleware.JWTAuth(userRepo, tokenRepo))
+	authUsers.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		authUsers.PUT("/", userHandler.UpdateUser)
-		authUsers.PUT("/password", userHandler.UpdatePassword)
 		authUsers.DELETE("/", userHandler.DeleteUser)
 	}
 

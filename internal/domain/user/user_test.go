@@ -5,26 +5,6 @@ import (
 	"testing"
 )
 
-func TestValidateUsername(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantErr bool
-	}{
-		{"valid", "Test", false},
-		{"empty", "", true},
-		{"too long", strings.Repeat("a", 101), true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateUsername(Username(tt.input))
-			if (err != nil) != tt.wantErr {
-				t.Errorf(`ValidateUsername(%q) error = %v, wantErr %v`, tt.input, err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestValidateEmail(t *testing.T) {
 	tests := []struct {
 		name    string
