@@ -46,7 +46,7 @@ func main() {
 	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
 
 	// repository
-	refreshTokenRepo := authrepository.NewRefreshTokenRepo(secret)
+	refreshTokenRepo := authrepository.NewRefreshTokenRepo(db)
 	userRepo := userrepository.NewUserRepo(db)
 
 	// usecase

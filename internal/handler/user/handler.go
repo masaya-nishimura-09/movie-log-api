@@ -1,4 +1,4 @@
-package handler
+package user
 
 import (
 	"errors"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
+	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
+	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 )
 
 type CreateReq struct {
@@ -24,14 +24,14 @@ type UpdateReq struct {
 }
 
 type UserHandler struct {
-	userUsecase *usecase.UserUsecase
+	userUsecase *userusecase.UserUsecase
 }
 
-func NewUserHandler(usecase *usecase.UserUsecase) *UserHandler {
+func NewUserHandler(usecase *userusecase.UserUsecase) *UserHandler {
 	return &UserHandler{userUsecase: usecase}
 }
 
-func getUserID(c *gin.Context) (user.ID, bool) {
+func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	v, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -40,7 +40,7 @@ func getUserID(c *gin.Context) (user.ID, bool) {
 		})
 		return 0, false
 	}
-	id, ok := v.(user.ID)
+	id, ok := v.(userdomain.ID)
 	if !ok {
 		log.Println("userID in context is not of type uint")
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -49,7 +49,7 @@ func getUserID(c *gin.Context) (user.ID, bool) {
 		})
 		return 0, false
 	}
-	return user.ID(id), true
+	return userdomain.ID(id), true
 }
 
 func (uh *UserHandler) CreateUser(c *gin.Context) {
@@ -64,9 +64,9 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	username, err := user.NewUsername(req.Username)
-	email, err := user.NewEmail(req.Email)
-	password, err := user.NewPassword(req.Password)
+	username, err := userdomain.NewUsername(req.Username)
+	email, err := userdomain.NewEmail(req.Email)
+	password, err := userdomain.NewPassword(req.Password)
 
 	if errors.Is(err, exception.ErrValidation) {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -119,9 +119,9 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	username, err := user.NewUsername(req.Username)
-	email, err := user.NewEmail(req.Email)
-	password, err := user.NewPassword(req.Password)
+	username, err := userdomain.NewUsername(req.Username)
+	email, err := userdomain.NewEmail(req.Email)
+	password, err := userdomain.NewPassword(req.Password)
 
 	if errors.Is(err, exception.ErrValidation) {
 		c.JSON(http.StatusBadRequest, gin.H{
