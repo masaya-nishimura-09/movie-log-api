@@ -11,8 +11,7 @@ var (
 )
 
 var (
-	ErrInvalidToken              = errors.New("invalid token")
-	ErrRefreshTokenAlreadyExists = errors.New("refresh token already exists")
+	ErrInvalidToken = errors.New("invalid token")
 )
 
 var (

@@ -30,7 +30,7 @@ type userDTO struct {
 }
 
 func (userDTO) TableName() string {
-	return "user"
+	return "users"
 }
 
 func toDTO(u *user.User) userDTO {
@@ -83,7 +83,7 @@ func (r *userRepository) Create(
 	u.UpdatedAt = time.Now()
 
 	dto := toDTO(u)
-	result := r.db.WithContext(ctx).Create(dto)
+	result := r.db.WithContext(ctx).Create(&dto)
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 		return exception.ErrUserAlreadyExists
 	}

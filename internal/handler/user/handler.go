@@ -49,7 +49,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 		})
 		return 0, false
 	}
-	return userdomain.ID(id), true
+	return id, true
 }
 
 func (uh *UserHandler) CreateUser(c *gin.Context) {
@@ -65,9 +65,24 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	username, err := userdomain.NewUsername(req.Username)
-	email, err := userdomain.NewEmail(req.Email)
-	password, err := userdomain.NewPassword(req.Password)
+	if errors.Is(err, exception.ErrValidation) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
 
+	email, err := userdomain.NewEmail(req.Email)
+	if errors.Is(err, exception.ErrValidation) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	password, err := userdomain.NewPassword(req.Password)
 	if errors.Is(err, exception.ErrValidation) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
@@ -187,5 +202,5 @@ func (uh *UserHandler) DeleteUser(c *gin.Context) {
 		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{})
+	c.Status(http.StatusNoContent)
 }
