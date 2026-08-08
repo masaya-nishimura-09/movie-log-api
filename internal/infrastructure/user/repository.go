@@ -45,34 +45,46 @@ func toDTO(u *user.User) userDTO {
 	}
 }
 
+func fromDTO(dto *userDTO) *user.User {
+	return &user.User{
+		ID:             user.ID(dto.ID),
+		Username:       user.Username(dto.Username),
+		Email:          user.Email(dto.Email),
+		HashedPassword: user.HashedPassword(dto.HashedPassword),
+		Role:           user.Role(dto.Role),
+		CreatedAt:      dto.CreatedAt,
+		UpdatedAt:      dto.UpdatedAt,
+	}
+}
+
 func (r *userRepository) GetByID(
 	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
-	var u user.User
-	result := r.db.WithContext(ctx).First(&u, userID)
+	var dto userDTO
+	result := r.db.WithContext(ctx).First(&dto, userID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("get user by id: %w", result.Error)
 	}
-	return &u, nil
+	return fromDTO(&dto), nil
 }
 
 func (r *userRepository) GetByEmail(
 	ctx context.Context,
 	email user.Email,
 ) (*user.User, error) {
-	var u user.User
-	result := r.db.WithContext(ctx).Where("email = ?", email).First(&u)
+	var dto userDTO
+	result := r.db.WithContext(ctx).Where("email = ?", string(email)).First(&dto)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("get user by email: %w", result.Error)
 	}
-	return &u, nil
+	return fromDTO(&dto), nil
 }
 
 func (r *userRepository) Create(
@@ -120,7 +132,7 @@ func (r *userRepository) Update(
 }
 
 func (r *userRepository) Delete(ctx context.Context, userID user.ID) error {
-	result := r.db.WithContext(ctx).Delete(&user.User{}, userID)
+	result := r.db.WithContext(ctx).Delete(&userDTO{}, userID)
 	if result.Error != nil {
 		return fmt.Errorf("delete user: %w", result.Error)
 	}
