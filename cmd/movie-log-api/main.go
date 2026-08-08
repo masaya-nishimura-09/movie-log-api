@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +12,8 @@ import (
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
-	authrepository "github.com/masaya-nishimura-09/movie-log-api/internal/repository/auth"
-	userrepository "github.com/masaya-nishimura-09/movie-log-api/internal/repository/user"
+	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
+	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
 	"github.com/ulule/limiter/v3"
 	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -25,17 +24,24 @@ func main() {
 		log.Println(".env file not found, using environment variables")
 	}
 
-	s := os.Getenv("JWT_SECRET")
-	if s == "" {
-		log.Fatalf("environment variable JWT_SECRET is required")
-	}
-	secret := []byte(s)
-
-	router := gin.Default()
-
 	db, err := config.NewDB()
 	if err != nil {
 		log.Fatalf("%v", err)
+	}
+
+	secret, err := config.Secret()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	accessTokenTTL, err := config.AccessTokenTTL()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	refreshTokenTTL, err := config.RefreshTokenTTL()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	rate := limiter.Rate{
@@ -45,17 +51,28 @@ func main() {
 	store := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
 
-	// repository
-	refreshTokenRepo := authrepository.NewRefreshTokenRepo(db)
-	userRepo := userrepository.NewUserRepo(db)
+	// infrastructure
+	accessTokenService := authinfra.NewAccessTokenService(
+		secret, 
+		accessTokenTTL,
+	)
+	refreshTokenRepo := authinfra.NewRefreshTokenRepo(db, refreshTokenTTL)
+	userRepo := userinfra.NewUserRepo(db)
 
 	// usecase
-	authUsecase := authusecase.NewAuthUsecase(userRepo, refreshTokenRepo, secret)
+	authUsecase := authusecase.NewAuthUsecase(
+		userRepo, 
+		accessTokenService, 
+		refreshTokenRepo,
+	)
 	userUsecase := userusecase.NewUserUsecase(userRepo)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
 	userHandler := userhandler.NewUserHandler(userUsecase)
+
+	// routing
+	router := gin.Default()
 
 	auth := router.Group("/auth")
 	{

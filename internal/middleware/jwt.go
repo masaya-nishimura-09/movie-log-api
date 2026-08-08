@@ -17,6 +17,7 @@ func JWTAuth(
 	userUsecase *userusecase.UserUsecase,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
 		authorization := c.GetHeader("Authorization")
 		if authorization == "" || !strings.HasPrefix(authorization, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -26,8 +27,12 @@ func JWTAuth(
 			return
 		}
 
-		accessToken := authdomain.AccessToken{Value: strings.TrimPrefix(authorization, "Bearer ")}
-		principal, err := authUsecase.ValidateAccessToken(&accessToken)
+		accessToken := authdomain.AccessToken{
+			Value: authdomain.AccessTokenValue(
+				strings.TrimPrefix(authorization, "Bearer "),
+			),
+		}
+		principal, err := authUsecase.ValidateAccessToken(ctx, &accessToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    "INVALID_TOKEN",

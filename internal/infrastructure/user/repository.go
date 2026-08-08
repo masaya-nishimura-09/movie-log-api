@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
@@ -16,6 +17,32 @@ type userRepository struct {
 
 func NewUserRepo(db *gorm.DB) user.UserRepository {
 	return &userRepository{db}
+}
+
+type userDTO struct {
+	ID uint `gorm:"primaryKey"`
+	Username string
+	Email string
+	HashedPassword string
+	Role string
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+
+func (userDTO) TableName() string {
+	return "user"
+}
+
+func toDTO(u *user.User) userDTO {
+	return userDTO {
+		ID: uint(u.ID),
+		Username: string(u.Username),
+		Email: string(u.Email),
+		HashedPassword: string(u.HashedPassword),
+		Role: string(u.Role),
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
 }
 
 func (r *userRepository) GetByID(
@@ -52,7 +79,11 @@ func (r *userRepository) Create(
 	ctx context.Context, 
 	u *user.User,
 ) error {
-	result := r.db.WithContext(ctx).Create(u)
+	u.CreatedAt = time.Now()
+	u.UpdatedAt = time.Now()
+
+	dto := toDTO(u)
+	result := r.db.WithContext(ctx).Create(dto)
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 		return exception.ErrUserAlreadyExists
 	}
@@ -66,14 +97,18 @@ func (r *userRepository) Update(
 	ctx context.Context, 
 	u *user.User,
 ) error {
+	u.UpdatedAt = time.Now()
+
+	dto := toDTO(u)
 	result := r.db.WithContext(ctx).
-		Model(&user.User{}).
+		Model(&userDTO{}).
 		Where("id = ?", u.ID).
-		Select("username", "email", "hashed_password").
-		Updates(user.User{
-			Username: u.Username, 
-			Email: u.Email,
-			HashedPassword: u.HashedPassword,
+		Select("username", "email", "hashed_password", "updated_at").
+		Updates(userDTO{
+			Username: dto.Username, 
+			Email: dto.Email,
+			HashedPassword: dto.HashedPassword,
+			UpdatedAt: dto.UpdatedAt,
 		})
 	if result.Error != nil {
 		return fmt.Errorf("update user: %w", result.Error)

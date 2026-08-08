@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
-	au "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 )
 
 type LoginReq struct {
@@ -17,10 +17,10 @@ type LoginReq struct {
 }
 
 type AuthHandler struct {
-	authUsecase *au.AuthUsecase
+	authUsecase *authusecase.AuthUsecase
 }
 
-func NewAuthHandler(usecase *au.AuthUsecase) *AuthHandler {
+func NewAuthHandler(usecase *authusecase.AuthUsecase) *AuthHandler {
 	return &AuthHandler{authUsecase: usecase}
 }
 

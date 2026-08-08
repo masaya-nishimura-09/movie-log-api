@@ -1,6 +1,8 @@
 package auth
 
+import "context"
+
 type AccessTokenService interface {
-	Generate(principal *Principal) (*AccessToken, error)
-	Validate(accessToken *AccessToken) (*Principal, error)
+	Generate(ctx context.Context, principal *Principal) (*AccessToken, error)
+	Validate(ctx context.Context, accessToken *AccessToken) (*Principal, error)
 }

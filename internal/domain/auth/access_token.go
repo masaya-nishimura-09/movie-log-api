@@ -1,5 +1,11 @@
 package auth
 
+import "time"
+
 type AccessToken struct {
-    Value string
+    Value AccessTokenValue
+	Principal Principal
+	ExpiresAt time.Time
 }
+
+type AccessTokenValue string
