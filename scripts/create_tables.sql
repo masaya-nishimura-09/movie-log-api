@@ -7,3 +7,13 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
 );
+
+CREATE TABLE refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGSERIAL NOT NULL,
+    role TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+    revoked_at TIMESTAMPTZ DEFAULT NULL
+);

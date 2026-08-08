@@ -52,7 +52,7 @@ func (r *userRepository) GetByID(
 	var u user.User
 	result := r.db.WithContext(ctx).First(&u, userID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, exception.ErrUserNotFound
+		return nil, exception.ErrNotFound
 	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("get user by id: %w", result.Error)
@@ -67,7 +67,7 @@ func (r *userRepository) GetByEmail(
 	var u user.User
 	result := r.db.WithContext(ctx).Where("email = ?", email).First(&u)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, exception.ErrUserNotFound
+		return nil, exception.ErrNotFound
 	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("get user by email: %w", result.Error)
@@ -85,7 +85,7 @@ func (r *userRepository) Create(
 	dto := toDTO(u)
 	result := r.db.WithContext(ctx).Create(&dto)
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
-		return exception.ErrUserAlreadyExists
+		return exception.ErrAlreadyExists
 	}
 	if result.Error != nil {
 		return fmt.Errorf("create user: %w", result.Error)
@@ -114,7 +114,7 @@ func (r *userRepository) Update(
 		return fmt.Errorf("update user: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return exception.ErrUserNotFound
+		return exception.ErrNotFound
 	}
 	return nil
 }
@@ -125,7 +125,7 @@ func (r *userRepository) Delete(ctx context.Context, userID user.ID) error {
 		return fmt.Errorf("delete user: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return exception.ErrUserNotFound
+		return exception.ErrNotFound
 	}
 	return nil
 }

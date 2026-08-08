@@ -13,10 +13,10 @@ var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-
 
 func NewEmail(value string) (Email, error) {
 	if value == "" {
-		return "", fmt.Errorf("%w: email is required", exception.ErrValidation)
+		return "", fmt.Errorf("%w: email is required", exception.ErrInvalid)
 	}
 	if !emailRegex.MatchString(string(value)) {
-		return "", fmt.Errorf("%w: invalid email", exception.ErrValidation)
+		return "", fmt.Errorf("%w: invalid email", exception.ErrInvalid)
 	}
 	return Email(value), nil
 }

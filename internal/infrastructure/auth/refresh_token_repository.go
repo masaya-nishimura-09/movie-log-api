@@ -90,7 +90,7 @@ func (r *refreshTokenRepository) FindValidByValue(
 		Where("revoked_at IS NULL").
 		First(&dto)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, exception.ErrInvalidToken
+		return nil, exception.ErrInvalid
 	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("find refresh token: %w", result.Error)
@@ -122,7 +122,7 @@ func (r *refreshTokenRepository) Revoke(
 		return fmt.Errorf("revoke refresh token: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return exception.ErrInvalidToken
+		return exception.ErrInvalid
 	}
 	return nil
 }

@@ -47,7 +47,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	email, err := user.NewEmail(req.Email)
 	password, err := user.NewPassword(req.Password)
 
-	if errors.Is(err, exception.ErrValidation) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
 			"message": err.Error(),
@@ -56,7 +56,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	}
 
 	accessToken, refreshToken, err := ah.authUsecase.Login(ctx, email, password)
-	if errors.Is(err, exception.ErrInvalidCredentials) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    "INVALID_CREDENTIALS",
 			"message": "invalid email or password",
@@ -90,7 +90,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	err := ah.authUsecase.Logout(ctx, auth.RefreshTokenValue(req.RefreshToken))
-	if errors.Is(err, exception.ErrInvalidToken) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.Status(http.StatusNoContent)
 		return
 	}
@@ -121,7 +121,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 		ctx,
 		auth.RefreshTokenValue(req.RefreshToken),
 	)
-	if errors.Is(err, exception.ErrInvalidToken) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"code":    "INVALID_TOKEN",
 			"message": "invalid or expired refresh token",

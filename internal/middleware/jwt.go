@@ -42,7 +42,7 @@ func JWTAuth(
 		}
 
 		_, err = userUsecase.GetByID(c.Request.Context(), principal.UserID)
-		if errors.Is(err, exception.ErrUserNotFound) {
+		if errors.Is(err, exception.ErrNotFound) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    "USER_NOT_FOUND",
 				"message": "user no longer exists",

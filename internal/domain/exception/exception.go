@@ -5,15 +5,13 @@ import (
 )
 
 var (
-	ErrUserNotFound       = errors.New("user not found")
-	ErrUserAlreadyExists  = errors.New("user already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
+	// Resource
+	ErrNotFound      = errors.New("not found")
+	ErrAlreadyExists = errors.New("already exists")
 
-var (
-	ErrInvalidToken = errors.New("invalid token")
-)
+	// Invalid
+	ErrInvalid = errors.New("invalid")
 
-var (
-	ErrValidation = errors.New("validation error")
+	// Authentication
+	ErrUnauthenticated = errors.New("unauthenticated")
 )

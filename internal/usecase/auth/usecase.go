@@ -42,8 +42,8 @@ func (au *AuthUsecase) Login(
 	password user.Password,
 ) (*auth.AccessToken, *auth.RefreshToken, error) {
 	existingUser, err := au.userRepo.GetByEmail(ctx, email)
-	if errors.Is(err, exception.ErrUserNotFound) {
-		return nil, nil, exception.ErrInvalidCredentials
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil, nil, fmt.Errorf("login: %w", exception.ErrInvalid)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("login: %w", err)
@@ -53,7 +53,7 @@ func (au *AuthUsecase) Login(
 		[]byte(existingUser.HashedPassword),
 		[]byte(password),
 	); err != nil {
-		return nil, nil, exception.ErrInvalidCredentials
+		return nil, nil, fmt.Errorf("login: %w", exception.ErrInvalid)
 	}
 
 	principal := auth.Principal{

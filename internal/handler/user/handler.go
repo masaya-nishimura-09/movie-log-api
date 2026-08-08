@@ -65,7 +65,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	username, err := userdomain.NewUsername(req.Username)
-	if errors.Is(err, exception.ErrValidation) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
 			"message": err.Error(),
@@ -74,7 +74,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	email, err := userdomain.NewEmail(req.Email)
-	if errors.Is(err, exception.ErrValidation) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
 			"message": err.Error(),
@@ -83,7 +83,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	password, err := userdomain.NewPassword(req.Password)
-	if errors.Is(err, exception.ErrValidation) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
 			"message": err.Error(),
@@ -93,7 +93,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 
 	createdUser, err := uh.userUsecase.Register(ctx, username, email, password)
 
-	if errors.Is(err, exception.ErrUserAlreadyExists) {
+	if errors.Is(err, exception.ErrAlreadyExists) {
 		c.JSON(http.StatusConflict, gin.H{
 			"code":    "USER_ALREADY_EXISTS",
 			"message": "user with this email already exists",
@@ -138,7 +138,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	email, err := userdomain.NewEmail(req.Email)
 	password, err := userdomain.NewPassword(req.Password)
 
-	if errors.Is(err, exception.ErrValidation) {
+	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
 			"message": err.Error(),
@@ -154,7 +154,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 		password,
 	)
 
-	if errors.Is(err, exception.ErrUserNotFound) {
+	if errors.Is(err, exception.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"code":    "USER_NOT_FOUND",
 			"message": "user not found",
@@ -187,7 +187,7 @@ func (uh *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	err := uh.userUsecase.DeleteUser(ctx, authUserID)
-	if errors.Is(err, exception.ErrUserNotFound) {
+	if errors.Is(err, exception.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"code":    "USER_NOT_FOUND",
 			"message": "user not found",

@@ -24,7 +24,7 @@ func (uu *UserUsecase) GetByID(
 ) (*user.User, error) {
 	u, err := uu.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
 	return u, nil
@@ -49,7 +49,7 @@ func (uu *UserUsecase) Register(
 	}
 
 	if err := uu.userRepo.Create(ctx, &u); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create user: %w", err)
 	}
 
 	return &u, nil
@@ -75,7 +75,7 @@ func (uu *UserUsecase) UpdateUser(
 	}
 
 	if err := uu.userRepo.Update(ctx, &u); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update user: %w", err)
 	}
 
 	return &u, nil
@@ -83,7 +83,7 @@ func (uu *UserUsecase) UpdateUser(
 
 func (uu *UserUsecase) DeleteUser(ctx context.Context, userID user.ID) error {
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
-		return err
+		return fmt.Errorf("delete user: %w", err)
 	}
 
 	return nil

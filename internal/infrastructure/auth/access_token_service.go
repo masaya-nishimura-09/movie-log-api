@@ -65,7 +65,7 @@ func (r *accessTokenService) Validate(
 		return nil, fmt.Errorf("validate token: %w", err)
 	}
 	if !parsedToken.Valid {
-		return nil, exception.ErrInvalidToken
+		return nil, exception.ErrInvalid
 	}
 	principal := auth.Principal{
 		UserID: parsedToken.Claims.(*claims).UserID,
