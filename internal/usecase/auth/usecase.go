@@ -74,6 +74,22 @@ func (au *AuthUsecase) Login(
 	return accessToken, refreshToken, nil
 }
 
+func (au *AuthUsecase) Logout(
+	ctx context.Context,
+	refreshTokenValue auth.RefreshTokenValue,
+) error {
+	refreshToken, err := au.refreshTokenRepo.FindValidByValue(ctx, refreshTokenValue)
+	if err != nil {
+		return fmt.Errorf("find refresh token: %w", err)
+	}
+
+	if err := au.refreshTokenRepo.Revoke(ctx, refreshToken.ID); err != nil {
+		return fmt.Errorf("revoke refresh token: %w", err)
+	}
+
+	return nil
+}
+
 func (au *AuthUsecase) Refresh(
 	ctx context.Context,
 	refreshTokenValue auth.RefreshTokenValue,

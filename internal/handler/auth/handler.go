@@ -17,6 +17,10 @@ type LoginReq struct {
 	Password string `json:"password"`
 }
 
+type LogoutReq struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 type RefreshReq struct {
 	RefreshToken string `json:"refresh_token"`
 }
@@ -72,6 +76,34 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 		"access_token":  string(accessToken.Value),
 		"refresh_token": string(refreshToken.Value),
 	})
+}
+
+func (ah *AuthHandler) Logout(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req LogoutReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	err := ah.authUsecase.Logout(ctx, auth.RefreshTokenValue(req.RefreshToken))
+	if errors.Is(err, exception.ErrInvalidToken) {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    "INTERNAL_SERVER_ERROR",
+			"message": "internal server error",
+		})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (ah *AuthHandler) Refresh(c *gin.Context) {

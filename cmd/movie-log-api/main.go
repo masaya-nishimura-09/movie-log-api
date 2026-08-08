@@ -77,6 +77,7 @@ func main() {
 	auth := router.Group("/auth")
 	{
 		auth.POST("/login", loginLimiter, authHandler.Login)
+		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", loginLimiter, authHandler.Refresh)
 	}
 
