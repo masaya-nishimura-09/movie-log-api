@@ -16,6 +16,6 @@ func NewUsername(value string) (Username, error) {
 	if len(value) > 100 {
 		return "", fmt.Errorf("%w: username must be at most 100 characters", exception.ErrValidation)
 	}
-	
+
 	return Username(value), nil
 }

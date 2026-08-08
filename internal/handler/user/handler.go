@@ -96,9 +96,9 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"user_id": string(createdUser.ID),
+		"user_id":  string(createdUser.ID),
 		"username": string(createdUser.Username),
-		"email": string(createdUser.Email),
+		"email":    string(createdUser.Email),
 	})
 }
 
@@ -132,10 +132,10 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	updatedUser, err := uh.userUsecase.UpdateUser(
-		ctx, 
-		authUserID, 
-		username, 
-		email, 
+		ctx,
+		authUserID,
+		username,
+		email,
 		password,
 	)
 
@@ -157,9 +157,9 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user_id": string(updatedUser.ID),
+		"user_id":  string(updatedUser.ID),
 		"username": string(updatedUser.Username),
-		"email": string(updatedUser.Email),
+		"email":    string(updatedUser.Email),
 	})
 }
 

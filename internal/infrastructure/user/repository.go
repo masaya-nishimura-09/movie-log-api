@@ -20,13 +20,13 @@ func NewUserRepo(db *gorm.DB) user.UserRepository {
 }
 
 type userDTO struct {
-	ID uint `gorm:"primaryKey"`
-	Username string
-	Email string
+	ID             uint `gorm:"primaryKey"`
+	Username       string
+	Email          string
 	HashedPassword string
-	Role string
-    CreatedAt time.Time
-    UpdatedAt time.Time
+	Role           string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (userDTO) TableName() string {
@@ -34,19 +34,19 @@ func (userDTO) TableName() string {
 }
 
 func toDTO(u *user.User) userDTO {
-	return userDTO {
-		ID: uint(u.ID),
-		Username: string(u.Username),
-		Email: string(u.Email),
+	return userDTO{
+		ID:             uint(u.ID),
+		Username:       string(u.Username),
+		Email:          string(u.Email),
 		HashedPassword: string(u.HashedPassword),
-		Role: string(u.Role),
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		Role:           string(u.Role),
+		CreatedAt:      u.CreatedAt,
+		UpdatedAt:      u.UpdatedAt,
 	}
 }
 
 func (r *userRepository) GetByID(
-	ctx context.Context, 
+	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
 	var u user.User
@@ -61,7 +61,7 @@ func (r *userRepository) GetByID(
 }
 
 func (r *userRepository) GetByEmail(
-	ctx context.Context, 
+	ctx context.Context,
 	email user.Email,
 ) (*user.User, error) {
 	var u user.User
@@ -76,7 +76,7 @@ func (r *userRepository) GetByEmail(
 }
 
 func (r *userRepository) Create(
-	ctx context.Context, 
+	ctx context.Context,
 	u *user.User,
 ) error {
 	u.CreatedAt = time.Now()
@@ -94,7 +94,7 @@ func (r *userRepository) Create(
 }
 
 func (r *userRepository) Update(
-	ctx context.Context, 
+	ctx context.Context,
 	u *user.User,
 ) error {
 	u.UpdatedAt = time.Now()
@@ -105,10 +105,10 @@ func (r *userRepository) Update(
 		Where("id = ?", u.ID).
 		Select("username", "email", "hashed_password", "updated_at").
 		Updates(userDTO{
-			Username: dto.Username, 
-			Email: dto.Email,
+			Username:       dto.Username,
+			Email:          dto.Email,
 			HashedPassword: dto.HashedPassword,
-			UpdatedAt: dto.UpdatedAt,
+			UpdatedAt:      dto.UpdatedAt,
 		})
 	if result.Error != nil {
 		return fmt.Errorf("update user: %w", result.Error)

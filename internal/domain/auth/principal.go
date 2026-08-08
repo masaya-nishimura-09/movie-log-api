@@ -6,5 +6,5 @@ import (
 
 type Principal struct {
 	UserID user.ID
-	Role user.Role
+	Role   user.Role
 }

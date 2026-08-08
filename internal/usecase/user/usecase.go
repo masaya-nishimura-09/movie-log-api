@@ -9,11 +9,11 @@ import (
 )
 
 type UserUsecase struct {
-	userRepo  user.UserRepository
+	userRepo user.UserRepository
 }
 
 func NewUserUsecase(
-	userRepo user.UserRepository, 
+	userRepo user.UserRepository,
 ) *UserUsecase {
 	return &UserUsecase{userRepo: userRepo}
 }
@@ -68,9 +68,9 @@ func (uu *UserUsecase) UpdateUser(
 	}
 
 	u := user.User{
-		ID: userID,
-		Username: username,
-		Email: email,
+		ID:             userID,
+		Username:       username,
+		Email:          email,
 		HashedPassword: user.HashedPassword(hashed),
 	}
 

@@ -12,34 +12,33 @@ import (
 )
 
 type AuthUsecase struct {
-	userRepo  user.UserRepository
+	userRepo           user.UserRepository
 	accessTokenService auth.AccessTokenService
-	refreshTokenRepo auth.RefreshTokenRepository
+	refreshTokenRepo   auth.RefreshTokenRepository
 }
 
-
 func NewAuthUsecase(
-	userRepo user.UserRepository, 
+	userRepo user.UserRepository,
 	accessTokenService auth.AccessTokenService,
 	refreshTokenRepo auth.RefreshTokenRepository,
 ) *AuthUsecase {
 	return &AuthUsecase{
-		userRepo: userRepo, 
+		userRepo:           userRepo,
 		accessTokenService: accessTokenService,
-		refreshTokenRepo: refreshTokenRepo,
+		refreshTokenRepo:   refreshTokenRepo,
 	}
 }
 
 func (au *AuthUsecase) ValidateAccessToken(
-	ctx context.Context, 
+	ctx context.Context,
 	accessToken *auth.AccessToken,
 ) (*auth.Principal, error) {
 	return au.accessTokenService.Validate(ctx, accessToken)
 }
 
 func (au *AuthUsecase) Login(
-	ctx context.Context, 
-	email user.Email, 
+	ctx context.Context,
+	email user.Email,
 	password user.Password,
 ) (*auth.AccessToken, *auth.RefreshToken, error) {
 	existingUser, err := au.userRepo.GetByEmail(ctx, email)
@@ -51,7 +50,7 @@ func (au *AuthUsecase) Login(
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
-		[]byte(existingUser.HashedPassword), 
+		[]byte(existingUser.HashedPassword),
 		[]byte(password),
 	); err != nil {
 		return nil, nil, exception.ErrInvalidCredentials
@@ -73,4 +72,39 @@ func (au *AuthUsecase) Login(
 	}
 
 	return accessToken, refreshToken, nil
+}
+
+func (au *AuthUsecase) Refresh(
+	ctx context.Context,
+	refreshTokenValue auth.RefreshTokenValue,
+) (*auth.AccessToken, *auth.RefreshToken, error) {
+	oldRefreshToken, err := au.refreshTokenRepo.FindValidByValue(
+		ctx,
+		refreshTokenValue,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("find refresh token: %w", err)
+	}
+
+	if err := au.refreshTokenRepo.Revoke(ctx, oldRefreshToken.ID); err != nil {
+		return nil, nil, fmt.Errorf("revoke refresh token: %w", err)
+	}
+
+	accessToken, err := au.accessTokenService.Generate(
+		ctx,
+		&oldRefreshToken.Principal,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate access token: %w", err)
+	}
+
+	newRefreshToken, err := au.refreshTokenRepo.Create(
+		ctx,
+		&oldRefreshToken.Principal,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create refresh token: %w", err)
+	}
+
+	return accessToken, newRefreshToken, nil
 }

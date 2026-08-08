@@ -7,13 +7,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
-	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
-	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
-	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
 	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
+	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 	"github.com/ulule/limiter/v3"
 	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -53,7 +53,7 @@ func main() {
 
 	// infrastructure
 	accessTokenService := authinfra.NewAccessTokenService(
-		secret, 
+		secret,
 		accessTokenTTL,
 	)
 	refreshTokenRepo := authinfra.NewRefreshTokenRepo(db, refreshTokenTTL)
@@ -61,8 +61,8 @@ func main() {
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
-		userRepo, 
-		accessTokenService, 
+		userRepo,
+		accessTokenService,
 		refreshTokenRepo,
 	)
 	userUsecase := userusecase.NewUserUsecase(userRepo)
@@ -77,6 +77,7 @@ func main() {
 	auth := router.Group("/auth")
 	{
 		auth.POST("/login", loginLimiter, authHandler.Login)
+		auth.POST("/refresh", loginLimiter, authHandler.Refresh)
 	}
 
 	users := router.Group("/users")

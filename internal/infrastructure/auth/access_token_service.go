@@ -13,7 +13,7 @@ import (
 
 type accessTokenService struct {
 	secret []byte
-	ttl time.Duration
+	ttl    time.Duration
 }
 
 func NewAccessTokenService(secret []byte, ttl time.Duration) auth.AccessTokenService {
@@ -27,8 +27,8 @@ type claims struct {
 }
 
 func (r *accessTokenService) Generate(
-	ctx context.Context, 
-	principal *auth.Principal, 
+	ctx context.Context,
+	principal *auth.Principal,
 ) (*auth.AccessToken, error) {
 	c := claims{
 		UserID: principal.UserID,
@@ -46,17 +46,17 @@ func (r *accessTokenService) Generate(
 	accessToken := auth.AccessToken{Value: auth.AccessTokenValue(tokenStr)}
 	return &accessToken, nil
 }
-	
+
 func (r *accessTokenService) Validate(
-	ctx context.Context, 
+	ctx context.Context,
 	accessToken *auth.AccessToken,
 ) (
-	*auth.Principal, 
+	*auth.Principal,
 	error,
 ) {
 	parsedToken, err := jwt.ParseWithClaims(
-		string(accessToken.Value), 
-		&claims{}, 
+		string(accessToken.Value),
+		&claims{},
 		func(t *jwt.Token) (any, error) {
 			return r.secret, nil
 		},
@@ -68,8 +68,8 @@ func (r *accessTokenService) Validate(
 		return nil, exception.ErrInvalidToken
 	}
 	principal := auth.Principal{
-		UserID: parsedToken.Claims.(*claims).UserID, 
-		Role: parsedToken.Claims.(*claims).Role,
+		UserID: parsedToken.Claims.(*claims).UserID,
+		Role:   parsedToken.Claims.(*claims).Role,
 	}
 	return &principal, nil
 }
