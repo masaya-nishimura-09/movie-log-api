@@ -4,18 +4,21 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUsecase struct {
-	userRepo user.UserRepository
+	userRepo         user.UserRepository
+	refreshTokenRepo auth.RefreshTokenRepository
 }
 
 func NewUserUsecase(
 	userRepo user.UserRepository,
+	refreshTokenRepo auth.RefreshTokenRepository,
 ) *UserUsecase {
-	return &UserUsecase{userRepo: userRepo}
+	return &UserUsecase{userRepo: userRepo, refreshTokenRepo: refreshTokenRepo}
 }
 
 func (uu *UserUsecase) GetByID(
@@ -84,6 +87,10 @@ func (uu *UserUsecase) UpdateUser(
 func (uu *UserUsecase) DeleteUser(ctx context.Context, userID user.ID) error {
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
+	}
+
+	if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, userID); err != nil {
+		return fmt.Errorf("revoke refresh tokens: %w", err)
 	}
 
 	return nil

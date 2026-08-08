@@ -126,3 +126,19 @@ func (r *refreshTokenRepository) Revoke(
 	}
 	return nil
 }
+
+func (r *refreshTokenRepository) RevokeAllForUser(
+	ctx context.Context,
+	userID user.ID,
+) error {
+	now := time.Now()
+	result := r.db.WithContext(ctx).
+		Model(&refreshTokenDTO{}).
+		Where("user_id = ?", uint(userID)).
+		Where("revoked_at IS NULL").
+		Update("revoked_at", now)
+	if result.Error != nil {
+		return fmt.Errorf("revoke all refresh tokens for user: %w", result.Error)
+	}
+	return nil
+}
