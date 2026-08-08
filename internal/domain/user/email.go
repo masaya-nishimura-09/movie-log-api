@@ -3,6 +3,7 @@ package user
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
@@ -15,8 +16,9 @@ func NewEmail(value string) (Email, error) {
 	if value == "" {
 		return "", fmt.Errorf("%w: email is required", exception.ErrInvalid)
 	}
-	if !emailRegex.MatchString(string(value)) {
+	normalized := strings.ToLower(value)
+	if !emailRegex.MatchString(normalized) {
 		return "", fmt.Errorf("%w: invalid email", exception.ErrInvalid)
 	}
-	return Email(value), nil
+	return Email(normalized), nil
 }
