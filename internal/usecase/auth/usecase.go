@@ -106,18 +106,25 @@ func (au *AuthUsecase) Refresh(
 		return nil, nil, fmt.Errorf("revoke refresh token: %w", err)
 	}
 
-	accessToken, err := au.accessTokenService.Generate(
-		ctx,
-		&oldRefreshToken.Principal,
-	)
+	existingUser, err := au.userRepo.GetByID(ctx, oldRefreshToken.Principal.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil, nil, fmt.Errorf("refresh: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("refresh: %w", err)
+	}
+
+	principal := auth.Principal{
+		UserID: existingUser.ID,
+		Role:   existingUser.Role,
+	}
+
+	accessToken, err := au.accessTokenService.Generate(ctx, &principal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	newRefreshToken, err := au.refreshTokenRepo.Create(
-		ctx,
-		&oldRefreshToken.Principal,
-	)
+	newRefreshToken, err := au.refreshTokenRepo.Create(ctx, &principal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create refresh token: %w", err)
 	}
