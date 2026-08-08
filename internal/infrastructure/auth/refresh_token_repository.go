@@ -73,6 +73,7 @@ func (r *refreshTokenRepository) Create(
 	if result.Error != nil {
 		return nil, fmt.Errorf("create refresh token: %w", result.Error)
 	}
+	refreshToken.ID = auth.RefreshTokenID(dto.ID)
 	return &refreshToken, nil
 }
 
