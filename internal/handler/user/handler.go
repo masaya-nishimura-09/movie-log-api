@@ -135,9 +135,24 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	username, err := userdomain.NewUsername(req.Username)
-	email, err := userdomain.NewEmail(req.Email)
-	password, err := userdomain.NewPassword(req.Password)
+	if errors.Is(err, exception.ErrInvalid) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
 
+	email, err := userdomain.NewEmail(req.Email)
+	if errors.Is(err, exception.ErrInvalid) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	password, err := userdomain.NewPassword(req.Password)
 	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",

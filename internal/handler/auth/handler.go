@@ -45,8 +45,15 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	}
 
 	email, err := user.NewEmail(req.Email)
-	password, err := user.NewPassword(req.Password)
+	if errors.Is(err, exception.ErrInvalid) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    "INVALID_INPUT",
+			"message": err.Error(),
+		})
+		return
+	}
 
+	password, err := user.NewPassword(req.Password)
 	if errors.Is(err, exception.ErrInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    "INVALID_INPUT",
