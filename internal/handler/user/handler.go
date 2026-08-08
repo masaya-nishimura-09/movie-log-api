@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
@@ -111,7 +112,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"user_id":  string(createdUser.ID),
+		"user_id":  strconv.FormatUint(uint64(createdUser.ID), 10),
 		"username": string(createdUser.Username),
 		"email":    string(createdUser.Email),
 	})
@@ -187,7 +188,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"user_id":  string(updatedUser.ID),
+		"user_id":  strconv.FormatUint(uint64(updatedUser.ID), 10),
 		"username": string(updatedUser.Username),
 		"email":    string(updatedUser.Email),
 	})
