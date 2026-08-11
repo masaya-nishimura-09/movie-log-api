@@ -87,6 +87,9 @@ func (au *AuthUsecase) Logout(
 	}
 
 	if err := au.refreshTokenRepo.Revoke(ctx, refreshToken.ID); err != nil {
+		if errors.Is(err, exception.ErrInvalid) {
+			return fmt.Errorf("logout: %w", exception.ErrInvalid)
+		}
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
 
@@ -106,6 +109,9 @@ func (au *AuthUsecase) Refresh(
 	}
 
 	if err := au.refreshTokenRepo.Revoke(ctx, oldRefreshToken.ID); err != nil {
+		if errors.Is(err, exception.ErrInvalid) {
+			return nil, nil, fmt.Errorf("refresh: %w", exception.ErrInvalid)
+		}
 		return nil, nil, fmt.Errorf("revoke refresh token: %w", err)
 	}
 
