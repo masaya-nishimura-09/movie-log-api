@@ -4,21 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUsecase struct {
-	userRepo         user.UserRepository
-	refreshTokenRepo auth.RefreshTokenRepository
+	userRepo user.UserRepository
 }
 
-func NewUserUsecase(
-	userRepo user.UserRepository,
-	refreshTokenRepo auth.RefreshTokenRepository,
-) *UserUsecase {
-	return &UserUsecase{userRepo: userRepo, refreshTokenRepo: refreshTokenRepo}
+func NewUserUsecase(userRepo user.UserRepository) *UserUsecase {
+	return &UserUsecase{userRepo: userRepo}
 }
 
 func (uu *UserUsecase) GetByID(
