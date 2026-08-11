@@ -67,6 +67,9 @@ func (au *AuthUsecase) Login(
 	}
 
 	refreshToken, err := au.refreshTokenRepo.Create(ctx, &principal)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil, nil, fmt.Errorf("login: %w", exception.ErrInvalid)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("create refresh token: %w", err)
 	}
@@ -125,6 +128,9 @@ func (au *AuthUsecase) Refresh(
 	}
 
 	newRefreshToken, err := au.refreshTokenRepo.Create(ctx, &principal)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil, nil, fmt.Errorf("refresh: %w", exception.ErrInvalid)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("create refresh token: %w", err)
 	}
