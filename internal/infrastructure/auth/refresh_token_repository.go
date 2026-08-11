@@ -44,6 +44,7 @@ func toDTO(rt *auth.RefreshToken) refreshTokenDTO {
 		Role:      string(rt.Principal.Role),
 		Hash:      string(rt.Hash),
 		ExpiresAt: rt.ExpiresAt,
+		CreatedAt: rt.CreatedAt,
 		RevokedAt: rt.RevokedAt,
 	}
 }
@@ -65,6 +66,7 @@ func (r *refreshTokenRepository) Create(
 		Principal: *principal,
 		Value:     auth.RefreshTokenValue(value),
 		Hash:      auth.RefreshTokenHash(hash),
+		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(r.ttl),
 	}
 
