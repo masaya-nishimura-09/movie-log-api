@@ -26,12 +26,7 @@ func TestMain(m *testing.M) {
 
 func newTestRepo(t *testing.T, ttl time.Duration) auth.RefreshTokenRepository {
 	t.Helper()
-	tx := testDB.Begin()
-	if tx.Error != nil {
-		t.Fatalf("Begin() error = %v", tx.Error)
-	}
-	t.Cleanup(func() { tx.Rollback() })
-	return NewRefreshTokenRepo(tx, ttl)
+	return NewRefreshTokenRepo(testutil.BeginTx(t, testDB), ttl)
 }
 
 func TestCreate(t *testing.T) {

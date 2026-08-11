@@ -23,12 +23,7 @@ func TestMain(m *testing.M) {
 
 func newTestRepo(t *testing.T) user.UserRepository {
 	t.Helper()
-	tx := testDB.Begin()
-	if tx.Error != nil {
-		t.Fatalf("Begin() error = %v", tx.Error)
-	}
-	t.Cleanup(func() { tx.Rollback() })
-	return NewUserRepo(tx)
+	return NewUserRepo(testutil.BeginTx(t, testDB))
 }
 
 func TestGetByID(t *testing.T) {

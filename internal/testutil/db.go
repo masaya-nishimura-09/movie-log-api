@@ -4,6 +4,7 @@ import (
 	"log"
 	"path/filepath"
 	"runtime"
+	"testing"
 
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
@@ -25,4 +26,14 @@ func NewTestDB() *gorm.DB {
 	}
 
 	return db
+}
+
+func BeginTx(t *testing.T, db *gorm.DB) *gorm.DB {
+	t.Helper()
+	tx := db.Begin()
+	if tx.Error != nil {
+		t.Fatalf("Begin() error = %v", tx.Error)
+	}
+	t.Cleanup(func() { tx.Rollback() })
+	return tx
 }
