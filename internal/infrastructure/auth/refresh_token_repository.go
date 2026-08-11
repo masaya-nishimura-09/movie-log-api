@@ -72,6 +72,9 @@ func (r *refreshTokenRepository) Create(
 
 	dto := toDTO(&refreshToken)
 	result := r.db.WithContext(ctx).Create(&dto)
+	if errors.Is(result.Error, gorm.ErrForeignKeyViolated) {
+		return nil, exception.ErrNotFound
+	}
 	if result.Error != nil {
 		return nil, fmt.Errorf("create refresh token: %w", result.Error)
 	}
