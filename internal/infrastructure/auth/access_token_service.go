@@ -30,12 +30,14 @@ func (r *accessTokenService) Generate(
 	ctx context.Context,
 	principal *auth.Principal,
 ) (*auth.AccessToken, error) {
+	now := time.Now()
+	expiresAt := now.Add(r.ttl)
 	c := claims{
 		UserID: principal.UserID,
 		Role:   principal.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(r.ttl)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
@@ -43,7 +45,11 @@ func (r *accessTokenService) Generate(
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
-	accessToken := auth.AccessToken{Value: auth.AccessTokenValue(tokenStr)}
+	accessToken := auth.AccessToken{
+		Value:     auth.AccessTokenValue(tokenStr),
+		Principal: *principal,
+		ExpiresAt: expiresAt,
+	}
 	return &accessToken, nil
 }
 
