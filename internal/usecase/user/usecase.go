@@ -89,9 +89,5 @@ func (uu *UserUsecase) DeleteUser(ctx context.Context, userID user.ID) error {
 		return fmt.Errorf("delete user: %w", err)
 	}
 
-	if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, userID); err != nil {
-		return fmt.Errorf("revoke refresh tokens: %w", err)
-	}
-
 	return nil
 }
