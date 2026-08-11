@@ -73,7 +73,7 @@ func TestGetByID(t *testing.T) {
 			ur := newTestRepo(t)
 
 			ctx := context.Background()
-			fakeID := user.ID(0)
+			fakeID := user.ID(999999)
 
 			got, err := ur.GetByID(ctx, fakeID)
 			if !errors.Is(err, exception.ErrNotFound) {
@@ -407,7 +407,7 @@ func TestUpdate(t *testing.T) {
 			ctx := context.Background()
 
 			u1 := user.User{
-				ID:             user.ID(0),
+				ID:             user.ID(999999),
 				Username:       user.Username("Test"),
 				Email:          user.Email("test@example.com"),
 				HashedPassword: user.HashedPassword("testpassword"),
@@ -493,7 +493,7 @@ func TestDelete(t *testing.T) {
 
 			ctx := context.Background()
 
-			id := user.ID(0)
+			id := user.ID(999999)
 			if err := ur.Delete(ctx, id); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v, want %v",
@@ -511,7 +511,7 @@ func TestDelete(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			id := user.ID(0)
+			id := user.ID(1)
 			err := ur.Delete(ctx, id)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(

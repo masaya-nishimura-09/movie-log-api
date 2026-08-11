@@ -168,7 +168,9 @@ func TestFindValidByValue(t *testing.T) {
 
 			ctx := context.Background()
 
-			fakeValue := auth.RefreshTokenValue("")
+			fakeValue := auth.RefreshTokenValue(
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			)
 
 			found, err := rtr.FindValidByValue(ctx, fakeValue)
 			if !errors.Is(err, exception.ErrInvalid) {
@@ -218,7 +220,9 @@ func TestFindValidByValue(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			value := auth.RefreshTokenValue("")
+			value := auth.RefreshTokenValue(
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			)
 
 			got, err := rtr.FindValidByValue(ctx, value)
 			if !errors.Is(err, context.Canceled) {
