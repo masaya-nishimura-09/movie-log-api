@@ -102,6 +102,7 @@ func (r *userRepository) Create(
 	if result.Error != nil {
 		return fmt.Errorf("create user: %w", result.Error)
 	}
+	u.ID = user.ID(dto.ID)
 	return nil
 }
 

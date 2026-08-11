@@ -14,7 +14,7 @@ func NewDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("environment variable POSTGRES_DSN is required")
 	}
 
-	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn}), &gorm.Config{})
+	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn}), &gorm.Config{TranslateError: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect DB: %w", err)
 	}

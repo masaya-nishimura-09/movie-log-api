@@ -9,5 +9,17 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/01_create_table.sql:Z
+      - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/01_create_table.sql:z
       - ./scripts/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:Z
+
+  postgres-test:
+    image: postgres:16
+    container_name: movie-log-db-test
+    environment:
+      POSTGRES_DB: movie_log_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/01_create_table.sql:z

@@ -60,6 +60,7 @@ func (r *accessTokenService) Validate(
 		func(t *jwt.Token) (any, error) {
 			return r.secret, nil
 		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("validate token: %w", err)
