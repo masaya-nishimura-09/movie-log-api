@@ -120,6 +120,7 @@ func (r *refreshTokenRepository) Revoke(
 	result := r.db.WithContext(ctx).
 		Model(&refreshTokenDTO{}).
 		Where("id = ?", id).
+		Where("revoked_at IS NULL").
 		Update("revoked_at", now)
 	if result.Error != nil {
 		return fmt.Errorf("revoke refresh token: %w", result.Error)
