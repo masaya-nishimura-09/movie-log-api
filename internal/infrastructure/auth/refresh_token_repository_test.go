@@ -385,6 +385,24 @@ func TestRevokeAllForUser(t *testing.T) {
 	)
 
 	t.Run(
+		"returns no error when the user has no refresh tokens",
+		func(t *testing.T) {
+			rtr := newTestRepo(t, time.Hour)
+
+			ctx := context.Background()
+
+			userID := user.ID(1)
+
+			if err := rtr.RevokeAllForUser(ctx, userID); err != nil {
+				t.Fatalf(
+					"RevokeAllForUser(ctx, %d) error = %v",
+					userID, err,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			rtr := newTestRepo(t, time.Hour)
