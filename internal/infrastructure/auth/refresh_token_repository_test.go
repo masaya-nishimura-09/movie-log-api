@@ -280,6 +280,41 @@ func TestRevoke(t *testing.T) {
 	)
 
 	t.Run(
+		"returns ErrInvalid when the refresh token is already revoked",
+		func(t *testing.T) {
+			rtr := newTestRepo(t, time.Hour)
+
+			ctx := context.Background()
+			principal := auth.Principal{
+				UserID: user.ID(1),
+				Role:   user.RoleAdmin,
+			}
+
+			rt, err := rtr.Create(ctx, &principal)
+			if err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					principal, rt, err,
+				)
+			}
+
+			if err := rtr.Revoke(ctx, rt.ID); err != nil {
+				t.Fatalf(
+					"Revoke(ctx, %d) error = %v",
+					rt.ID, err,
+				)
+			}
+
+			if err := rtr.Revoke(ctx, rt.ID); !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"Revoke(ctx, %d) error = %v, want %v",
+					rt.ID, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns ErrInvalid when refresh token is not found",
 		func(t *testing.T) {
 			rtr := newTestRepo(t, time.Hour)
