@@ -342,7 +342,7 @@ func TestUpdate(t *testing.T) {
 				Username:       user.Username("Test2"),
 				Email:          user.Email("test2@example.com"),
 				HashedPassword: user.HashedPassword("test2password"),
-				Role:           user.RoleAdmin,
+				Role:           user.RoleUser,
 			}
 			if err := ur.Update(ctx, &u2); err != nil {
 				t.Fatalf(
@@ -361,11 +361,16 @@ func TestUpdate(t *testing.T) {
 			if got.ID != u2.ID ||
 				got.Username != u2.Username ||
 				got.Email != u2.Email ||
-				got.HashedPassword != u2.HashedPassword ||
-				got.Role != u2.Role {
+				got.HashedPassword != u2.HashedPassword {
 				t.Errorf(
 					"GetByID(ctx, %d) (user.User, error) = %v, want %v",
 					u1.ID, got, u2,
+				)
+			}
+			if got.Role != u1.Role {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Role %v",
+					u1.ID, got, u1.Role,
 				)
 			}
 		},
