@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
@@ -234,6 +235,12 @@ func TestCreate(t *testing.T) {
 					want, err,
 				)
 			}
+			if want.CreatedAt.IsZero() || want.UpdatedAt.IsZero() {
+				t.Fatalf(
+					"Create(ctx, %v) sets CreatedAt = %v, UpdatedAt = %v, want non-zero",
+					want, want.CreatedAt, want.UpdatedAt,
+				)
+			}
 
 			got, err := ur.GetByID(ctx, want.ID)
 			if err != nil {
@@ -250,6 +257,15 @@ func TestCreate(t *testing.T) {
 				t.Errorf(
 					"GetByID(ctx, %d) (user.User, error) = %v, want %v",
 					want.ID, got, want,
+				)
+			}
+			if !got.CreatedAt.Equal(want.CreatedAt.Truncate(time.Microsecond)) ||
+				!got.UpdatedAt.Equal(want.UpdatedAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want CreatedAt %v, UpdatedAt %v",
+					want.ID, got,
+					want.CreatedAt.Truncate(time.Microsecond),
+					want.UpdatedAt.Truncate(time.Microsecond),
 				)
 			}
 		},
@@ -371,6 +387,18 @@ func TestUpdate(t *testing.T) {
 				t.Errorf(
 					"GetByID(ctx, %d) (user.User, error) = %v, want Role %v",
 					u1.ID, got, u1.Role,
+				)
+			}
+			if !got.CreatedAt.Equal(u1.CreatedAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want CreatedAt %v",
+					u1.ID, got, u1.CreatedAt.Truncate(time.Microsecond),
+				)
+			}
+			if !got.UpdatedAt.After(u1.UpdatedAt) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want UpdatedAt after %v",
+					u1.ID, got, u1.UpdatedAt,
 				)
 			}
 		},
