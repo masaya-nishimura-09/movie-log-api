@@ -9,12 +9,29 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 )
 
 type LoginReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+func (r LoginReq) toDomain() (
+	user.Email,
+	user.Password,
+	error,
+) {
+	email, err := user.NewEmail(r.Email)
+	if err != nil {
+		return "", "", err
+	}
+	password, err := user.NewPassword(r.Password)
+	if err != nil {
+		return "", "", err
+	}
+	return email, password, nil
 }
 
 type LogoutReq struct {
@@ -37,45 +54,29 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "INVALID_INPUT",
-			"message": err.Error(),
-		})
+		response.InvalidInput(c, err)
 		return
 	}
 
-	email, err := user.NewEmail(req.Email)
+	email, password, err := req.toDomain()
 	if errors.Is(err, exception.ErrInvalid) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "INVALID_INPUT",
-			"message": err.Error(),
-		})
+		response.InvalidInput(c, err)
 		return
 	}
-
-	password, err := user.NewPassword(req.Password)
-	if errors.Is(err, exception.ErrInvalid) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "INVALID_INPUT",
-			"message": err.Error(),
-		})
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
 		return
 	}
 
 	accessToken, refreshToken, err := ah.authUsecase.Login(ctx, email, password)
 	if errors.Is(err, exception.ErrInvalid) {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    "INVALID_CREDENTIALS",
-			"message": "invalid email or password",
-		})
+		response.InvalidCredentials(c)
 		return
 	}
 	if err != nil {
 		log.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "INTERNAL_SERVER_ERROR",
-			"message": "internal server error",
-		})
+		response.InternalServerError(c)
 		return
 	}
 
@@ -89,10 +90,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LogoutReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "INVALID_INPUT",
-			"message": err.Error(),
-		})
+		response.InvalidInput(c, err)
 		return
 	}
 
@@ -103,10 +101,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	}
 	if err != nil {
 		log.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "INTERNAL_SERVER_ERROR",
-			"message": "internal server error",
-		})
+		response.InternalServerError(c)
 		return
 	}
 
@@ -117,10 +112,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req RefreshReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    "INVALID_INPUT",
-			"message": err.Error(),
-		})
+		response.InvalidInput(c, err)
 		return
 	}
 
@@ -129,18 +121,12 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 		auth.RefreshTokenValue(req.RefreshToken),
 	)
 	if errors.Is(err, exception.ErrInvalid) {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code":    "INVALID_TOKEN",
-			"message": "invalid or expired refresh token",
-		})
+		response.InvalidRefreshToken(c)
 		return
 	}
 	if err != nil {
 		log.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    "INTERNAL_SERVER_ERROR",
-			"message": "internal server error",
-		})
+		response.InternalServerError(c)
 		return
 	}
 
