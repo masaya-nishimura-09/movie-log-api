@@ -2,12 +2,13 @@ package middleware
 
 import (
 	"errors"
-	"net/http"
+	"log"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	authdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 )
@@ -20,10 +21,8 @@ func JWTAuth(
 		ctx := c.Request.Context()
 		authorization := c.GetHeader("Authorization")
 		if authorization == "" || !strings.HasPrefix(authorization, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":    "UNAUTHENTICATED",
-				"message": "missing or malformed authorization header",
-			})
+			response.Unauthenticated(c)
+			c.Abort()
 			return
 		}
 
@@ -34,27 +33,22 @@ func JWTAuth(
 		}
 		principal, err := authUsecase.ValidateAccessToken(ctx, &accessToken)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":    "INVALID_TOKEN",
-				"message": "invalid or expired token",
-			})
+			response.InvalidAccessToken(c)
+			c.Abort()
 			return
 		}
 
-		_, err = userUsecase.GetByID(c.Request.Context(), principal.UserID)
+		_, err = userUsecase.GetByID(ctx, principal.UserID)
 		if errors.Is(err, exception.ErrNotFound) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":    "USER_NOT_FOUND",
-				"message": "user no longer exists",
-			})
+			response.Unauthenticated(c)
+			c.Abort()
 			return
 		}
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"code":    "INTERNAL_SERVER_ERROR",
-				"message": "internal server error",
-			})
+			log.Println(err)
+			response.InternalServerError(c)
+			c.Abort()
 			return
 		}
 
