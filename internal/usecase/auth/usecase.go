@@ -33,7 +33,12 @@ func (au *AuthUsecase) ValidateAccessToken(
 	ctx context.Context,
 	accessToken *auth.AccessToken,
 ) (*auth.Principal, error) {
-	return au.accessTokenService.Validate(ctx, accessToken)
+	principal, err := au.accessTokenService.Validate(ctx, accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("validate access token: %w", err)
+	}
+
+	return principal, nil
 }
 
 func (au *AuthUsecase) Login(
