@@ -43,10 +43,10 @@ type RefreshReq struct {
 }
 
 type AuthHandler struct {
-	authUsecase *authusecase.AuthUsecase
+	authUsecase authusecase.Usecase
 }
 
-func NewAuthHandler(usecase *authusecase.AuthUsecase) *AuthHandler {
+func NewAuthHandler(usecase authusecase.Usecase) *AuthHandler {
 	return &AuthHandler{authUsecase: usecase}
 }
 

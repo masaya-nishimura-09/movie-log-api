@@ -11,6 +11,26 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Usecase interface {
+	ValidateAccessToken(
+		ctx context.Context,
+		accessToken *auth.AccessToken,
+	) (*auth.Principal, error)
+	Login(
+		ctx context.Context,
+		email user.Email,
+		password user.Password,
+	) (*auth.AccessToken, *auth.RefreshToken, error)
+	Logout(
+		ctx context.Context,
+		refreshTokenValue auth.RefreshTokenValue,
+	) error
+	Refresh(
+		ctx context.Context,
+		refreshTokenValue auth.RefreshTokenValue,
+	) (*auth.AccessToken, *auth.RefreshToken, error)
+}
+
 type AuthUsecase struct {
 	userRepo           user.UserRepository
 	accessTokenService auth.AccessTokenService

@@ -8,6 +8,24 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Usecase interface {
+	GetByID(ctx context.Context, userID user.ID) (*user.User, error)
+	Register(
+		ctx context.Context,
+		username user.Username,
+		email user.Email,
+		password user.Password,
+	) (*user.User, error)
+	UpdateUser(
+		ctx context.Context,
+		userID user.ID,
+		username user.Username,
+		email user.Email,
+		password user.Password,
+	) (*user.User, error)
+	DeleteUser(ctx context.Context, userID user.ID) error
+}
+
 type UserUsecase struct {
 	userRepo user.UserRepository
 }

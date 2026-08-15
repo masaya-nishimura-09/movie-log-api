@@ -14,8 +14,8 @@ import (
 )
 
 func JWTAuth(
-	authUsecase *authusecase.AuthUsecase,
-	userUsecase *userusecase.UserUsecase,
+	authUsecase authusecase.Usecase,
+	userUsecase userusecase.Usecase,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()

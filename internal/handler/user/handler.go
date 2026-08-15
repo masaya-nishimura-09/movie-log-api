@@ -41,10 +41,10 @@ func (r UserReq) toDomain() (
 }
 
 type UserHandler struct {
-	userUsecase *userusecase.UserUsecase
+	userUsecase userusecase.Usecase
 }
 
-func NewUserHandler(usecase *userusecase.UserUsecase) *UserHandler {
+func NewUserHandler(usecase userusecase.Usecase) *UserHandler {
 	return &UserHandler{userUsecase: usecase}
 }
 
