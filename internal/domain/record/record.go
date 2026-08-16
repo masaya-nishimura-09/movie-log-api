@@ -22,6 +22,4 @@ type Record struct {
 }
 
 type ID uint
-type Memo string
 type WatchCount uint
-type Score uint

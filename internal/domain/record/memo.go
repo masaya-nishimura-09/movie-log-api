@@ -7,6 +7,8 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
 
+type Memo string
+
 func NewMemo(value string) (Memo, error) {
 	if utf8.RuneCountInString(value) > 1000 {
 		return "", fmt.Errorf("%w: memo must be at most 1000 characters", exception.ErrInvalid)
