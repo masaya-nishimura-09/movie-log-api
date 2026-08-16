@@ -13,6 +13,7 @@ func TestNewUsername(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid", "Test", "Test", false},
+		{"multibyte at limit", strings.Repeat("あ", 100), Username(strings.Repeat("あ", 100)), false},
 		{"empty", "", "", true},
 		{"too long", strings.Repeat("a", 101), "", true},
 	}
