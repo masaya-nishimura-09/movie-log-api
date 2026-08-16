@@ -64,7 +64,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 
 	var req UserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidInput(c, err)
+		response.MalformedBody(c)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 
 	var req UserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidInput(c, err)
+		response.MalformedBody(c)
 		return
 	}
 

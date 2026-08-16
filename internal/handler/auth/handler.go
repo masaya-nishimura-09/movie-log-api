@@ -54,7 +54,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidInput(c, err)
+		response.MalformedBody(c)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req LogoutReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidInput(c, err)
+		response.MalformedBody(c)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req RefreshReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.InvalidInput(c, err)
+		response.MalformedBody(c)
 		return
 	}
 

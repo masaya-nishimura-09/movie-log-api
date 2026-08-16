@@ -132,7 +132,7 @@ func TestLogin(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"Login(c) body = %v, want to contain %v",
@@ -305,7 +305,7 @@ func TestLogout(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"Logout(c) body = %v, want to contain %v",
@@ -450,7 +450,7 @@ func TestRefresh(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"Refresh(c) body = %v, want to contain %v",

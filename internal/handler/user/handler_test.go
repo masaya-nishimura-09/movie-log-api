@@ -146,7 +146,7 @@ func TestCreateUser(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"CreateUser(c) body = %v, want to contain %v",
@@ -375,7 +375,7 @@ func TestUpdateUser(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"UpdateUser(c) body = %v, want to contain %v",

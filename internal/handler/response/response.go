@@ -13,6 +13,13 @@ func InvalidInput(c *gin.Context, err error) {
 	})
 }
 
+func MalformedBody(c *gin.Context) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"code":    "INVALID_INPUT",
+		"message": "malformed request body",
+	})
+}
+
 func InvalidAccessToken(c *gin.Context) {
 	c.JSON(http.StatusUnauthorized, gin.H{
 		"code":    "INVALID_ACCESS_TOKEN",
