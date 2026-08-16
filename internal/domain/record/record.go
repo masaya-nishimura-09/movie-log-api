@@ -22,4 +22,3 @@ type Record struct {
 }
 
 type ID uint
-type WatchCount uint
