@@ -24,13 +24,28 @@ func NewCredits(values []Credit) ([]Credit, error) {
 	credits := make([]Credit, 0, len(values))
 
 	for _, value := range values {
-		for _, credit := range credits {
-			if credit.sameAs(value) {
+		name, err := NewPersonName(string(value.Person.Name))
+		if err != nil {
+			return nil, err
+		}
+
+		role, err := NewCreditRole(string(value.Role))
+		if err != nil {
+			return nil, err
+		}
+
+		credit := Credit{
+			Person: Person{TMDBID: value.Person.TMDBID, Name: name},
+			Role:   role,
+		}
+
+		for _, existing := range credits {
+			if existing.sameAs(credit) {
 				return nil, fmt.Errorf("%w: duplicate credit", exception.ErrInvalid)
 			}
 		}
 
-		credits = append(credits, value)
+		credits = append(credits, credit)
 	}
 
 	return credits, nil

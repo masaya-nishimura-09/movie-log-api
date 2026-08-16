@@ -72,6 +72,8 @@ func TestNewCredits(t *testing.T) {
 			[]Credit{tarantinoDirector, credit(nil, "Quentin Tarantino", CreditRoleDirector)},
 			true,
 		},
+		{"empty person name", []Credit{credit(id(138), "", CreditRoleDirector)}, true},
+		{"undefined role", []Credit{credit(id(138), "Quentin Tarantino", "producer")}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
