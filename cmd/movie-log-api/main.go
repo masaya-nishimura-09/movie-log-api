@@ -65,7 +65,7 @@ func main() {
 		accessTokenService,
 		refreshTokenRepo,
 	)
-	userUsecase := userusecase.NewUserUsecase(userRepo)
+	userUsecase := userusecase.NewUserUsecase(userRepo, refreshTokenRepo)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -27,11 +28,18 @@ type Usecase interface {
 }
 
 type UserUsecase struct {
-	userRepo user.UserRepository
+	userRepo         user.UserRepository
+	refreshTokenRepo auth.RefreshTokenRepository
 }
 
-func NewUserUsecase(userRepo user.UserRepository) *UserUsecase {
-	return &UserUsecase{userRepo: userRepo}
+func NewUserUsecase(
+	userRepo user.UserRepository,
+	refreshTokenRepo auth.RefreshTokenRepository,
+) *UserUsecase {
+	return &UserUsecase{
+		userRepo:         userRepo,
+		refreshTokenRepo: refreshTokenRepo,
+	}
 }
 
 func (uu *UserUsecase) GetByID(
@@ -78,6 +86,16 @@ func (uu *UserUsecase) UpdateUser(
 	email user.Email,
 	password user.Password,
 ) (*user.User, error) {
+	existingUser, err := uu.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	passwordChanged := bcrypt.CompareHashAndPassword(
+		[]byte(existingUser.HashedPassword),
+		[]byte(password),
+	) != nil
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
@@ -92,6 +110,12 @@ func (uu *UserUsecase) UpdateUser(
 
 	if err := uu.userRepo.Update(ctx, &u); err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+
+	if passwordChanged {
+		if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, userID); err != nil {
+			return nil, fmt.Errorf("revoke refresh tokens: %w", err)
+		}
 	}
 
 	return &u, nil
