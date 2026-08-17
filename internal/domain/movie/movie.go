@@ -6,7 +6,7 @@ import (
 
 type Movie struct {
 	ID          ID
-	TMDBID      *MovieTMDBID
+	TMDBID      MovieTMDBID
 	Title       Title
 	ReleaseYear ReleaseYear
 	Runtime     Runtime
@@ -21,3 +21,27 @@ type Movie struct {
 
 type ID uint
 type MovieTMDBID uint
+
+func NewMovie(
+	tmdbID MovieTMDBID,
+	title Title,
+	releaseYear ReleaseYear,
+	runtime Runtime,
+	countries []Country,
+	language Language,
+	posterURL PosterURL,
+	genres []Genre,
+	credits []Credit,
+) Movie {
+	return Movie{
+		TMDBID:      tmdbID,
+		Title:       title,
+		ReleaseYear: releaseYear,
+		Runtime:     runtime,
+		Countries:   countries,
+		Language:    language,
+		PosterURL:   posterURL,
+		Genres:      genres,
+		Credits:     credits,
+	}
+}

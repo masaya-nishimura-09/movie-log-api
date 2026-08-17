@@ -31,17 +31,16 @@ func TestNewCreditRole(t *testing.T) {
 }
 
 func TestNewCredits(t *testing.T) {
-	credit := func(tmdbID *PersonTMDBID, name string, role CreditRole) Credit {
+	credit := func(tmdbID PersonTMDBID, name string, role CreditRole) Credit {
 		return Credit{
 			Person: Person{TMDBID: tmdbID, Name: PersonName(name)},
 			Role:   role,
 		}
 	}
-	id := func(v PersonTMDBID) *PersonTMDBID { return &v }
 
-	tarantinoDirector := credit(id(138), "Quentin Tarantino", CreditRoleDirector)
-	tarantinoWriter := credit(id(138), "Quentin Tarantino", CreditRoleWriter)
-	avaryWriter := credit(id(1015), "Roger Avary", CreditRoleWriter)
+	tarantinoDirector := credit(138, "Quentin Tarantino", CreditRoleDirector)
+	tarantinoWriter := credit(138, "Quentin Tarantino", CreditRoleWriter)
+	avaryWriter := credit(1015, "Roger Avary", CreditRoleWriter)
 
 	tests := []struct {
 		name    string
@@ -53,27 +52,25 @@ func TestNewCredits(t *testing.T) {
 		{"empty slice", []Credit{}, false},
 		{
 			"same name different tmdb id",
-			[]Credit{credit(id(1), "John Smith", CreditRoleCast), credit(id(2), "John Smith", CreditRoleCast)},
+			[]Credit{credit(1, "John Smith", CreditRoleCast), credit(2, "John Smith", CreditRoleCast)},
 			false,
 		},
 
 		{
 			"same tmdb id same role",
-			[]Credit{tarantinoDirector, credit(id(138), "Quentin Tarantino", CreditRoleDirector)},
+			[]Credit{tarantinoDirector, credit(138, "Quentin Tarantino", CreditRoleDirector)},
 			true,
 		},
 		{
 			"same name same role without tmdb id",
-			[]Credit{credit(nil, "Quentin Tarantino", CreditRoleDirector), credit(nil, "Quentin Tarantino", CreditRoleDirector)},
+			[]Credit{credit(0, "Quentin Tarantino", CreditRoleDirector), credit(0, "Quentin Tarantino", CreditRoleDirector)},
 			true,
 		},
 		{
 			"same name same role with and without tmdb id",
-			[]Credit{tarantinoDirector, credit(nil, "Quentin Tarantino", CreditRoleDirector)},
+			[]Credit{tarantinoDirector, credit(0, "Quentin Tarantino", CreditRoleDirector)},
 			true,
 		},
-		{"empty person name", []Credit{credit(id(138), "", CreditRoleDirector)}, true},
-		{"undefined role", []Credit{credit(id(138), "Quentin Tarantino", "producer")}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

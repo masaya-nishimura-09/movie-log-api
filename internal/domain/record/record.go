@@ -22,3 +22,25 @@ type Record struct {
 }
 
 type ID uint
+
+func NewRecord(
+	userID user.ID,
+	movieID movie.ID,
+	watchedAt time.Time,
+	memo Memo,
+	watchCount WatchCount,
+	score Score,
+	platform Platform,
+	moodTags []MoodTag,
+) Record {
+	return Record{
+		UserID:     userID,
+		MovieID:    movieID,
+		WatchedAt:  watchedAt,
+		Memo:       memo,
+		WatchCount: watchCount,
+		Score:      score,
+		Platform:   platform,
+		MoodTags:   moodTags,
+	}
+}

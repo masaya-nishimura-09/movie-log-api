@@ -8,7 +8,7 @@ import (
 )
 
 type Person struct {
-	TMDBID *PersonTMDBID
+	TMDBID PersonTMDBID
 	Name   PersonName
 }
 type PersonTMDBID uint
@@ -24,4 +24,8 @@ func NewPersonName(value string) (PersonName, error) {
 	}
 
 	return PersonName(value), nil
+}
+
+func NewPerson(tmdbID PersonTMDBID, name PersonName) Person {
+	return Person{TMDBID: tmdbID, Name: name}
 }
