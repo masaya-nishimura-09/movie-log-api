@@ -1,4 +1,4 @@
-package movie
+package record
 
 import (
 	"strings"
@@ -27,6 +27,31 @@ func TestNewPersonName(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("NewPersonName(len=%d) = %q, want %q", len(tt.input), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewCreditRole(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    CreditRole
+		wantErr bool
+	}{
+		{"defined value", "director", CreditRoleDirector, false},
+
+		{"empty", "", "", true},
+		{"undefined value", "producer", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewCreditRole(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewCreditRole(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("NewCreditRole(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
