@@ -8,11 +8,14 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
+	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
+	recordinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/record"
 	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	recordusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/record"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 	"github.com/ulule/limiter/v3"
 	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
@@ -58,6 +61,7 @@ func main() {
 	)
 	refreshTokenRepo := authinfra.NewRefreshTokenRepo(db, refreshTokenTTL)
 	userRepo := userinfra.NewUserRepo(db)
+	recordRepo := recordinfra.NewRecordRepo(db)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -66,10 +70,12 @@ func main() {
 		refreshTokenRepo,
 	)
 	userUsecase := userusecase.NewUserUsecase(userRepo, refreshTokenRepo)
+	recordUsecase := recordusecase.NewRecordUsecase(recordRepo)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
 	userHandler := userhandler.NewUserHandler(userUsecase)
+	recordHandler := recordhandler.NewRecordHandler(recordUsecase)
 
 	// routing
 	router := gin.Default()
@@ -91,6 +97,16 @@ func main() {
 	{
 		authUsers.PUT("/", userHandler.UpdateUser)
 		authUsers.DELETE("/", userHandler.DeleteUser)
+	}
+
+	records := router.Group("/records")
+	records.Use(middleware.JWTAuth(authUsecase, userUsecase))
+	{
+		records.POST("/", recordHandler.CreateRecord)
+		records.GET("/", recordHandler.ListRecords)
+		records.GET("/:id", recordHandler.GetRecord)
+		records.PUT("/:id", recordHandler.UpdateRecord)
+		records.DELETE("/:id", recordHandler.DeleteRecord)
 	}
 
 	router.Run("0.0.0.0:8080")
