@@ -278,10 +278,17 @@ func (r *recordRepository) Update(
 			return exception.ErrNotFound
 		}
 
-		for _, child := range []any{&genreDTO{}, &countryDTO{}, &creditDTO{}, &moodTagDTO{}} {
-			if err := tx.Where("record_id = ?", dto.ID).Delete(child).Error; err != nil {
-				return fmt.Errorf("delete record associations: %w", err)
-			}
+		if err := tx.Where("record_id = ?", dto.ID).Delete(&genreDTO{}).Error; err != nil {
+			return fmt.Errorf("delete record genres: %w", err)
+		}
+		if err := tx.Where("record_id = ?", dto.ID).Delete(&countryDTO{}).Error; err != nil {
+			return fmt.Errorf("delete record countries: %w", err)
+		}
+		if err := tx.Where("record_id = ?", dto.ID).Delete(&creditDTO{}).Error; err != nil {
+			return fmt.Errorf("delete record credits: %w", err)
+		}
+		if err := tx.Where("record_id = ?", dto.ID).Delete(&moodTagDTO{}).Error; err != nil {
+			return fmt.Errorf("delete record mood tags: %w", err)
 		}
 
 		if len(dto.Genres) > 0 {
