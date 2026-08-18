@@ -160,7 +160,7 @@ func toResponse(r *recorddomain.Record) gin.H {
 		"language":     string(r.Language),
 		"credits":      credits,
 		"poster_url":   string(r.PosterURL),
-		"watched_at":   r.WatchedAt,
+		"watched_at":   r.WatchedAt.UTC(),
 		"platform":     string(r.Platform),
 		"score":        uint(r.Score),
 		"mood_tags":    moodTags,
