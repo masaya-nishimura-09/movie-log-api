@@ -55,6 +55,13 @@ func UserNotFound(c *gin.Context) {
 	})
 }
 
+func RecordNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, gin.H{
+		"code":    "RECORD_NOT_FOUND",
+		"message": "record not found",
+	})
+}
+
 func UserAlreadyExists(c *gin.Context) {
 	c.JSON(http.StatusConflict, gin.H{
 		"code":    "USER_ALREADY_EXISTS",
