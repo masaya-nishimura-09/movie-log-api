@@ -1,4 +1,4 @@
-package movie
+package record
 
 import (
 	"slices"

@@ -1,15 +1,31 @@
-package movie
+package record
 
 import (
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
 
 type Credit struct {
-	Person Person
-	Role   CreditRole
+	PersonName PersonName
+	CreditRole CreditRole
 }
+
+type PersonName string
+
+func NewPersonName(value string) (PersonName, error) {
+	if value == "" {
+		return "", fmt.Errorf("%w: person name is required", exception.ErrInvalid)
+	}
+
+	if utf8.RuneCountInString(value) > 100 {
+		return "", fmt.Errorf("%w: person name must be at most 100 characters", exception.ErrInvalid)
+	}
+
+	return PersonName(value), nil
+}
+
 type CreditRole string
 
 const (
@@ -37,34 +53,6 @@ func NewCreditRole(value string) (CreditRole, error) {
 	}
 }
 
-func NewCredit(person Person, role CreditRole) Credit {
-	return Credit{Person: person, Role: role}
-}
-
-func NewCredits(values []Credit) ([]Credit, error) {
-	credits := make([]Credit, 0, len(values))
-
-	for _, value := range values {
-		for _, existing := range credits {
-			if existing.sameAs(value) {
-				return nil, fmt.Errorf("%w: duplicate credit", exception.ErrInvalid)
-			}
-		}
-
-		credits = append(credits, value)
-	}
-
-	return credits, nil
-}
-
-func (c Credit) sameAs(other Credit) bool {
-	if c.Role != other.Role {
-		return false
-	}
-
-	if c.Person.TMDBID != 0 && other.Person.TMDBID != 0 {
-		return c.Person.TMDBID == other.Person.TMDBID
-	}
-
-	return c.Person.Name == other.Person.Name
+func NewCredit(personName PersonName, creditRole CreditRole) Credit {
+	return Credit{PersonName: personName, CreditRole: creditRole}
 }
