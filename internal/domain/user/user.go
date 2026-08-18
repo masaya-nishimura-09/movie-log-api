@@ -22,3 +22,17 @@ const (
 	RoleUser  Role = "user"
 	RoleAdmin Role = "admin"
 )
+
+func NewUser(
+	username Username,
+	email Email,
+	hashedPassword HashedPassword,
+	role Role,
+) User {
+	return User{
+		Username:       username,
+		Email:          email,
+		HashedPassword: hashedPassword,
+		Role:           role,
+	}
+}

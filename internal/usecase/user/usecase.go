@@ -65,12 +65,12 @@ func (uu *UserUsecase) Register(
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	u := user.User{
-		Username:       username,
-		Email:          email,
-		HashedPassword: user.HashedPassword(hashed),
-		Role:           user.RoleUser,
-	}
+	u := user.NewUser(
+		username,
+		email,
+		user.HashedPassword(hashed),
+		user.RoleUser,
+	)
 
 	if err := uu.userRepo.Create(ctx, &u); err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
@@ -101,12 +101,13 @@ func (uu *UserUsecase) UpdateUser(
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	u := user.User{
-		ID:             userID,
-		Username:       username,
-		Email:          email,
-		HashedPassword: user.HashedPassword(hashed),
-	}
+	u := user.NewUser(
+		username,
+		email,
+		user.HashedPassword(hashed),
+		existingUser.Role,
+	)
+	u.ID = userID
 
 	if err := uu.userRepo.Update(ctx, &u); err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
