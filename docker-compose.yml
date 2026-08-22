@@ -23,3 +23,25 @@ services:
       - "5433:5432"
     volumes:
       - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/01_create_table.sql:z
+
+  minio:
+    image: minio/minio:latest
+    container_name: movie-log-storage
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  minio-test:
+    image: minio/minio:latest
+    container_name: movie-log-storage-test
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: testuser
+      MINIO_ROOT_PASSWORD: testpassword
+    ports:
+      - "9002:9000"
+      - "9003:9001"
