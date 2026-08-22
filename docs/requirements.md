@@ -81,6 +81,83 @@
 - 視聴環境:映画館、DVD/Blu-ray、地上波/BS/CS放送、レンタル
 - その他:上記のいずれにも当てはまらない場合
 
+## 実装予定:ポスター画像のアップロード(実装後に削除してよい)
+
+このセクションは作業用。実装が完了したら削除する。
+
+### 背景
+
+フロントエンド(`../movie-log/docs/status.md`)からバックエンドへの申し送りが3件ある。着手順は3→2→1。
+
+1. `GET /records/`の絞り込み・検索・並び替え・ページネーション
+2. TMDb入力補助API
+3. ポスター画像のアップロードAPIとストレージ ← 今ここ
+
+### 決定事項:ストレージ
+
+- AWS SDK for Go v2(`aws-sdk-go-v2`)のS3クライアントを使う
+- 開発時はMinIOを`docker-compose.yml`に追加して使う。MinIOはS3互換なので同じコードで動く
+- 学習・本番はAWS S3。接続先の切り替えは環境変数で行う
+- 環境変数で持つもの:エンドポイント、バケット名、リージョン、アクセスキー、シークレットキー
+- MinIOのときだけ`BaseEndpoint`を設定し、`UsePathStyle`をtrueにする。S3のときはfalse
+- AWSアカウント作成後、Budgetsで少額のアラートを設定する。バケットを読み取り公開するため転送量の事故に備える
+
+### 決定事項:URLの形
+
+- バケットは読み取りのみ公開する。書き込みは公開しない
+- 記録に保存するのは期限の無い固定URL。署名付きURLは期限が切れるので保存できない
+- `poster_url`には完全なURLを保存する。パスだけの保存はしない
+- 理由:同じカラムにTMDbのURLも入るため。パスだけではどちらのホストを付けるか判断できない
+- ブラウザは`poster_url`を直接読む。Goは画像を中継しない
+- `internal/domain/record/poster_url.go`は変更しない
+
+### 決定事項:受け入れ制約
+
+- 形式:JPEG、PNG、WebP
+- サイズ上限:5MB
+- 枚数:1記録につき1枚(`poster_url`が1カラムのため)
+- 検証:拡張子ではなくファイルの中身で判定する。`http.DetectContentType`で先頭512バイトを見る
+
+### 決定事項:記録との関係
+
+- 画像のアップロードは記録の作成・更新とは別のAPIにする。既存の記録APIはJSONのまま変更しない
+- 手順:画像をアップロードしてURLを受け取る → そのURLを`poster_url`に入れて記録を作成する
+- オブジェクトのキーは`{user_id}/{uuid}.jpg`。ユーザーごとに分ける
+- 記録を削除したらS3の画像も削除する。`poster_url`が自前のS3のURLかTMDbのURLかを判定する分岐が要る
+- アップロードしたが記録を作らずに離脱した画像は残る。掃除の仕組みは作らない
+
+### 決定事項:TMDbの画像の扱い
+
+- TMDbの画像は自分のS3にコピーしない。URLをそのまま`poster_url`に保存する
+- 理由:TMDbの利用規約が6ヶ月を超えるキャッシュを禁じているため。視聴記録は6ヶ月を超えて残る
+- 出典:<https://www.themoviedb.org/api-terms-of-use>
+
+### 決定事項:API
+
+- パスは`POST /records/images`
+- 認証は必須。既存の`/records`グループに入れるので`middleware.JWTAuth`がそのまま効く
+- エラーコードは既存の9種類から増やさない。対応外の形式もサイズ超過も`INVALID_INPUT`で返し、理由は`message`に入れる
+- 理由:フロントはエラーの`code`で分岐せず、`message`を入力欄の下に表示するだけのため。増やすとフロントのユニオン型と辞書の両方を直すことになる
+
+### 決定事項:実装の置き場所
+
+- 新しいドメインパッケージは作らない。ポスター画像は`record`の属性であり、独立したドメインではない
+- ストレージのinterfaceは`internal/domain/record/`に置く(`RecordRepository`と同じ位置)
+- S3の実装は`internal/infrastructure/record/`に置く
+- ユースケースは既存の`RecordUsecase`に足す。ストレージを受け取るので`NewRecordUsecase`の引数が増える
+- ハンドラは既存の`internal/handler/record/`に足す
+- 登録と更新は既存コードの変更が要らない。画像APIがURLを返し、そのURLを`poster_url`に入れて既存のJSONで送るだけのため
+- 既存コードの変更が要るのは削除のみ。`RecordUsecase.DeleteRecord`から画像の削除を呼ぶ
+
+- アップロード成功時のレスポンスは`{ "poster_url": "..." }`。フロントがそのまま記録の`poster_url`に入れるため、名前を合わせる
+
+### 2(TMDb入力補助)の実装時に必要になること
+
+- TMDbを使う場合、帰属表示が義務。TMDbのロゴと次の定型文を目立つ場所に表示する
+  「This product uses the TMDB API but is not endorsed or certified by TMDB.」
+
+---
+
 ## 次のステップ
 
 - フロントエンド(Next.js)の作成
