@@ -126,6 +126,33 @@ func TestPosterUpload(t *testing.T) {
 			}
 		},
 	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			ps := NewPosterService(testS3Client, testBucket, testBaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			userID := user.ID(1)
+			poster := newTestPoster(t, []byte("\xFF\xD8\xFF"))
+
+			got, err := ps.Upload(ctx, userID, poster)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"Upload(ctx, %d, poster) (record.PosterURL, error) = %v, %v, want %v",
+					userID, got, err, context.Canceled,
+				)
+			}
+			if got != "" {
+				t.Errorf(
+					"Upload(ctx, %d, poster) (record.PosterURL, error) = %v, %v, want %q",
+					userID, got, err, "",
+				)
+			}
+		},
+	)
 }
 
 func TestPosterDelete(t *testing.T) {
@@ -190,6 +217,27 @@ func TestPosterDelete(t *testing.T) {
 			}
 			if !objectExists(t, key) {
 				t.Errorf("Delete(ctx, %d, %q) removed %q from %q", otherID, url, key, testBucket)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			ps := NewPosterService(testS3Client, testBucket, testBaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			userID := user.ID(1)
+			url := record.PosterURL(testBaseURL + "/1/00000000-0000-0000-0000-000000000000.jpg")
+
+			err := ps.Delete(ctx, userID, url)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"Delete(ctx, %d, %q) error = %v, want %v",
+					userID, url, err, context.Canceled,
+				)
 			}
 		},
 	)
