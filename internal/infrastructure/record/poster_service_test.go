@@ -13,12 +13,12 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
-func newTestPoster(t *testing.T) record.Poster {
+func newTestPoster(t *testing.T, data []byte) record.Poster {
 	t.Helper()
 
-	poster, err := record.NewPoster([]byte("\xFF\xD8\xFF"))
+	poster, err := record.NewPoster(data)
 	if err != nil {
-		t.Fatalf("NewPoster() error = %v", err)
+		t.Fatalf("NewPoster(len=%d) error = %v", len(data), err)
 	}
 	return poster
 }
@@ -49,7 +49,7 @@ func TestPosterUpload(t *testing.T) {
 
 			ctx := context.Background()
 			userID := user.ID(1)
-			poster := newTestPoster(t)
+			poster := newTestPoster(t, []byte("\xFF\xD8\xFF"))
 
 			url, err := ps.Upload(ctx, userID, poster)
 			if err != nil {
@@ -79,7 +79,7 @@ func TestPosterUpload(t *testing.T) {
 
 			ctx := context.Background()
 			userID := user.ID(1)
-			poster := newTestPoster(t)
+			poster := newTestPoster(t, []byte("\xFF\xD8\xFF"))
 
 			first, err := ps.Upload(ctx, userID, poster)
 			if err != nil {
@@ -98,6 +98,34 @@ func TestPosterUpload(t *testing.T) {
 			}
 		},
 	)
+
+	t.Run(
+		"uses the extension that matches the content type",
+		func(t *testing.T) {
+			ps := NewPosterService(testS3Client, testBucket, testBaseURL)
+
+			ctx := context.Background()
+			userID := user.ID(1)
+
+			png, err := ps.Upload(ctx, userID, newTestPoster(t, []byte("\x89PNG\x0D\x0A\x1A\x0A")))
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, poster) error = %v", userID, err)
+			}
+			t.Cleanup(func() { _ = ps.Delete(ctx, userID, png) })
+			if !strings.HasSuffix(string(png), ".png") {
+				t.Errorf("Upload(ctx, %d, poster) = %q, want suffix %q", userID, png, ".png")
+			}
+
+			webp, err := ps.Upload(ctx, userID, newTestPoster(t, []byte("RIFF____WEBPVP")))
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, poster) error = %v", userID, err)
+			}
+			t.Cleanup(func() { _ = ps.Delete(ctx, userID, webp) })
+			if !strings.HasSuffix(string(webp), ".webp") {
+				t.Errorf("Upload(ctx, %d, poster) = %q, want suffix %q", userID, webp, ".webp")
+			}
+		},
+	)
 }
 
 func TestPosterDelete(t *testing.T) {
@@ -108,7 +136,7 @@ func TestPosterDelete(t *testing.T) {
 
 			ctx := context.Background()
 			userID := user.ID(1)
-			poster := newTestPoster(t)
+			poster := newTestPoster(t, []byte("\xFF\xD8\xFF"))
 
 			url, err := ps.Upload(ctx, userID, poster)
 			if err != nil {
@@ -148,7 +176,7 @@ func TestPosterDelete(t *testing.T) {
 			ctx := context.Background()
 			ownerID := user.ID(1)
 			otherID := user.ID(2)
-			poster := newTestPoster(t)
+			poster := newTestPoster(t, []byte("\xFF\xD8\xFF"))
 
 			url, err := ps.Upload(ctx, ownerID, poster)
 			if err != nil {
