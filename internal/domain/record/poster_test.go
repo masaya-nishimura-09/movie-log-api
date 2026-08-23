@@ -2,6 +2,33 @@ package record
 
 import "testing"
 
+func TestNewPosterContentType(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    PosterContentType
+		wantErr bool
+	}{
+		{"jpeg", "image/jpeg", PosterContentTypeJPEG, false},
+		{"png", "image/png", PosterContentTypePNG, false},
+		{"webp", "image/webp", PosterContentTypeWebP, false},
+
+		{"empty", "", "", true},
+		{"undefined value", "image/gif", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewPosterContentType(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewPosterContentType(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("NewPosterContentType(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewPoster(t *testing.T) {
 	jpeg := []byte("\xFF\xD8\xFF")
 	png := []byte("\x89PNG\x0D\x0A\x1A\x0A")

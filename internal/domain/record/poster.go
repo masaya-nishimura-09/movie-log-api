@@ -15,6 +15,17 @@ const (
 	PosterContentTypeWebP PosterContentType = "image/webp"
 )
 
+func NewPosterContentType(value string) (PosterContentType, error) {
+	switch contentType := PosterContentType(value); contentType {
+	case PosterContentTypeJPEG,
+		PosterContentTypePNG,
+		PosterContentTypeWebP:
+		return contentType, nil
+	default:
+		return "", fmt.Errorf("%w: invalid poster content type", exception.ErrInvalid)
+	}
+}
+
 type Poster struct {
 	Data        []byte
 	ContentType PosterContentType
@@ -29,14 +40,12 @@ func NewPoster(data []byte) (Poster, error) {
 		return Poster{}, fmt.Errorf("%w: poster must be at most 5 megabytes", exception.ErrInvalid)
 	}
 
-	switch contentType := PosterContentType(http.DetectContentType(data)); contentType {
-	case PosterContentTypeJPEG,
-		PosterContentTypePNG,
-		PosterContentTypeWebP:
-		buf := make([]byte, len(data))
-		copy(buf, data)
-		return Poster{Data: buf, ContentType: contentType}, nil
-	default:
-		return Poster{}, fmt.Errorf("%w: invalid poster content type", exception.ErrInvalid)
+	contentType, err := NewPosterContentType(http.DetectContentType(data))
+	if err != nil {
+		return Poster{}, err
 	}
+
+	buf := make([]byte, len(data))
+	copy(buf, data)
+	return Poster{Data: buf, ContentType: contentType}, nil
 }
