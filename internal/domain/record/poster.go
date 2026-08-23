@@ -31,21 +31,21 @@ type Poster struct {
 	ContentType PosterContentType
 }
 
-func NewPoster(data []byte) (Poster, error) {
-	if len(data) == 0 {
+func NewPoster(value []byte) (Poster, error) {
+	if len(value) == 0 {
 		return Poster{}, fmt.Errorf("%w: poster is required", exception.ErrInvalid)
 	}
 
-	if len(data) > 5*1024*1024 {
+	if len(value) > 5*1024*1024 {
 		return Poster{}, fmt.Errorf("%w: poster must be at most 5 megabytes", exception.ErrInvalid)
 	}
 
-	contentType, err := NewPosterContentType(http.DetectContentType(data))
+	contentType, err := NewPosterContentType(http.DetectContentType(value))
 	if err != nil {
 		return Poster{}, err
 	}
 
-	buf := make([]byte, len(data))
-	copy(buf, data)
+	buf := make([]byte, len(value))
+	copy(buf, value)
 	return Poster{Data: buf, ContentType: contentType}, nil
 }
