@@ -3,23 +3,13 @@ package user
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/testutil"
-	"gorm.io/gorm"
 )
-
-var testDB *gorm.DB
-
-func TestMain(m *testing.M) {
-	testDB = testutil.NewTestDB()
-	code := m.Run()
-	os.Exit(code)
-}
 
 func TestGetByID(t *testing.T) {
 	t.Run(
