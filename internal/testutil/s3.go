@@ -18,7 +18,7 @@ func NewTestS3Client() *s3.Client {
 	return client
 }
 
-func NewTestS3Bucket() string {
+func S3Bucket() string {
 	loadTestEnv()
 
 	bucket, err := config.S3Bucket()
@@ -29,7 +29,7 @@ func NewTestS3Bucket() string {
 	return bucket
 }
 
-func NewTestS3BaseURL() string {
+func S3BaseURL() string {
 	loadTestEnv()
 
 	baseURL, err := config.S3PublicBaseURL()

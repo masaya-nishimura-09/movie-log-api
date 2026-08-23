@@ -19,8 +19,8 @@ var (
 func TestMain(m *testing.M) {
 	testDB = testutil.NewTestDB()
 	testS3Client = testutil.NewTestS3Client()
-	testBucket = testutil.NewTestS3Bucket()
-	testBaseURL = testutil.NewTestS3BaseURL()
+	testBucket = testutil.S3Bucket()
+	testBaseURL = testutil.S3BaseURL()
 	code := m.Run()
 	os.Exit(code)
 }
