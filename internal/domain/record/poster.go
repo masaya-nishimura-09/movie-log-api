@@ -33,7 +33,9 @@ func NewPoster(data []byte) (Poster, error) {
 	case PosterContentTypeJPEG,
 		PosterContentTypePNG,
 		PosterContentTypeWebP:
-		return Poster{Data: data, ContentType: contentType}, nil
+		buf := make([]byte, len(data))
+		copy(buf, data)
+		return Poster{Data: buf, ContentType: contentType}, nil
 	default:
 		return Poster{}, fmt.Errorf("%w: invalid poster content type", exception.ErrInvalid)
 	}
