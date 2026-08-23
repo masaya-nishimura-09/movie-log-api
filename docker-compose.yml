@@ -45,3 +45,17 @@ services:
     ports:
       - "9002:9000"
       - "9003:9001"
+
+  createbuckets:
+    image: minio/mc:latest
+    container_name: movie-log-storage-init
+    depends_on:
+      - minio
+      - minio-test
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set dev http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}; do sleep 1; done;
+      mc mb --ignore-existing dev/${S3_BUCKET};
+      until mc alias set test http://minio-test:9000 testuser testpassword; do sleep 1; done;
+      mc mb --ignore-existing test/movie-log-poster-test;
+      "

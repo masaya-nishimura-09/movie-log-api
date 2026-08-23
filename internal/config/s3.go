@@ -33,3 +33,11 @@ func S3Bucket() (string, error) {
 	}
 	return bucket, nil
 }
+
+func S3PublicBaseURL() (string, error) {
+	baseURL := os.Getenv("S3_PUBLIC_BASE_URL")
+	if baseURL == "" {
+		return "", fmt.Errorf("environment variable S3_PUBLIC_BASE_URL is required")
+	}
+	return baseURL, nil
+}
