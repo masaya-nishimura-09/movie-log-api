@@ -57,12 +57,12 @@ func fromDTO(dto *userDTO) *user.User {
 	}
 }
 
-func (r *userRepository) GetByID(
+func (ur *userRepository) GetByID(
 	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
 	var dto userDTO
-	result := r.db.WithContext(ctx).First(&dto, userID)
+	result := ur.db.WithContext(ctx).First(&dto, userID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
@@ -72,12 +72,12 @@ func (r *userRepository) GetByID(
 	return fromDTO(&dto), nil
 }
 
-func (r *userRepository) GetByEmail(
+func (ur *userRepository) GetByEmail(
 	ctx context.Context,
 	email user.Email,
 ) (*user.User, error) {
 	var dto userDTO
-	result := r.db.WithContext(ctx).Where("email = ?", string(email)).First(&dto)
+	result := ur.db.WithContext(ctx).Where("email = ?", string(email)).First(&dto)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
@@ -87,7 +87,7 @@ func (r *userRepository) GetByEmail(
 	return fromDTO(&dto), nil
 }
 
-func (r *userRepository) Create(
+func (ur *userRepository) Create(
 	ctx context.Context,
 	u *user.User,
 ) error {
@@ -95,7 +95,7 @@ func (r *userRepository) Create(
 	u.UpdatedAt = time.Now()
 
 	dto := toDTO(u)
-	result := r.db.WithContext(ctx).Create(&dto)
+	result := ur.db.WithContext(ctx).Create(&dto)
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 		return exception.ErrAlreadyExists
 	}
@@ -106,14 +106,14 @@ func (r *userRepository) Create(
 	return nil
 }
 
-func (r *userRepository) Update(
+func (ur *userRepository) Update(
 	ctx context.Context,
 	u *user.User,
 ) error {
 	u.UpdatedAt = time.Now()
 
 	dto := toDTO(u)
-	result := r.db.WithContext(ctx).
+	result := ur.db.WithContext(ctx).
 		Model(&userDTO{}).
 		Where("id = ?", u.ID).
 		Select("username", "email", "hashed_password", "updated_at").
@@ -132,8 +132,8 @@ func (r *userRepository) Update(
 	return nil
 }
 
-func (r *userRepository) Delete(ctx context.Context, userID user.ID) error {
-	result := r.db.WithContext(ctx).Delete(&userDTO{}, userID)
+func (ur *userRepository) Delete(ctx context.Context, userID user.ID) error {
+	result := ur.db.WithContext(ctx).Delete(&userDTO{}, userID)
 	if result.Error != nil {
 		return fmt.Errorf("delete user: %w", result.Error)
 	}

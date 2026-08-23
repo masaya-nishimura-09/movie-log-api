@@ -36,15 +36,15 @@ func extension(contentType record.PosterContentType) string {
 	}
 }
 
-func (p *posterService) Upload(
+func (ps *posterService) Upload(
 	ctx context.Context,
 	userID user.ID,
 	poster record.Poster,
 ) (record.PosterURL, error) {
 	key := fmt.Sprintf("%d/%s%s", uint(userID), uuid.NewString(), extension(poster.ContentType))
 
-	_, err := p.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(p.bucket),
+	_, err := ps.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(ps.bucket),
 		Key:         aws.String(key),
 		Body:        bytes.NewReader(poster.Data),
 		ContentType: aws.String(string(poster.ContentType)),
@@ -53,18 +53,18 @@ func (p *posterService) Upload(
 		return "", fmt.Errorf("upload poster: %w", err)
 	}
 
-	return record.PosterURL(p.baseURL + "/" + key), nil
+	return record.PosterURL(ps.baseURL + "/" + key), nil
 }
 
-func (p *posterService) Delete(ctx context.Context, url record.PosterURL) error {
-	prefix := p.baseURL + "/"
+func (ps *posterService) Delete(ctx context.Context, url record.PosterURL) error {
+	prefix := ps.baseURL + "/"
 	if !strings.HasPrefix(string(url), prefix) {
 		return nil
 	}
 
 	key := strings.TrimPrefix(string(url), prefix)
-	_, err := p.client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(p.bucket),
+	_, err := ps.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(ps.bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {

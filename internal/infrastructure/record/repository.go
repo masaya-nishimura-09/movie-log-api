@@ -176,12 +176,12 @@ func fromDTO(dto *recordDTO) *record.Record {
 	}
 }
 
-func (r *recordRepository) GetByID(
+func (rr *recordRepository) GetByID(
 	ctx context.Context,
 	recordID record.ID,
 ) (*record.Record, error) {
 	var dto recordDTO
-	result := r.db.WithContext(ctx).
+	result := rr.db.WithContext(ctx).
 		Preload("Genres").
 		Preload("Countries").
 		Preload("Credits").
@@ -196,12 +196,12 @@ func (r *recordRepository) GetByID(
 	return fromDTO(&dto), nil
 }
 
-func (r *recordRepository) ListByUserID(
+func (rr *recordRepository) ListByUserID(
 	ctx context.Context,
 	userID user.ID,
 ) ([]*record.Record, error) {
 	var dtos []recordDTO
-	result := r.db.WithContext(ctx).
+	result := rr.db.WithContext(ctx).
 		Preload("Genres").
 		Preload("Countries").
 		Preload("Credits").
@@ -220,7 +220,7 @@ func (r *recordRepository) ListByUserID(
 	return records, nil
 }
 
-func (r *recordRepository) Create(
+func (rr *recordRepository) Create(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
@@ -229,7 +229,7 @@ func (r *recordRepository) Create(
 	rec.UpdatedAt = now
 
 	dto := toDTO(rec)
-	result := r.db.WithContext(ctx).Create(&dto)
+	result := rr.db.WithContext(ctx).Create(&dto)
 	if result.Error != nil {
 		return fmt.Errorf("create record: %w", result.Error)
 	}
@@ -237,14 +237,14 @@ func (r *recordRepository) Create(
 	return nil
 }
 
-func (r *recordRepository) Update(
+func (rr *recordRepository) Update(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
 	rec.UpdatedAt = time.Now()
 
 	dto := toDTO(rec)
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return rr.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&recordDTO{}).
 			Where("id = ? AND user_id = ?", dto.ID, dto.UserID).
 			Select(
@@ -315,8 +315,8 @@ func (r *recordRepository) Update(
 	})
 }
 
-func (r *recordRepository) Delete(ctx context.Context, recordID record.ID) error {
-	result := r.db.WithContext(ctx).Delete(&recordDTO{}, uint(recordID))
+func (rr *recordRepository) Delete(ctx context.Context, recordID record.ID) error {
+	result := rr.db.WithContext(ctx).Delete(&recordDTO{}, uint(recordID))
 	if result.Error != nil {
 		return fmt.Errorf("delete record: %w", result.Error)
 	}

@@ -49,7 +49,7 @@ func toDTO(rt *auth.RefreshToken) refreshTokenDTO {
 	}
 }
 
-func (r *refreshTokenRepository) Create(
+func (rtr *refreshTokenRepository) Create(
 	ctx context.Context,
 	principal *auth.Principal,
 ) (*auth.RefreshToken, error) {
@@ -67,11 +67,11 @@ func (r *refreshTokenRepository) Create(
 		Value:     auth.RefreshTokenValue(value),
 		Hash:      auth.RefreshTokenHash(hash),
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(r.ttl),
+		ExpiresAt: time.Now().Add(rtr.ttl),
 	}
 
 	dto := toDTO(&refreshToken)
-	result := r.db.WithContext(ctx).Create(&dto)
+	result := rtr.db.WithContext(ctx).Create(&dto)
 	if errors.Is(result.Error, gorm.ErrForeignKeyViolated) {
 		return nil, exception.ErrNotFound
 	}
@@ -82,7 +82,7 @@ func (r *refreshTokenRepository) Create(
 	return &refreshToken, nil
 }
 
-func (r *refreshTokenRepository) FindValidByValue(
+func (rtr *refreshTokenRepository) FindValidByValue(
 	ctx context.Context,
 	value auth.RefreshTokenValue,
 ) (*auth.RefreshToken, error) {
@@ -90,7 +90,7 @@ func (r *refreshTokenRepository) FindValidByValue(
 	hash := hex.EncodeToString(sum[:])
 
 	var dto refreshTokenDTO
-	result := r.db.WithContext(ctx).
+	result := rtr.db.WithContext(ctx).
 		Where("hash = ?", hash).
 		Where("expires_at > ?", time.Now()).
 		Where("revoked_at IS NULL").
@@ -115,12 +115,12 @@ func (r *refreshTokenRepository) FindValidByValue(
 	}, nil
 }
 
-func (r *refreshTokenRepository) Revoke(
+func (rtr *refreshTokenRepository) Revoke(
 	ctx context.Context,
 	id auth.RefreshTokenID,
 ) error {
 	now := time.Now()
-	result := r.db.WithContext(ctx).
+	result := rtr.db.WithContext(ctx).
 		Model(&refreshTokenDTO{}).
 		Where("id = ?", id).
 		Where("revoked_at IS NULL").
@@ -134,12 +134,12 @@ func (r *refreshTokenRepository) Revoke(
 	return nil
 }
 
-func (r *refreshTokenRepository) RevokeAllForUser(
+func (rtr *refreshTokenRepository) RevokeAllForUser(
 	ctx context.Context,
 	userID user.ID,
 ) error {
 	now := time.Now()
-	result := r.db.WithContext(ctx).
+	result := rtr.db.WithContext(ctx).
 		Model(&refreshTokenDTO{}).
 		Where("user_id = ?", uint(userID)).
 		Where("revoked_at IS NULL").
