@@ -13,9 +13,13 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
-func newTestPoster(t *testing.T, data []byte) record.Poster {
+func newTestPoster(t *testing.T, value []byte) record.Poster {
 	t.Helper()
 
+	data, err := record.NewPosterData(value)
+	if err != nil {
+		t.Fatalf("NewPosterData(len=%d) error = %v", len(value), err)
+	}
 	poster, err := record.NewPoster(data)
 	if err != nil {
 		t.Fatalf("NewPoster(len=%d) error = %v", len(data), err)

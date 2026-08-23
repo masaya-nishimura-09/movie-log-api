@@ -47,13 +47,8 @@ type Poster struct {
 	ContentType PosterContentType
 }
 
-func NewPoster(value []byte) (Poster, error) {
-	data, err := NewPosterData(value)
-	if err != nil {
-		return Poster{}, err
-	}
-
-	contentType, err := NewPosterContentType(http.DetectContentType(value))
+func NewPoster(data PosterData) (Poster, error) {
+	contentType, err := NewPosterContentType(http.DetectContentType(data))
 	if err != nil {
 		return Poster{}, err
 	}
