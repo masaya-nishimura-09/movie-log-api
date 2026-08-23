@@ -85,49 +85,49 @@ func (moodTagDTO) TableName() string {
 	return "record_mood_tags"
 }
 
-func toDTO(r *record.Record) recordDTO {
-	genres := make([]genreDTO, 0, len(r.Genres))
-	for _, genre := range r.Genres {
-		genres = append(genres, genreDTO{RecordID: uint(r.ID), Value: string(genre)})
+func toDTO(rec *record.Record) recordDTO {
+	genres := make([]genreDTO, 0, len(rec.Genres))
+	for _, genre := range rec.Genres {
+		genres = append(genres, genreDTO{RecordID: uint(rec.ID), Value: string(genre)})
 	}
 
-	countries := make([]countryDTO, 0, len(r.Countries))
-	for _, country := range r.Countries {
-		countries = append(countries, countryDTO{RecordID: uint(r.ID), Value: string(country)})
+	countries := make([]countryDTO, 0, len(rec.Countries))
+	for _, country := range rec.Countries {
+		countries = append(countries, countryDTO{RecordID: uint(rec.ID), Value: string(country)})
 	}
 
-	credits := make([]creditDTO, 0, len(r.Credits))
-	for _, credit := range r.Credits {
+	credits := make([]creditDTO, 0, len(rec.Credits))
+	for _, credit := range rec.Credits {
 		credits = append(credits, creditDTO{
-			RecordID:   uint(r.ID),
+			RecordID:   uint(rec.ID),
 			PersonName: string(credit.PersonName),
 			CreditRole: string(credit.CreditRole),
 		})
 	}
 
-	moodTags := make([]moodTagDTO, 0, len(r.MoodTags))
-	for _, moodTag := range r.MoodTags {
-		moodTags = append(moodTags, moodTagDTO{RecordID: uint(r.ID), Value: string(moodTag)})
+	moodTags := make([]moodTagDTO, 0, len(rec.MoodTags))
+	for _, moodTag := range rec.MoodTags {
+		moodTags = append(moodTags, moodTagDTO{RecordID: uint(rec.ID), Value: string(moodTag)})
 	}
 
 	return recordDTO{
-		ID:          uint(r.ID),
-		UserID:      uint(r.UserID),
-		Title:       string(r.Title),
-		ReleaseYear: uint(r.ReleaseYear),
-		Runtime:     uint(r.Runtime),
+		ID:          uint(rec.ID),
+		UserID:      uint(rec.UserID),
+		Title:       string(rec.Title),
+		ReleaseYear: uint(rec.ReleaseYear),
+		Runtime:     uint(rec.Runtime),
 		Genres:      genres,
 		Countries:   countries,
-		Language:    string(r.Language),
+		Language:    string(rec.Language),
 		Credits:     credits,
-		PosterURL:   string(r.PosterURL),
-		WatchedAt:   r.WatchedAt,
-		Platform:    string(r.Platform),
-		Score:       uint(r.Score),
+		PosterURL:   string(rec.PosterURL),
+		WatchedAt:   rec.WatchedAt,
+		Platform:    string(rec.Platform),
+		Score:       uint(rec.Score),
 		MoodTags:    moodTags,
-		Memo:        string(r.Memo),
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		Memo:        string(rec.Memo),
+		CreatedAt:   rec.CreatedAt,
+		UpdatedAt:   rec.UpdatedAt,
 	}
 }
 
