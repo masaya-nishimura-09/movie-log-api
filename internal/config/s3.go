@@ -11,9 +11,19 @@ import (
 )
 
 func NewS3Client() (*s3.Client, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	ctx := context.Background()
+
+	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	if cfg.Region == "" {
+		return nil, fmt.Errorf("environment variable AWS_REGION is required")
+	}
+
+	if _, err := cfg.Credentials.Retrieve(ctx); err != nil {
+		return nil, fmt.Errorf("failed to retrieve AWS credentials: %w", err)
 	}
 
 	endpoint := os.Getenv("S3_ENDPOINT")
