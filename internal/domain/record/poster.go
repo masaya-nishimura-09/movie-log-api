@@ -7,6 +7,22 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
 
+type PosterData []byte
+
+func NewPosterData(value []byte) (PosterData, error) {
+	if len(value) == 0 {
+		return nil, fmt.Errorf("%w: poster is required", exception.ErrInvalid)
+	}
+
+	if len(value) > 5*1024*1024 {
+		return nil, fmt.Errorf("%w: poster must be at most 5 megabytes", exception.ErrInvalid)
+	}
+
+	data := make(PosterData, len(value))
+	copy(data, value)
+	return data, nil
+}
+
 type PosterContentType string
 
 const (
@@ -27,17 +43,14 @@ func NewPosterContentType(value string) (PosterContentType, error) {
 }
 
 type Poster struct {
-	Data        []byte
+	Data        PosterData
 	ContentType PosterContentType
 }
 
 func NewPoster(value []byte) (Poster, error) {
-	if len(value) == 0 {
-		return Poster{}, fmt.Errorf("%w: poster is required", exception.ErrInvalid)
-	}
-
-	if len(value) > 5*1024*1024 {
-		return Poster{}, fmt.Errorf("%w: poster must be at most 5 megabytes", exception.ErrInvalid)
+	data, err := NewPosterData(value)
+	if err != nil {
+		return Poster{}, err
 	}
 
 	contentType, err := NewPosterContentType(http.DetectContentType(value))
@@ -45,7 +58,5 @@ func NewPoster(value []byte) (Poster, error) {
 		return Poster{}, err
 	}
 
-	buf := make([]byte, len(value))
-	copy(buf, value)
-	return Poster{Data: buf, ContentType: contentType}, nil
+	return Poster{Data: data, ContentType: contentType}, nil
 }
