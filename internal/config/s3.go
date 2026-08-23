@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -59,5 +60,5 @@ func S3PublicBaseURL() (string, error) {
 		return "", fmt.Errorf("environment variable S3_PUBLIC_BASE_URL must be an http or https url")
 	}
 
-	return baseURL, nil
+	return strings.TrimSuffix(baseURL, "/"), nil
 }
