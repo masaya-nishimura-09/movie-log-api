@@ -35,6 +35,12 @@ func TestNewPoster(t *testing.T) {
 			if !tt.wantErr && len(got.Data) != len(tt.input) {
 				t.Errorf("NewPoster(len=%d) data length = %d, want %d", len(tt.input), len(got.Data), len(tt.input))
 			}
+			if !tt.wantErr {
+				tt.input[0] = 0x00
+				if got.Data[0] == 0x00 {
+					t.Errorf("NewPoster(len=%d) data is not copied", len(tt.input))
+				}
+			}
 		})
 	}
 }
