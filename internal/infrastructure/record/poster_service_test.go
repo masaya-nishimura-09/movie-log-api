@@ -2,11 +2,13 @@ package record
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/record"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
@@ -28,7 +30,15 @@ func objectExists(t *testing.T, key string) bool {
 		Bucket: aws.String(testBucket),
 		Key:    aws.String(key),
 	})
-	return err == nil
+	if err == nil {
+		return true
+	}
+
+	var notFound *types.NotFound
+	if !errors.As(err, &notFound) {
+		t.Fatalf("HeadObject(ctx, %q) error = %v", key, err)
+	}
+	return false
 }
 
 func TestPosterUpload(t *testing.T) {
