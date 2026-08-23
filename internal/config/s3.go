@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -49,5 +50,14 @@ func S3PublicBaseURL() (string, error) {
 	if baseURL == "" {
 		return "", fmt.Errorf("environment variable S3_PUBLIC_BASE_URL is required")
 	}
+
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid S3_PUBLIC_BASE_URL: %w", err)
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("environment variable S3_PUBLIC_BASE_URL must be an http or https url")
+	}
+
 	return baseURL, nil
 }
