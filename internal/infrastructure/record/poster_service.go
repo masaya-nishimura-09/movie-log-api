@@ -56,13 +56,21 @@ func (ps *posterService) Upload(
 	return record.PosterURL(ps.baseURL + "/" + key), nil
 }
 
-func (ps *posterService) Delete(ctx context.Context, url record.PosterURL) error {
+func (ps *posterService) Delete(
+	ctx context.Context,
+	userID user.ID,
+	url record.PosterURL,
+) error {
 	prefix := ps.baseURL + "/"
 	if !strings.HasPrefix(string(url), prefix) {
 		return nil
 	}
 
 	key := strings.TrimPrefix(string(url), prefix)
+	if !strings.HasPrefix(key, fmt.Sprintf("%d/", uint(userID))) {
+		return nil
+	}
+
 	_, err := ps.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(ps.bucket),
 		Key:    aws.String(key),

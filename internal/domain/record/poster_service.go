@@ -8,5 +8,5 @@ import (
 
 type PosterService interface {
 	Upload(ctx context.Context, userID user.ID, poster Poster) (PosterURL, error)
-	Delete(ctx context.Context, url PosterURL) error
+	Delete(ctx context.Context, userID user.ID, url PosterURL) error
 }

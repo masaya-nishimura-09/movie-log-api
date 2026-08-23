@@ -55,7 +55,7 @@ func TestPosterUpload(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Upload(ctx, %d, poster) error = %v", userID, err)
 			}
-			t.Cleanup(func() { _ = ps.Delete(ctx, url) })
+			t.Cleanup(func() { _ = ps.Delete(ctx, userID, url) })
 
 			prefix := testBaseURL + "/1/"
 			if !strings.HasPrefix(string(url), prefix) {
@@ -85,13 +85,13 @@ func TestPosterUpload(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Upload(ctx, %d, poster) error = %v", userID, err)
 			}
-			t.Cleanup(func() { _ = ps.Delete(ctx, first) })
+			t.Cleanup(func() { _ = ps.Delete(ctx, userID, first) })
 
 			second, err := ps.Upload(ctx, userID, poster)
 			if err != nil {
 				t.Fatalf("Upload(ctx, %d, poster) error = %v", userID, err)
 			}
-			t.Cleanup(func() { _ = ps.Delete(ctx, second) })
+			t.Cleanup(func() { _ = ps.Delete(ctx, userID, second) })
 
 			if first == second {
 				t.Errorf("Upload(ctx, %d, poster) = %q, want a different URL from %q", userID, second, first)
@@ -116,11 +116,11 @@ func TestPosterDelete(t *testing.T) {
 			}
 			key := strings.TrimPrefix(string(url), testBaseURL+"/")
 
-			if err := ps.Delete(ctx, url); err != nil {
-				t.Fatalf("Delete(ctx, %q) error = %v", url, err)
+			if err := ps.Delete(ctx, userID, url); err != nil {
+				t.Fatalf("Delete(ctx, %d, %q) error = %v", userID, url, err)
 			}
 			if objectExists(t, key) {
-				t.Errorf("Delete(ctx, %q) did not remove %q from %q", url, key, testBucket)
+				t.Errorf("Delete(ctx, %d, %q) did not remove %q from %q", userID, url, key, testBucket)
 			}
 		},
 	)
@@ -131,10 +131,37 @@ func TestPosterDelete(t *testing.T) {
 			ps := NewPosterService(testS3Client, testBucket, testBaseURL)
 
 			ctx := context.Background()
+			userID := user.ID(1)
 			url := record.PosterURL("https://image.tmdb.org/t/p/w500/abc.jpg")
 
-			if err := ps.Delete(ctx, url); err != nil {
-				t.Errorf("Delete(ctx, %q) error = %v", url, err)
+			if err := ps.Delete(ctx, userID, url); err != nil {
+				t.Errorf("Delete(ctx, %d, %q) error = %v", userID, url, err)
+			}
+		},
+	)
+
+	t.Run(
+		"does nothing when the URL belongs to another user",
+		func(t *testing.T) {
+			ps := NewPosterService(testS3Client, testBucket, testBaseURL)
+
+			ctx := context.Background()
+			ownerID := user.ID(1)
+			otherID := user.ID(2)
+			poster := newTestPoster(t)
+
+			url, err := ps.Upload(ctx, ownerID, poster)
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, poster) error = %v", ownerID, err)
+			}
+			t.Cleanup(func() { _ = ps.Delete(ctx, ownerID, url) })
+			key := strings.TrimPrefix(string(url), testBaseURL+"/")
+
+			if err := ps.Delete(ctx, otherID, url); err != nil {
+				t.Fatalf("Delete(ctx, %d, %q) error = %v", otherID, url, err)
+			}
+			if !objectExists(t, key) {
+				t.Errorf("Delete(ctx, %d, %q) removed %q from %q", otherID, url, key, testBucket)
 			}
 		},
 	)
