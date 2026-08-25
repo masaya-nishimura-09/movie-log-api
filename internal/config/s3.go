@@ -81,5 +81,5 @@ func S3PublicBaseURL() (string, error) {
 		return "", fmt.Errorf("environment variable S3_PUBLIC_BASE_URL must be an http or https url")
 	}
 
-	return strings.TrimSuffix(baseURL, "/"), nil
+	return strings.TrimRight(baseURL, "/"), nil
 }
