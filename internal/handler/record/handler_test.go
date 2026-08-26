@@ -25,6 +25,9 @@ type fakeUsecase struct {
 	updatedRecord   recorddomain.Record
 	deletedUserID   userdomain.ID
 	deletedRecordID recorddomain.ID
+	uploadedUserID  userdomain.ID
+	uploadedPoster  recorddomain.Poster
+	posterURL       recorddomain.PosterURL
 	err             error
 }
 
@@ -76,6 +79,17 @@ func (u *fakeUsecase) DeleteRecord(
 	u.deletedRecordID = recordID
 
 	return u.err
+}
+
+func (u *fakeUsecase) UploadPoster(
+	ctx context.Context,
+	userID userdomain.ID,
+	poster recorddomain.Poster,
+) (recorddomain.PosterURL, error) {
+	u.uploadedUserID = userID
+	u.uploadedPoster = poster
+
+	return u.posterURL, u.err
 }
 
 const validBody = `{

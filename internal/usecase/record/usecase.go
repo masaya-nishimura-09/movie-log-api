@@ -28,14 +28,26 @@ type Usecase interface {
 		r record.Record,
 	) (*record.Record, error)
 	DeleteRecord(ctx context.Context, userID user.ID, recordID record.ID) error
+	UploadPoster(
+		ctx context.Context,
+		userID user.ID,
+		poster record.Poster,
+	) (record.PosterURL, error)
 }
 
 type RecordUsecase struct {
-	recordRepo record.RecordRepository
+	recordRepo    record.RecordRepository
+	posterService record.PosterService
 }
 
-func NewRecordUsecase(recordRepo record.RecordRepository) *RecordUsecase {
-	return &RecordUsecase{recordRepo: recordRepo}
+func NewRecordUsecase(
+	recordRepo record.RecordRepository,
+	posterService record.PosterService,
+) *RecordUsecase {
+	return &RecordUsecase{
+		recordRepo:    recordRepo,
+		posterService: posterService,
+	}
 }
 
 func (ru *RecordUsecase) GetByID(
@@ -87,11 +99,26 @@ func (ru *RecordUsecase) UpdateRecord(
 	recordID record.ID,
 	r record.Record,
 ) (*record.Record, error) {
+	current, err := ru.recordRepo.GetByID(ctx, recordID)
+	if err != nil {
+		return nil, fmt.Errorf("get record by id: %w", err)
+	}
+
+	if current.UserID != userID {
+		return nil, exception.ErrNotFound
+	}
+
 	r.ID = recordID
 	r.UserID = userID
 
 	if err := ru.recordRepo.Update(ctx, &r); err != nil {
 		return nil, fmt.Errorf("update record: %w", err)
+	}
+
+	if current.PosterURL != r.PosterURL {
+		if err := ru.posterService.Delete(ctx, userID, current.PosterURL); err != nil {
+			return nil, fmt.Errorf("delete poster: %w", err)
+		}
 	}
 
 	return &r, nil
@@ -115,5 +142,22 @@ func (ru *RecordUsecase) DeleteRecord(
 		return fmt.Errorf("delete record: %w", err)
 	}
 
+	if err := ru.posterService.Delete(ctx, userID, r.PosterURL); err != nil {
+		return fmt.Errorf("delete poster: %w", err)
+	}
+
 	return nil
+}
+
+func (ru *RecordUsecase) UploadPoster(
+	ctx context.Context,
+	userID user.ID,
+	poster record.Poster,
+) (record.PosterURL, error) {
+	posterURL, err := ru.posterService.Upload(ctx, userID, poster)
+	if err != nil {
+		return "", fmt.Errorf("upload poster: %w", err)
+	}
+
+	return posterURL, nil
 }
