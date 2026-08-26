@@ -2,6 +2,7 @@ package record
 
 import (
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -166,6 +167,15 @@ func toResponse(r *recorddomain.Record) gin.H {
 		"mood_tags":    moodTags,
 		"memo":         string(r.Memo),
 	}
+}
+
+func toPoster(data []byte) (recorddomain.Poster, error) {
+	posterData, err := recorddomain.NewPosterData(data)
+	if err != nil {
+		return recorddomain.Poster{}, err
+	}
+
+	return recorddomain.NewPoster(posterData)
 }
 
 type RecordHandler struct {
@@ -350,4 +360,54 @@ func (rh *RecordHandler) DeleteRecord(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (rh *RecordHandler) UploadPoster(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	fileHeader, err := c.FormFile("poster")
+	if err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, recorddomain.PosterMaxBytes+1))
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	poster, err := toPoster(data)
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	posterURL, err := rh.recordUsecase.UploadPoster(ctx, authUserID, poster)
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"poster_url": string(posterURL)})
 }

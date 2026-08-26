@@ -123,6 +123,7 @@ func main() {
 	records.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		records.POST("/", recordHandler.CreateRecord)
+		records.POST("/posters", recordHandler.UploadPoster)
 		records.GET("/", recordHandler.ListRecords)
 		records.GET("/:id", recordHandler.GetRecord)
 		records.PUT("/:id", recordHandler.UpdateRecord)

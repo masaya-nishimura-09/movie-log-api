@@ -9,12 +9,14 @@ import (
 
 type PosterData []byte
 
+const PosterMaxBytes = 5 * 1024 * 1024
+
 func NewPosterData(value []byte) (PosterData, error) {
 	if len(value) == 0 {
 		return nil, fmt.Errorf("%w: poster is required", exception.ErrInvalid)
 	}
 
-	if len(value) > 5*1024*1024 {
+	if len(value) > PosterMaxBytes {
 		return nil, fmt.Errorf("%w: poster must be at most 5 megabytes", exception.ErrInvalid)
 	}
 

@@ -135,7 +135,7 @@
 
 ### 決定事項:API
 
-- パスは`POST /records/images`
+- パスは`POST /records/posters`
 - 認証は必須。既存の`/records`グループに入れるので`middleware.JWTAuth`がそのまま効く
 - エラーコードは既存の9種類から増やさない。対応外の形式もサイズ超過も`INVALID_INPUT`で返し、理由は`message`に入れる
 - 理由:フロントはエラーの`code`で分岐せず、`message`を入力欄の下に表示するだけのため。増やすとフロントのユニオン型と辞書の両方を直すことになる
