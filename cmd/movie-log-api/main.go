@@ -47,6 +47,21 @@ func main() {
 		log.Fatal(err)
 	}
 
+	s3Client, err := config.NewS3Client()
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	s3Bucket, err := config.S3Bucket()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	s3PublicBaseURL, err := config.S3PublicBaseURL()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	rate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  5,
@@ -62,6 +77,11 @@ func main() {
 	refreshTokenRepo := authinfra.NewRefreshTokenRepo(db, refreshTokenTTL)
 	userRepo := userinfra.NewUserRepo(db)
 	recordRepo := recordinfra.NewRecordRepo(db)
+	posterService := recordinfra.NewPosterService(
+		s3Client,
+		s3Bucket,
+		s3PublicBaseURL,
+	)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -70,7 +90,7 @@ func main() {
 		refreshTokenRepo,
 	)
 	userUsecase := userusecase.NewUserUsecase(userRepo, refreshTokenRepo)
-	recordUsecase := recordusecase.NewRecordUsecase(recordRepo)
+	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, posterService)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
@@ -103,6 +123,7 @@ func main() {
 	records.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		records.POST("/", recordHandler.CreateRecord)
+		records.POST("/posters", recordHandler.UploadPoster)
 		records.GET("/", recordHandler.ListRecords)
 		records.GET("/:id", recordHandler.GetRecord)
 		records.PUT("/:id", recordHandler.UpdateRecord)

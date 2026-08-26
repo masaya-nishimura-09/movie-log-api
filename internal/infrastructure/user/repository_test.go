@@ -3,34 +3,20 @@ package user
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/testutil"
-	"gorm.io/gorm"
 )
-
-var testDB *gorm.DB
-
-func TestMain(m *testing.M) {
-	testDB = testutil.NewTestDB()
-	code := m.Run()
-	os.Exit(code)
-}
-
-func newTestRepo(t *testing.T) user.UserRepository {
-	t.Helper()
-	return NewUserRepo(testutil.BeginTx(t, testDB))
-}
 
 func TestGetByID(t *testing.T) {
 	t.Run(
 		"returns the user when the ID exists",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -70,7 +56,8 @@ func TestGetByID(t *testing.T) {
 	t.Run(
 		"returns ErrNotFound when the ID does not exist",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 			fakeID := user.ID(999999)
@@ -94,7 +81,8 @@ func TestGetByID(t *testing.T) {
 	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -122,7 +110,8 @@ func TestGetByEmail(t *testing.T) {
 	t.Run(
 		"returns the user when the email exists",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -162,7 +151,8 @@ func TestGetByEmail(t *testing.T) {
 	t.Run(
 		"returns ErrNotFound when the email does not exist",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 			fakeEmail := user.Email("fake@example.com")
@@ -186,7 +176,8 @@ func TestGetByEmail(t *testing.T) {
 	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -214,7 +205,8 @@ func TestCreate(t *testing.T) {
 	t.Run(
 		"persists the user when a valid user is given",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -269,7 +261,8 @@ func TestCreate(t *testing.T) {
 	t.Run(
 		"returns ErrAlreadyExists when the user already exists",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 
@@ -304,7 +297,8 @@ func TestCreate(t *testing.T) {
 	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -331,7 +325,8 @@ func TestUpdate(t *testing.T) {
 	t.Run(
 		"updates the user when a valid user is given",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 
@@ -402,7 +397,8 @@ func TestUpdate(t *testing.T) {
 	t.Run(
 		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 
@@ -425,7 +421,8 @@ func TestUpdate(t *testing.T) {
 	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -452,7 +449,8 @@ func TestDelete(t *testing.T) {
 	t.Run(
 		"deletes the user when a valid ID is given",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 
@@ -489,7 +487,8 @@ func TestDelete(t *testing.T) {
 	t.Run(
 		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx := context.Background()
 
@@ -506,7 +505,8 @@ func TestDelete(t *testing.T) {
 	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
-			ur := newTestRepo(t)
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()

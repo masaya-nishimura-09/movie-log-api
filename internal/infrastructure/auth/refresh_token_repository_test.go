@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -16,14 +15,6 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/testutil"
 	"gorm.io/gorm"
 )
-
-var testDB *gorm.DB
-
-func TestMain(m *testing.M) {
-	testDB = testutil.NewTestDB()
-	code := m.Run()
-	os.Exit(code)
-}
 
 func newTestUser(t *testing.T, tx *gorm.DB, email string) user.User {
 	t.Helper()

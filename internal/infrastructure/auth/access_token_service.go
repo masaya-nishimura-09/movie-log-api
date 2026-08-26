@@ -26,12 +26,12 @@ type claims struct {
 	jwt.RegisteredClaims
 }
 
-func (r *accessTokenService) Generate(
+func (ats *accessTokenService) Generate(
 	ctx context.Context,
 	principal *auth.Principal,
 ) (*auth.AccessToken, error) {
 	now := time.Now()
-	expiresAt := now.Add(r.ttl)
+	expiresAt := now.Add(ats.ttl)
 	c := claims{
 		UserID: principal.UserID,
 		Role:   principal.Role,
@@ -41,7 +41,7 @@ func (r *accessTokenService) Generate(
 		},
 	}
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
-	tokenStr, err := t.SignedString(r.secret)
+	tokenStr, err := t.SignedString(ats.secret)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
@@ -53,7 +53,7 @@ func (r *accessTokenService) Generate(
 	return &accessToken, nil
 }
 
-func (r *accessTokenService) Validate(
+func (ats *accessTokenService) Validate(
 	ctx context.Context,
 	accessToken *auth.AccessToken,
 ) (
@@ -64,7 +64,7 @@ func (r *accessTokenService) Validate(
 		string(accessToken.Value),
 		&claims{},
 		func(t *jwt.Token) (any, error) {
-			return r.secret, nil
+			return ats.secret, nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)

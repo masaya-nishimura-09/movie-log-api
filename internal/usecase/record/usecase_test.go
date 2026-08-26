@@ -46,6 +46,31 @@ func (r *fakeRepository) Delete(ctx context.Context, recordID record.ID) error {
 	return nil
 }
 
+type fakePosterService struct {
+	uploadedPoster record.Poster
+	uploadedURL    record.PosterURL
+	deletedURL     record.PosterURL
+	err            error
+}
+
+func (r *fakePosterService) Upload(
+	ctx context.Context,
+	userID user.ID,
+	poster record.Poster,
+) (record.PosterURL, error) {
+	r.uploadedPoster = poster
+	return r.uploadedURL, r.err
+}
+
+func (r *fakePosterService) Delete(
+	ctx context.Context,
+	userID user.ID,
+	url record.PosterURL,
+) error {
+	r.deletedURL = url
+	return r.err
+}
+
 func TestGetByID(t *testing.T) {
 	userID := user.ID(1)
 	recordID := record.ID(10)
@@ -56,7 +81,8 @@ func TestGetByID(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			ru := NewRecordUsecase(repo)
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
 
@@ -82,7 +108,8 @@ func TestGetByID(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
-			ru := NewRecordUsecase(repo)
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
 
@@ -108,7 +135,8 @@ func TestCreateRecord(t *testing.T) {
 		"overwrites the user id with the given user id",
 		func(t *testing.T) {
 			repo := &fakeRepository{}
-			ru := NewRecordUsecase(repo)
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
 			userID := user.ID(1)
@@ -138,15 +166,19 @@ func TestCreateRecord(t *testing.T) {
 }
 
 func TestUpdateRecord(t *testing.T) {
+	userID := user.ID(1)
+	recordID := record.ID(10)
+
 	t.Run(
 		"overwrites the record id and the user id with the given ids",
 		func(t *testing.T) {
-			repo := &fakeRepository{}
-			ru := NewRecordUsecase(repo)
+			repo := &fakeRepository{
+				record: &record.Record{ID: recordID, UserID: userID},
+			}
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
-			userID := user.ID(1)
-			recordID := record.ID(10)
 			rec := record.Record{ID: record.ID(99), UserID: user.ID(2)}
 
 			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
@@ -171,6 +203,74 @@ func TestUpdateRecord(t *testing.T) {
 			}
 		},
 	)
+
+	t.Run(
+		"deletes the old poster when the poster url changes",
+		func(t *testing.T) {
+			oldPosterURL := record.PosterURL("https://example.com/1/old.jpg")
+			repo := &fakeRepository{
+				record: &record.Record{
+					ID:        recordID,
+					UserID:    userID,
+					PosterURL: oldPosterURL,
+				},
+			}
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
+
+			ctx := context.Background()
+			rec := record.Record{
+				PosterURL: record.PosterURL("https://example.com/1/new.jpg"),
+			}
+
+			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
+			if err != nil {
+				t.Fatalf(
+					"UpdateRecord(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					userID, recordID, rec, got, err,
+				)
+			}
+			if posterService.deletedURL != oldPosterURL {
+				t.Errorf(
+					"UpdateRecord(ctx, %v, %v, %v) deletes poster %v, want %v",
+					userID, recordID, rec, posterService.deletedURL, oldPosterURL,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"does not delete the poster when the poster url does not change",
+		func(t *testing.T) {
+			posterURL := record.PosterURL("https://example.com/1/poster.jpg")
+			repo := &fakeRepository{
+				record: &record.Record{
+					ID:        recordID,
+					UserID:    userID,
+					PosterURL: posterURL,
+				},
+			}
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
+
+			ctx := context.Background()
+			rec := record.Record{PosterURL: posterURL}
+
+			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
+			if err != nil {
+				t.Fatalf(
+					"UpdateRecord(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					userID, recordID, rec, got, err,
+				)
+			}
+			if posterService.deletedURL != "" {
+				t.Errorf(
+					"UpdateRecord(ctx, %v, %v, %v) deletes poster %v, want no deletion",
+					userID, recordID, rec, posterService.deletedURL,
+				)
+			}
+		},
+	)
 }
 
 func TestDeleteRecord(t *testing.T) {
@@ -183,7 +283,8 @@ func TestDeleteRecord(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			ru := NewRecordUsecase(repo)
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
 
@@ -208,7 +309,8 @@ func TestDeleteRecord(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
-			ru := NewRecordUsecase(repo)
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
 
 			ctx := context.Background()
 
@@ -223,6 +325,92 @@ func TestDeleteRecord(t *testing.T) {
 				t.Errorf(
 					"DeleteRecord(ctx, %v, %v) deletes record %v, want no deletion",
 					userID, recordID, repo.deletedID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"deletes the poster of the record",
+		func(t *testing.T) {
+			posterURL := record.PosterURL("https://example.com/1/poster.jpg")
+			repo := &fakeRepository{
+				record: &record.Record{
+					ID:        recordID,
+					UserID:    userID,
+					PosterURL: posterURL,
+				},
+			}
+			posterService := &fakePosterService{}
+			ru := NewRecordUsecase(repo, posterService)
+
+			ctx := context.Background()
+
+			if err := ru.DeleteRecord(ctx, userID, recordID); err != nil {
+				t.Fatalf(
+					"DeleteRecord(ctx, %v, %v) error = %v",
+					userID, recordID, err,
+				)
+			}
+			if posterService.deletedURL != posterURL {
+				t.Errorf(
+					"DeleteRecord(ctx, %v, %v) deletes poster %v, want %v",
+					userID, recordID, posterService.deletedURL, posterURL,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns an error when deleting the poster fails",
+		func(t *testing.T) {
+			repo := &fakeRepository{
+				record: &record.Record{ID: recordID, UserID: userID},
+			}
+			posterService := &fakePosterService{
+				err: errors.New("delete poster"),
+			}
+			ru := NewRecordUsecase(repo, posterService)
+
+			ctx := context.Background()
+
+			if err := ru.DeleteRecord(ctx, userID, recordID); err == nil {
+				t.Fatalf(
+					"DeleteRecord(ctx, %v, %v) error = nil, want an error",
+					userID, recordID,
+				)
+			}
+		},
+	)
+}
+
+func TestUploadPoster(t *testing.T) {
+	t.Run(
+		"returns the url of the uploaded poster",
+		func(t *testing.T) {
+			posterURL := record.PosterURL("https://example.com/1/poster.jpg")
+			repo := &fakeRepository{}
+			posterService := &fakePosterService{uploadedURL: posterURL}
+			ru := NewRecordUsecase(repo, posterService)
+
+			ctx := context.Background()
+			userID := user.ID(1)
+			poster := record.Poster{
+				Data:        record.PosterData("poster"),
+				ContentType: record.PosterContentTypeJPEG,
+			}
+
+			got, err := ru.UploadPoster(ctx, userID, poster)
+			if err != nil {
+				t.Fatalf(
+					"UploadPoster(ctx, %v, %v) (record.PosterURL, error) = %v, %v",
+					userID, poster, got, err,
+				)
+			}
+			if got != posterURL {
+				t.Errorf(
+					"UploadPoster(ctx, %v, %v) = %v, want %v",
+					userID, poster, got, posterURL,
 				)
 			}
 		},

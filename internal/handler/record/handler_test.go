@@ -1,8 +1,10 @@
 package record
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,6 +27,9 @@ type fakeUsecase struct {
 	updatedRecord   recorddomain.Record
 	deletedUserID   userdomain.ID
 	deletedRecordID recorddomain.ID
+	uploadedUserID  userdomain.ID
+	uploadedPoster  recorddomain.Poster
+	posterURL       recorddomain.PosterURL
 	err             error
 }
 
@@ -78,6 +83,17 @@ func (u *fakeUsecase) DeleteRecord(
 	return u.err
 }
 
+func (u *fakeUsecase) UploadPoster(
+	ctx context.Context,
+	userID userdomain.ID,
+	poster recorddomain.Poster,
+) (recorddomain.PosterURL, error) {
+	u.uploadedUserID = userID
+	u.uploadedPoster = poster
+
+	return u.posterURL, u.err
+}
+
 const validBody = `{
 	"title":"Test Movie",
 	"release_year":2020,
@@ -124,6 +140,27 @@ func newTestRecord() recorddomain.Record {
 		MoodTags:  []recorddomain.MoodTag{recorddomain.MoodTagMoving},
 		Memo:      recorddomain.Memo("test memo"),
 	}
+}
+
+func newTestPosterRequest(t *testing.T, field string, data []byte) *http.Request {
+	t.Helper()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(field, "poster.jpg")
+	if err != nil {
+		t.Fatalf("CreateFormFile(%q, %q) error = %v", field, "poster.jpg", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		t.Fatalf("Write(len=%d) error = %v", len(data), err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
 }
 
 func TestCreateRecord(t *testing.T) {
@@ -729,6 +766,197 @@ func TestDeleteRecord(t *testing.T) {
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"DeleteRecord(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+}
+
+func TestUploadPoster(t *testing.T) {
+	jpeg := []byte("\xFF\xD8\xFF")
+
+	t.Run(
+		"passes the converted poster to the usecase and returns 201 when the request is valid",
+		func(t *testing.T) {
+			userID := userdomain.ID(1)
+			posterURL := recorddomain.PosterURL("https://example.com/1/poster.jpg")
+			usecase := &fakeUsecase{posterURL: posterURL}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = newTestPosterRequest(t, "poster", jpeg)
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusCreated {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusCreated,
+				)
+			}
+			want := `{"poster_url":"https://example.com/1/poster.jpg"}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+
+			if usecase.uploadedUserID != userID {
+				t.Errorf(
+					"UploadPoster(c) usecase user id = %v, want %v",
+					usecase.uploadedUserID, userID,
+				)
+			}
+			if !bytes.Equal(usecase.uploadedPoster.Data, jpeg) ||
+				usecase.uploadedPoster.ContentType != recorddomain.PosterContentTypeJPEG {
+				t.Errorf(
+					"UploadPoster(c) usecase poster = %v, want %v with %v",
+					usecase.uploadedPoster, jpeg, recorddomain.PosterContentTypeJPEG,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the request has no poster file",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = newTestPosterRequest(t, "image", jpeg)
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT","message":"malformed request body"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the file is not a supported image",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = newTestPosterRequest(t, "poster", []byte("not an image"))
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"message":"invalid: invalid poster content type"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the file is larger than 5 megabytes",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			data := append(
+				[]byte("\xFF\xD8\xFF"),
+				make([]byte, recorddomain.PosterMaxBytes)...,
+			)
+			c.Request = newTestPosterRequest(t, "poster", data)
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"message":"invalid: poster must be at most 5 megabytes"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("upload poster")}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = newTestPosterRequest(t, "poster", jpeg)
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the authenticated user ID is missing from the context",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = newTestPosterRequest(t, "poster", jpeg)
+
+			recordHandler.UploadPoster(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"UploadPoster(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"UploadPoster(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
