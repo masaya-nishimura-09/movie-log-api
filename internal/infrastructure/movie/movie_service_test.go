@@ -475,10 +475,10 @@ func TestSearchByTitle(t *testing.T) {
 			displayLanguage := movie.DisplayLanguage("en")
 
 			got, err := ms.SearchByTitle(ctx, title, page, displayLanguage)
-			if err == nil {
+			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
-					"SearchByTitle(ctx, %v, %d, %v) = %v, want %v",
-					title, page, displayLanguage, got, context.Canceled,
+					"SearchByTitle(ctx, %v, %d, %v) = %v, %v, want %v",
+					title, page, displayLanguage, got, err, context.Canceled,
 				)
 			}
 			if got != nil {
