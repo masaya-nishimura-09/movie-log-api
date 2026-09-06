@@ -158,7 +158,7 @@ func (ms *movieService) GetByID(
 		ctx, fmt.Sprintf("/movie/%d", movieID), query,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("get movie by id: %w", err)
+		return nil, fmt.Errorf("request TMDB movie detail: %w", err)
 	}
 
 	if err := json.Unmarshal(body, &dto); err != nil {
@@ -183,7 +183,7 @@ func (ms *movieService) SearchByTitle(
 
 	body, err := ms.client.Get(ctx, "/search/movie", query)
 	if err != nil {
-		return nil, fmt.Errorf("search movies by title: %w", err)
+		return nil, fmt.Errorf("request TMDB search: %w", err)
 	}
 
 	if err := json.Unmarshal(body, &dto); err != nil {
