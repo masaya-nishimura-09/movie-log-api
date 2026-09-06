@@ -11,6 +11,7 @@ import (
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
+	movieinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/movie"
 	recordinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/record"
 	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
@@ -62,6 +63,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	tmdbAccessToken, err := config.TMDBAccessToken()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmdbEndpoint, err := config.TMDBEndpoint()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmdbPosterBaseURL, err := config.TMDBPosterBaseURL()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tmdbClient := movieinfra.NewTMDBClient(tmdbEndpoint, tmdbAccessToken)
+
 	rate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  5,
@@ -81,6 +99,10 @@ func main() {
 		s3Client,
 		s3Bucket,
 		s3PublicBaseURL,
+	)
+	movieService := movieinfra.NewMovieService(
+		tmdbClient,
+		tmdbPosterBaseURL,
 	)
 
 	// usecase
