@@ -147,12 +147,12 @@ func toReleaseYear(date string) *movie.ReleaseYear {
 func (ms *movieService) GetByID(
 	ctx context.Context,
 	movieID movie.ID,
-	language movie.DisplayLanguage,
+	displayLanguage movie.DisplayLanguage,
 ) (*movie.Movie, error) {
 	var dto movieDTO
 
 	query := url.Values{}
-	query.Set("language", string(language))
+	query.Set("language", string(displayLanguage))
 
 	body, err := ms.client.Get(
 		ctx, fmt.Sprintf("/movie/%d", movieID), query,
@@ -171,14 +171,14 @@ func (ms *movieService) SearchByTitle(
 	ctx context.Context,
 	title movie.Title,
 	page movie.Page,
-	language movie.DisplayLanguage,
+	displayLanguage movie.DisplayLanguage,
 ) (*movie.SearchResult, error) {
 	var dto searchMovieDTO
 
 	query := url.Values{}
 	query.Set("query", string(title))
 	query.Set("page", fmt.Sprintf("%d", page))
-	query.Set("language", string(language))
+	query.Set("language", string(displayLanguage))
 	query.Set("include_adult", "true")
 
 	body, err := ms.client.Get(ctx, "/search/movie", query)

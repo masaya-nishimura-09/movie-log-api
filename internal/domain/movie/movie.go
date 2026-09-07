@@ -19,5 +19,4 @@ type PosterURL string
 type ReleaseYear uint
 type Runtime uint
 type OriginalLanguage string
-type DisplayLanguage string
 type Country string
