@@ -36,9 +36,9 @@ func NewMovieUsecase(
 func (mu *MovieUsecase) GetByID(
 	ctx context.Context,
 	movieID movie.ID,
-	language movie.DisplayLanguage,
+	displayLanguage movie.DisplayLanguage,
 ) (*movie.Movie, error) {
-	m, err := mu.movieService.GetByID(ctx, movieID, language)
+	m, err := mu.movieService.GetByID(ctx, movieID, displayLanguage)
 	if err != nil {
 		return nil, fmt.Errorf("get movie by id: %w", err)
 	}
@@ -50,9 +50,9 @@ func (mu *MovieUsecase) SearchByTitle(
 	ctx context.Context,
 	title movie.Title,
 	page movie.Page,
-	language movie.DisplayLanguage,
+	displayLanguage movie.DisplayLanguage,
 ) (*movie.SearchResult, error) {
-	sr, err := mu.movieService.SearchByTitle(ctx, title, page, language)
+	sr, err := mu.movieService.SearchByTitle(ctx, title, page, displayLanguage)
 	if err != nil {
 		return nil, fmt.Errorf("search movies by title: %w", err)
 	}
