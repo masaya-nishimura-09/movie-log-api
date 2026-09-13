@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
+	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
@@ -16,6 +17,7 @@ import (
 	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	movieusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/movie"
 	recordusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/record"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 	"github.com/ulule/limiter/v3"
@@ -113,11 +115,13 @@ func main() {
 	)
 	userUsecase := userusecase.NewUserUsecase(userRepo, refreshTokenRepo)
 	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, posterService)
+	movieUsecase := movieusecase.NewMovieUsecase(movieService)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
 	userHandler := userhandler.NewUserHandler(userUsecase)
 	recordHandler := recordhandler.NewRecordHandler(recordUsecase)
+	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 
 	// routing
 	router := gin.Default()
@@ -152,5 +156,11 @@ func main() {
 		records.DELETE("/:id", recordHandler.DeleteRecord)
 	}
 
+	movies := router.Group("/movies")
+	movies.Use(middleware.JWTAuth(authUsecase, userUsecase))
+	{
+		movies.GET("/:id", movieHandler.GetByID)
+		movies.GET("/search", movieHandler.SearchByTitle)
+	}
 	router.Run("0.0.0.0:8080")
 }

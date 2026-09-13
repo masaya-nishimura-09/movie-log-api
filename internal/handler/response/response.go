@@ -62,6 +62,13 @@ func RecordNotFound(c *gin.Context) {
 	})
 }
 
+func MovieNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, gin.H{
+		"code":    "MOVIE_NOT_FOUND",
+		"message": "movie not found",
+	})
+}
+
 func UserAlreadyExists(c *gin.Context) {
 	c.JSON(http.StatusConflict, gin.H{
 		"code":    "USER_ALREADY_EXISTS",
