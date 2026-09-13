@@ -11,20 +11,20 @@ import (
 
 type Usecase interface {
 	GetByID(ctx context.Context, userID user.ID) (*user.User, error)
-	Register(
+	Create(
 		ctx context.Context,
 		username user.Username,
 		email user.Email,
 		password user.Password,
 	) (*user.User, error)
-	UpdateUser(
+	Update(
 		ctx context.Context,
 		userID user.ID,
 		username user.Username,
 		email user.Email,
 		password user.Password,
 	) (*user.User, error)
-	DeleteUser(ctx context.Context, userID user.ID) error
+	Delete(ctx context.Context, userID user.ID) error
 }
 
 type UserUsecase struct {
@@ -54,7 +54,7 @@ func (uu *UserUsecase) GetByID(
 	return u, nil
 }
 
-func (uu *UserUsecase) Register(
+func (uu *UserUsecase) Create(
 	ctx context.Context,
 	username user.Username,
 	email user.Email,
@@ -79,7 +79,7 @@ func (uu *UserUsecase) Register(
 	return &u, nil
 }
 
-func (uu *UserUsecase) UpdateUser(
+func (uu *UserUsecase) Update(
 	ctx context.Context,
 	userID user.ID,
 	username user.Username,
@@ -122,7 +122,7 @@ func (uu *UserUsecase) UpdateUser(
 	return &u, nil
 }
 
-func (uu *UserUsecase) DeleteUser(ctx context.Context, userID user.ID) error {
+func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
