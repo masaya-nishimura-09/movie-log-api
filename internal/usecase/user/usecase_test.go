@@ -87,7 +87,7 @@ func hashPassword(t *testing.T, password user.Password) user.HashedPassword {
 	return user.HashedPassword(hashed)
 }
 
-func TestRegister(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Run(
 		"hashes the password and sets the role to user",
 		func(t *testing.T) {
@@ -99,10 +99,10 @@ func TestRegister(t *testing.T) {
 			email := user.Email("test@example.com")
 			password := user.Password("testpassword")
 
-			got, err := uu.Register(ctx, username, email, password)
+			got, err := uu.Create(ctx, username, email, password)
 			if err != nil {
 				t.Fatalf(
-					"Register(ctx, %v, %v, %v) (*user.User, error) = %v, %v",
+					"Create(ctx, %v, %v, %v) (*user.User, error) = %v, %v",
 					username, email, password, got, err,
 				)
 			}
@@ -112,14 +112,14 @@ func TestRegister(t *testing.T) {
 				[]byte(password),
 			); err != nil {
 				t.Errorf(
-					"Register(ctx, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
+					"Create(ctx, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
 					username, email, password, got.HashedPassword, password,
 				)
 			}
 
 			if got.Role != user.RoleUser {
 				t.Errorf(
-					"Register(ctx, %v, %v, %v) Role = %v, want %v",
+					"Create(ctx, %v, %v, %v) Role = %v, want %v",
 					username, email, password, got.Role, user.RoleUser,
 				)
 			}
@@ -127,7 +127,7 @@ func TestRegister(t *testing.T) {
 	)
 }
 
-func TestUpdateUser(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	userID := user.ID(1)
 	username := user.Username("Test")
 	email := user.Email("test@example.com")
@@ -146,10 +146,10 @@ func TestUpdateUser(t *testing.T) {
 
 			ctx := context.Background()
 
-			got, err := uu.UpdateUser(ctx, userID, username, email, password)
+			got, err := uu.Update(ctx, userID, username, email, password)
 			if err != nil {
 				t.Fatalf(
-					"UpdateUser(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
+					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
 					userID, username, email, password, got, err,
 				)
 			}
@@ -159,7 +159,7 @@ func TestUpdateUser(t *testing.T) {
 				[]byte(password),
 			); err != nil {
 				t.Errorf(
-					"UpdateUser(ctx, %v, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
+					"Update(ctx, %v, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
 					userID, username, email, password, got.HashedPassword, password,
 				)
 			}
@@ -181,17 +181,17 @@ func TestUpdateUser(t *testing.T) {
 
 			ctx := context.Background()
 
-			got, err := uu.UpdateUser(ctx, userID, username, email, password)
+			got, err := uu.Update(ctx, userID, username, email, password)
 			if err != nil {
 				t.Fatalf(
-					"UpdateUser(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
+					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
 					userID, username, email, password, got, err,
 				)
 			}
 
 			if refreshTokenRepo.revokedUserID != userID {
 				t.Errorf(
-					"UpdateUser(ctx, %v, %v, %v, %v) revoked user id = %v, want %v",
+					"Update(ctx, %v, %v, %v, %v) revoked user id = %v, want %v",
 					userID, username, email, password,
 					refreshTokenRepo.revokedUserID, userID,
 				)
@@ -214,17 +214,17 @@ func TestUpdateUser(t *testing.T) {
 
 			ctx := context.Background()
 
-			got, err := uu.UpdateUser(ctx, userID, username, email, password)
+			got, err := uu.Update(ctx, userID, username, email, password)
 			if err != nil {
 				t.Fatalf(
-					"UpdateUser(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
+					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
 					userID, username, email, password, got, err,
 				)
 			}
 
 			if refreshTokenRepo.revokedUserID != 0 {
 				t.Errorf(
-					"UpdateUser(ctx, %v, %v, %v, %v) revoked user id = %v, want no revocation",
+					"Update(ctx, %v, %v, %v, %v) revoked user id = %v, want no revocation",
 					userID, username, email, password,
 					refreshTokenRepo.revokedUserID,
 				)

@@ -33,7 +33,7 @@ func (u *fakeUsecase) GetByID(
 	return nil, nil
 }
 
-func (u *fakeUsecase) Register(
+func (u *fakeUsecase) Create(
 	ctx context.Context,
 	username user.Username,
 	email user.Email,
@@ -46,7 +46,7 @@ func (u *fakeUsecase) Register(
 	return u.user, u.err
 }
 
-func (u *fakeUsecase) UpdateUser(
+func (u *fakeUsecase) Update(
 	ctx context.Context,
 	userID user.ID,
 	username user.Username,
@@ -61,7 +61,7 @@ func (u *fakeUsecase) UpdateUser(
 	return u.user, u.err
 }
 
-func (u *fakeUsecase) DeleteUser(
+func (u *fakeUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
 ) error {
@@ -69,7 +69,7 @@ func (u *fakeUsecase) DeleteUser(
 	return u.err
 }
 
-func TestCreateUser(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Run(
 		"passes the converted values to the usecase and returns 201 when the request is valid",
 		func(t *testing.T) {
@@ -96,23 +96,23 @@ func TestCreateUser(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			userHandler.CreateUser(c)
+			userHandler.Create(c)
 			if rec.Code != http.StatusCreated {
 				t.Errorf(
-					"CreateUser(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusCreated,
 				)
 			}
 			want := `{"email":"test@example.com","user_id":"1","username":"Test"}`
 			if rec.Body.String() != want {
-				t.Errorf("CreateUser(c) body = %v, want %v", rec.Body.String(), want)
+				t.Errorf("Create(c) body = %v, want %v", rec.Body.String(), want)
 			}
 
 			if usecase.registeredUsername != username ||
 				usecase.registeredEmail != email ||
 				usecase.registeredPassword != password {
 				t.Errorf(
-					"CreateUser(c) usecase args = %v, %v, %v, want %v, %v, %v",
+					"Create(c) usecase args = %v, %v, %v, want %v, %v, %v",
 					usecase.registeredUsername,
 					usecase.registeredEmail,
 					usecase.registeredPassword,
@@ -139,17 +139,17 @@ func TestCreateUser(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			userHandler.CreateUser(c)
+			userHandler.Create(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"CreateUser(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateUser(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -173,17 +173,17 @@ func TestCreateUser(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			userHandler.CreateUser(c)
+			userHandler.Create(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"CreateUser(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateUser(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -207,17 +207,17 @@ func TestCreateUser(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			userHandler.CreateUser(c)
+			userHandler.Create(c)
 			if rec.Code != http.StatusConflict {
 				t.Errorf(
-					"CreateUser(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusConflict,
 				)
 			}
 			want := `"code":"USER_ALREADY_EXISTS"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateUser(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -241,17 +241,17 @@ func TestCreateUser(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			userHandler.CreateUser(c)
+			userHandler.Create(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"CreateUser(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateUser(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -259,7 +259,7 @@ func TestCreateUser(t *testing.T) {
 	)
 }
 
-func TestUpdateUser(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	t.Run(
 		"passes the converted values to the usecase and returns 200 when the request is valid",
 		func(t *testing.T) {
@@ -287,16 +287,16 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusOK {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
 				)
 			}
 			want := `{"email":"test@example.com","user_id":"1","username":"Test"}`
 			if rec.Body.String() != want {
-				t.Errorf("UpdateUser(c) body = %v, want %v", rec.Body.String(), want)
+				t.Errorf("Update(c) body = %v, want %v", rec.Body.String(), want)
 			}
 
 			if usecase.updatedUserID != userID ||
@@ -304,7 +304,7 @@ func TestUpdateUser(t *testing.T) {
 				usecase.updatedEmail != email ||
 				usecase.updatedPassword != password {
 				t.Errorf(
-					"UpdateUser(c) usecase args = %v, %v, %v, %v, want %v, %v, %v, %v",
+					"Update(c) usecase args = %v, %v, %v, %v, want %v, %v, %v, %v",
 					usecase.updatedUserID,
 					usecase.updatedUsername,
 					usecase.updatedEmail,
@@ -332,17 +332,17 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateUser(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -368,17 +368,17 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateUser(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -404,17 +404,17 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateUser(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -440,17 +440,17 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusNotFound {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusNotFound,
 				)
 			}
 			want := `"code":"USER_NOT_FOUND"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateUser(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -476,17 +476,17 @@ func TestUpdateUser(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(body),
 			)
 
-			userHandler.UpdateUser(c)
+			userHandler.Update(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"UpdateUser(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateUser(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -494,7 +494,7 @@ func TestUpdateUser(t *testing.T) {
 	)
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDelete(t *testing.T) {
 	t.Run(
 		"passes the authenticated user ID to the usecase and returns 204 when the request is valid",
 		func(t *testing.T) {
@@ -510,22 +510,22 @@ func TestDeleteUser(t *testing.T) {
 				http.MethodDelete, "/", nil,
 			)
 
-			userHandler.DeleteUser(c)
+			userHandler.Delete(c)
 			c.Writer.WriteHeaderNow()
 			if rec.Code != http.StatusNoContent {
 				t.Errorf(
-					"DeleteUser(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusNoContent,
 				)
 			}
 			want := ``
 			if rec.Body.String() != want {
-				t.Errorf("DeleteUser(c) body = %v, want %v", rec.Body.String(), want)
+				t.Errorf("Delete(c) body = %v, want %v", rec.Body.String(), want)
 			}
 
 			if usecase.deletedUserID != userID {
 				t.Errorf(
-					"DeleteUser(c) usecase args = %v, want %v",
+					"Delete(c) usecase args = %v, want %v",
 					usecase.deletedUserID,
 					userID,
 				)
@@ -545,17 +545,17 @@ func TestDeleteUser(t *testing.T) {
 				http.MethodDelete, "/", nil,
 			)
 
-			userHandler.DeleteUser(c)
+			userHandler.Delete(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"DeleteUser(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"DeleteUser(c) body = %v, want to contain %v",
+					"Delete(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -577,17 +577,17 @@ func TestDeleteUser(t *testing.T) {
 				http.MethodDelete, "/", nil,
 			)
 
-			userHandler.DeleteUser(c)
+			userHandler.Delete(c)
 			if rec.Code != http.StatusNotFound {
 				t.Errorf(
-					"DeleteUser(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusNotFound,
 				)
 			}
 			want := `"code":"USER_NOT_FOUND"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"DeleteUser(c) body = %v, want to contain %v",
+					"Delete(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -609,17 +609,17 @@ func TestDeleteUser(t *testing.T) {
 				http.MethodDelete, "/", nil,
 			)
 
-			userHandler.DeleteUser(c)
+			userHandler.Delete(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"DeleteUser(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"DeleteUser(c) body = %v, want to contain %v",
+					"Delete(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
