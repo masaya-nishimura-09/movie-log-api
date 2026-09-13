@@ -20,15 +20,15 @@ func newTestMovie() movie.Movie {
 	movie := movie.Movie{
 		ID:               movie.ID(1),
 		Title:            movie.Title("Test Movie"),
-		OriginalTitle:    movie.Title("Test Original Title"),
+		OriginalTitle:    movie.OriginalTitle("Test Original Title"),
 		Overview:         movie.Overview("Test Overview"),
 		Genres:           []movie.Genre{movie.GenreDrama, movie.GenreThriller},
 		PosterURL:        movie.PosterURL(posterBaseURL.JoinPath("/poster.jpg").String()),
 		ReleaseYear:      &releaseYear,
 		Runtime:          movie.Runtime(120),
 		OriginalLanguage: movie.OriginalLanguage("en"),
-		OriginCountry: []movie.Country{
-			movie.Country("US"), movie.Country("JP"),
+		OriginCountry: []movie.OriginCountry{
+			movie.OriginCountry("US"), movie.OriginCountry("JP"),
 		},
 	}
 
@@ -42,7 +42,7 @@ func newTestSearchResult() movie.SearchResult {
 	movie1 := movie.Movie{
 		ID:               movie.ID(1),
 		Title:            movie.Title("Test Movie"),
-		OriginalTitle:    movie.Title("Test Original Title"),
+		OriginalTitle:    movie.OriginalTitle("Test Original Title"),
 		Overview:         movie.Overview("Test Overview"),
 		PosterURL:        movie.PosterURL(posterBaseURL.JoinPath("/poster.jpg").String()),
 		ReleaseYear:      &releaseYear,
@@ -52,7 +52,7 @@ func newTestSearchResult() movie.SearchResult {
 	movie2 := movie.Movie{
 		ID:               movie.ID(2),
 		Title:            movie.Title("Test Movie 2"),
-		OriginalTitle:    movie.Title("Test Original Title 2"),
+		OriginalTitle:    movie.OriginalTitle("Test Original Title 2"),
 		Overview:         movie.Overview("Test Overview 2"),
 		PosterURL:        movie.PosterURL(posterBaseURL.JoinPath("/poster2.jpg").String()),
 		ReleaseYear:      &releaseYear2,
@@ -84,7 +84,7 @@ func equalReleaseYear(got, want *movie.ReleaseYear) bool {
 	return *got == *want
 }
 
-func equalOriginCountry(got, want []movie.Country) bool {
+func equalOriginCountry(got, want []movie.OriginCountry) bool {
 	g := slices.Clone(got)
 	w := slices.Clone(want)
 	slices.Sort(g)

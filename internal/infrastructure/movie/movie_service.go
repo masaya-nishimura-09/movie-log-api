@@ -85,15 +85,15 @@ func (ms *movieService) toMovie(dto *movieDTO) *movie.Movie {
 		}
 	}
 
-	var originCountry []movie.Country
+	var originCountry []movie.OriginCountry
 	for _, c := range dto.OriginCountry {
-		originCountry = append(originCountry, movie.Country(c))
+		originCountry = append(originCountry, movie.OriginCountry(c))
 	}
 
 	return &movie.Movie{
 		ID:               movie.ID(dto.ID),
 		Title:            movie.Title(dto.Title),
-		OriginalTitle:    movie.Title(dto.OriginalTitle),
+		OriginalTitle:    movie.OriginalTitle(dto.OriginalTitle),
 		Overview:         movie.Overview(dto.Overview),
 		Genres:           genres,
 		PosterURL:        ms.toPosterURL(dto.PosterPath),
@@ -110,7 +110,7 @@ func (ms *movieService) toSearchResult(dto *searchMovieDTO) *movie.SearchResult 
 		m := movie.Movie{
 			ID:               movie.ID(r.ID),
 			OriginalLanguage: movie.OriginalLanguage(r.OriginalLanguage),
-			OriginalTitle:    movie.Title(r.OriginalTitle),
+			OriginalTitle:    movie.OriginalTitle(r.OriginalTitle),
 			Title:            movie.Title(r.Title),
 			Overview:         movie.Overview(r.Overview),
 			PosterURL:        ms.toPosterURL(r.PosterPath),
