@@ -200,7 +200,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 func getRecordID(c *gin.Context) (recorddomain.ID, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.RecordNotFound(c)
+		response.InvalidInput(c, err)
 		return 0, false
 	}
 	return recorddomain.ID(id), true

@@ -362,7 +362,7 @@ func TestGetRecord(t *testing.T) {
 	)
 
 	t.Run(
-		"returns 404 when the path parameter is not a number",
+		"returns 400 when the path parameter is not a number",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{}
 			recordHandler := NewRecordHandler(usecase)
@@ -374,13 +374,13 @@ func TestGetRecord(t *testing.T) {
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
 			recordHandler.GetRecord(c)
-			if rec.Code != http.StatusNotFound {
+			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
 					"GetRecord(c) code = %v, want %v",
-					rec.Code, http.StatusNotFound,
+					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"RECORD_NOT_FOUND"`
+			want := `"code":"INVALID_INPUT"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"GetRecord(c) body = %v, want to contain %v",
