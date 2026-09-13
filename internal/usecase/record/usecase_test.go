@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/record"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
@@ -46,29 +47,26 @@ func (r *fakeRepository) Delete(ctx context.Context, recordID record.ID) error {
 	return nil
 }
 
-type fakePosterService struct {
-	uploadedPoster record.Poster
-	uploadedURL    record.PosterURL
-	deletedURL     record.PosterURL
-	err            error
+type fakeMediaService struct {
+	deletedURL media.URL
+	err        error
 }
 
-func (r *fakePosterService) Upload(
+func (s *fakeMediaService) Upload(
 	ctx context.Context,
 	userID user.ID,
-	poster record.Poster,
-) (record.PosterURL, error) {
-	r.uploadedPoster = poster
-	return r.uploadedURL, r.err
+	m media.Media,
+) (media.URL, error) {
+	return "", s.err
 }
 
-func (r *fakePosterService) Delete(
+func (s *fakeMediaService) Delete(
 	ctx context.Context,
 	userID user.ID,
-	url record.PosterURL,
+	url media.URL,
 ) error {
-	r.deletedURL = url
-	return r.err
+	s.deletedURL = url
+	return s.err
 }
 
 func TestGetByID(t *testing.T) {
@@ -81,8 +79,8 @@ func TestGetByID(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
@@ -108,8 +106,8 @@ func TestGetByID(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
@@ -130,34 +128,34 @@ func TestGetByID(t *testing.T) {
 	)
 }
 
-func TestCreateRecord(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Run(
 		"overwrites the user id with the given user id",
 		func(t *testing.T) {
 			repo := &fakeRepository{}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 			userID := user.ID(1)
 			rec := record.Record{UserID: user.ID(2)}
 
-			got, err := ru.CreateRecord(ctx, userID, rec)
+			got, err := ru.Create(ctx, userID, rec)
 			if err != nil {
 				t.Fatalf(
-					"CreateRecord(ctx, %v, %v) (*record.Record, error) = %v, %v",
+					"Create(ctx, %v, %v) (*record.Record, error) = %v, %v",
 					userID, rec, got, err,
 				)
 			}
 			if got.UserID != userID {
 				t.Errorf(
-					"CreateRecord(ctx, %v, %v) UserID = %v, want %v",
+					"Create(ctx, %v, %v) UserID = %v, want %v",
 					userID, rec, got.UserID, userID,
 				)
 			}
 			if repo.created.UserID != userID {
 				t.Errorf(
-					"CreateRecord(ctx, %v, %v) creates a record of user %v, want %v",
+					"Create(ctx, %v, %v) creates a record of user %v, want %v",
 					userID, rec, repo.created.UserID, userID,
 				)
 			}
@@ -165,7 +163,7 @@ func TestCreateRecord(t *testing.T) {
 	)
 }
 
-func TestUpdateRecord(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	userID := user.ID(1)
 	recordID := record.ID(10)
 
@@ -175,28 +173,28 @@ func TestUpdateRecord(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{ID: record.ID(99), UserID: user.ID(2)}
 
-			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
+			got, err := ru.Update(ctx, userID, recordID, rec)
 			if err != nil {
 				t.Fatalf(
-					"UpdateRecord(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					"Update(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
 					userID, recordID, rec, got, err,
 				)
 			}
 			if got.ID != recordID || got.UserID != userID {
 				t.Errorf(
-					"UpdateRecord(ctx, %v, %v, %v) ID = %v, UserID = %v, want %v, %v",
+					"Update(ctx, %v, %v, %v) ID = %v, UserID = %v, want %v, %v",
 					userID, recordID, rec, got.ID, got.UserID, recordID, userID,
 				)
 			}
 			if repo.updated.ID != recordID || repo.updated.UserID != userID {
 				t.Errorf(
-					"UpdateRecord(ctx, %v, %v, %v) updates ID = %v, UserID = %v, want %v, %v",
+					"Update(ctx, %v, %v, %v) updates ID = %v, UserID = %v, want %v, %v",
 					userID, recordID, rec,
 					repo.updated.ID, repo.updated.UserID, recordID, userID,
 				)
@@ -215,25 +213,25 @@ func TestUpdateRecord(t *testing.T) {
 					PosterURL: oldPosterURL,
 				},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{
 				PosterURL: record.PosterURL("https://example.com/1/new.jpg"),
 			}
 
-			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
+			got, err := ru.Update(ctx, userID, recordID, rec)
 			if err != nil {
 				t.Fatalf(
-					"UpdateRecord(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					"Update(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
 					userID, recordID, rec, got, err,
 				)
 			}
-			if posterService.deletedURL != oldPosterURL {
+			if mediaService.deletedURL != media.URL(oldPosterURL) {
 				t.Errorf(
-					"UpdateRecord(ctx, %v, %v, %v) deletes poster %v, want %v",
-					userID, recordID, rec, posterService.deletedURL, oldPosterURL,
+					"Update(ctx, %v, %v, %v) deletes media %v, want %v",
+					userID, recordID, rec, mediaService.deletedURL, oldPosterURL,
 				)
 			}
 		},
@@ -250,30 +248,30 @@ func TestUpdateRecord(t *testing.T) {
 					PosterURL: posterURL,
 				},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{PosterURL: posterURL}
 
-			got, err := ru.UpdateRecord(ctx, userID, recordID, rec)
+			got, err := ru.Update(ctx, userID, recordID, rec)
 			if err != nil {
 				t.Fatalf(
-					"UpdateRecord(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					"Update(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
 					userID, recordID, rec, got, err,
 				)
 			}
-			if posterService.deletedURL != "" {
+			if mediaService.deletedURL != "" {
 				t.Errorf(
-					"UpdateRecord(ctx, %v, %v, %v) deletes poster %v, want no deletion",
-					userID, recordID, rec, posterService.deletedURL,
+					"Update(ctx, %v, %v, %v) deletes poster %v, want no deletion",
+					userID, recordID, rec, mediaService.deletedURL,
 				)
 			}
 		},
 	)
 }
 
-func TestDeleteRecord(t *testing.T) {
+func TestDelete(t *testing.T) {
 	userID := user.ID(1)
 	recordID := record.ID(10)
 
@@ -283,20 +281,20 @@ func TestDeleteRecord(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
-			if err := ru.DeleteRecord(ctx, userID, recordID); err != nil {
+			if err := ru.Delete(ctx, userID, recordID); err != nil {
 				t.Fatalf(
-					"DeleteRecord(ctx, %v, %v) error = %v",
+					"Delete(ctx, %v, %v) error = %v",
 					userID, recordID, err,
 				)
 			}
 			if repo.deletedID != recordID {
 				t.Errorf(
-					"DeleteRecord(ctx, %v, %v) deletes record %v, want %v",
+					"Delete(ctx, %v, %v) deletes record %v, want %v",
 					userID, recordID, repo.deletedID, recordID,
 				)
 			}
@@ -309,21 +307,21 @@ func TestDeleteRecord(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
-			err := ru.DeleteRecord(ctx, userID, recordID)
+			err := ru.Delete(ctx, userID, recordID)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
-					"DeleteRecord(ctx, %v, %v) error = %v, want %v",
+					"Delete(ctx, %v, %v) error = %v, want %v",
 					userID, recordID, err, exception.ErrNotFound,
 				)
 			}
 			if repo.deletedID != 0 {
 				t.Errorf(
-					"DeleteRecord(ctx, %v, %v) deletes record %v, want no deletion",
+					"Delete(ctx, %v, %v) deletes record %v, want no deletion",
 					userID, recordID, repo.deletedID,
 				)
 			}
@@ -341,76 +339,43 @@ func TestDeleteRecord(t *testing.T) {
 					PosterURL: posterURL,
 				},
 			}
-			posterService := &fakePosterService{}
-			ru := NewRecordUsecase(repo, posterService)
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
-			if err := ru.DeleteRecord(ctx, userID, recordID); err != nil {
+			if err := ru.Delete(ctx, userID, recordID); err != nil {
 				t.Fatalf(
-					"DeleteRecord(ctx, %v, %v) error = %v",
+					"Delete(ctx, %v, %v) error = %v",
 					userID, recordID, err,
 				)
 			}
-			if posterService.deletedURL != posterURL {
+			if mediaService.deletedURL != media.URL(posterURL) {
 				t.Errorf(
-					"DeleteRecord(ctx, %v, %v) deletes poster %v, want %v",
-					userID, recordID, posterService.deletedURL, posterURL,
+					"Delete(ctx, %v, %v) deletes media %v, want %v",
+					userID, recordID, mediaService.deletedURL, posterURL,
 				)
 			}
 		},
 	)
 
 	t.Run(
-		"returns an error when deleting the poster fails",
+		"returns an error when deleting the media fails",
 		func(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
-			posterService := &fakePosterService{
-				err: errors.New("delete poster"),
+			mediaService := &fakeMediaService{
+				err: errors.New("delete media"),
 			}
-			ru := NewRecordUsecase(repo, posterService)
+			ru := NewRecordUsecase(repo, mediaService)
 
 			ctx := context.Background()
 
-			if err := ru.DeleteRecord(ctx, userID, recordID); err == nil {
+			if err := ru.Delete(ctx, userID, recordID); err == nil {
 				t.Fatalf(
-					"DeleteRecord(ctx, %v, %v) error = nil, want an error",
+					"Delete(ctx, %v, %v) error = nil, want an error",
 					userID, recordID,
-				)
-			}
-		},
-	)
-}
-
-func TestUploadPoster(t *testing.T) {
-	t.Run(
-		"returns the url of the uploaded poster",
-		func(t *testing.T) {
-			posterURL := record.PosterURL("https://example.com/1/poster.jpg")
-			repo := &fakeRepository{}
-			posterService := &fakePosterService{uploadedURL: posterURL}
-			ru := NewRecordUsecase(repo, posterService)
-
-			ctx := context.Background()
-			userID := user.ID(1)
-			poster := record.Poster{
-				Data:        record.PosterData("poster"),
-				ContentType: record.PosterContentTypeJPEG,
-			}
-
-			got, err := ru.UploadPoster(ctx, userID, poster)
-			if err != nil {
-				t.Fatalf(
-					"UploadPoster(ctx, %v, %v) (record.PosterURL, error) = %v, %v",
-					userID, poster, got, err,
-				)
-			}
-			if got != posterURL {
-				t.Errorf(
-					"UploadPoster(ctx, %v, %v) = %v, want %v",
-					userID, poster, got, posterURL,
 				)
 			}
 		},

@@ -2,7 +2,6 @@ package record
 
 import (
 	"errors"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -169,15 +168,6 @@ func toResponse(r *recorddomain.Record) gin.H {
 	}
 }
 
-func toPoster(data []byte) (recorddomain.Poster, error) {
-	posterData, err := recorddomain.NewPosterData(data)
-	if err != nil {
-		return recorddomain.Poster{}, err
-	}
-
-	return recorddomain.NewPoster(posterData)
-}
-
 type RecordHandler struct {
 	recordUsecase recordusecase.Usecase
 }
@@ -206,7 +196,7 @@ func getRecordID(c *gin.Context) (recorddomain.ID, bool) {
 	return recorddomain.ID(id), true
 }
 
-func (rh *RecordHandler) CreateRecord(c *gin.Context) {
+func (rh *RecordHandler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -231,7 +221,7 @@ func (rh *RecordHandler) CreateRecord(c *gin.Context) {
 		return
 	}
 
-	createdRecord, err := rh.recordUsecase.CreateRecord(ctx, authUserID, r)
+	createdRecord, err := rh.recordUsecase.Create(ctx, authUserID, r)
 	if err != nil {
 		log.Println(err)
 		response.InternalServerError(c)
@@ -241,7 +231,7 @@ func (rh *RecordHandler) CreateRecord(c *gin.Context) {
 	c.JSON(http.StatusCreated, toResponse(createdRecord))
 }
 
-func (rh *RecordHandler) GetRecord(c *gin.Context) {
+func (rh *RecordHandler) GetByID(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -268,7 +258,7 @@ func (rh *RecordHandler) GetRecord(c *gin.Context) {
 	c.JSON(http.StatusOK, toResponse(r))
 }
 
-func (rh *RecordHandler) ListRecords(c *gin.Context) {
+func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -291,7 +281,7 @@ func (rh *RecordHandler) ListRecords(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"records": responses})
 }
 
-func (rh *RecordHandler) UpdateRecord(c *gin.Context) {
+func (rh *RecordHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -321,7 +311,7 @@ func (rh *RecordHandler) UpdateRecord(c *gin.Context) {
 		return
 	}
 
-	updatedRecord, err := rh.recordUsecase.UpdateRecord(ctx, authUserID, recordID, r)
+	updatedRecord, err := rh.recordUsecase.Update(ctx, authUserID, recordID, r)
 	if errors.Is(err, exception.ErrNotFound) {
 		response.RecordNotFound(c)
 		return
@@ -335,7 +325,7 @@ func (rh *RecordHandler) UpdateRecord(c *gin.Context) {
 	c.JSON(http.StatusOK, toResponse(updatedRecord))
 }
 
-func (rh *RecordHandler) DeleteRecord(c *gin.Context) {
+func (rh *RecordHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -348,7 +338,7 @@ func (rh *RecordHandler) DeleteRecord(c *gin.Context) {
 		return
 	}
 
-	err := rh.recordUsecase.DeleteRecord(ctx, authUserID, recordID)
+	err := rh.recordUsecase.Delete(ctx, authUserID, recordID)
 	if errors.Is(err, exception.ErrNotFound) {
 		response.RecordNotFound(c)
 		return
@@ -360,54 +350,4 @@ func (rh *RecordHandler) DeleteRecord(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
-}
-
-func (rh *RecordHandler) UploadPoster(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	authUserID, ok := getUserID(c)
-	if !ok {
-		return
-	}
-
-	fileHeader, err := c.FormFile("poster")
-	if err != nil {
-		response.MalformedBody(c)
-		return
-	}
-
-	file, err := fileHeader.Open()
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(io.LimitReader(file, recorddomain.PosterMaxBytes+1))
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-
-	poster, err := toPoster(data)
-	if errors.Is(err, exception.ErrInvalid) {
-		response.InvalidInput(c, err)
-		return
-	}
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-
-	posterURL, err := rh.recordUsecase.UploadPoster(ctx, authUserID, poster)
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"poster_url": string(posterURL)})
 }

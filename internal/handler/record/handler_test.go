@@ -1,10 +1,8 @@
 package record
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,9 +25,6 @@ type fakeUsecase struct {
 	updatedRecord   recorddomain.Record
 	deletedUserID   userdomain.ID
 	deletedRecordID recorddomain.ID
-	uploadedUserID  userdomain.ID
-	uploadedPoster  recorddomain.Poster
-	posterURL       recorddomain.PosterURL
 	err             error
 }
 
@@ -48,7 +43,7 @@ func (u *fakeUsecase) ListByUserID(
 	return u.records, u.err
 }
 
-func (u *fakeUsecase) CreateRecord(
+func (u *fakeUsecase) Create(
 	ctx context.Context,
 	userID userdomain.ID,
 	r recorddomain.Record,
@@ -59,7 +54,7 @@ func (u *fakeUsecase) CreateRecord(
 	return u.record, u.err
 }
 
-func (u *fakeUsecase) UpdateRecord(
+func (u *fakeUsecase) Update(
 	ctx context.Context,
 	userID userdomain.ID,
 	recordID recorddomain.ID,
@@ -72,7 +67,7 @@ func (u *fakeUsecase) UpdateRecord(
 	return u.record, u.err
 }
 
-func (u *fakeUsecase) DeleteRecord(
+func (u *fakeUsecase) Delete(
 	ctx context.Context,
 	userID userdomain.ID,
 	recordID recorddomain.ID,
@@ -81,17 +76,6 @@ func (u *fakeUsecase) DeleteRecord(
 	u.deletedRecordID = recordID
 
 	return u.err
-}
-
-func (u *fakeUsecase) UploadPoster(
-	ctx context.Context,
-	userID userdomain.ID,
-	poster recorddomain.Poster,
-) (recorddomain.PosterURL, error) {
-	u.uploadedUserID = userID
-	u.uploadedPoster = poster
-
-	return u.posterURL, u.err
 }
 
 const validBody = `{
@@ -142,28 +126,7 @@ func newTestRecord() recorddomain.Record {
 	}
 }
 
-func newTestPosterRequest(t *testing.T, field string, data []byte) *http.Request {
-	t.Helper()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile(field, "poster.jpg")
-	if err != nil {
-		t.Fatalf("CreateFormFile(%q, %q) error = %v", field, "poster.jpg", err)
-	}
-	if _, err := part.Write(data); err != nil {
-		t.Fatalf("Write(len=%d) error = %v", len(data), err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	return req
-}
-
-func TestCreateRecord(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Run(
 		"passes the converted values to the usecase and returns 201 when the request is valid",
 		func(t *testing.T) {
@@ -179,23 +142,23 @@ func TestCreateRecord(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.CreateRecord(c)
+			recordHandler.Create(c)
 			if rec.Code != http.StatusCreated {
 				t.Errorf(
-					"CreateRecord(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusCreated,
 				)
 			}
 			if rec.Body.String() != wantBody {
 				t.Errorf(
-					"CreateRecord(c) body = %v, want %v",
+					"Create(c) body = %v, want %v",
 					rec.Body.String(), wantBody,
 				)
 			}
 
 			if usecase.createdUserID != userID {
 				t.Errorf(
-					"CreateRecord(c) usecase user id = %v, want %v",
+					"Create(c) usecase user id = %v, want %v",
 					usecase.createdUserID, userID,
 				)
 			}
@@ -203,7 +166,7 @@ func TestCreateRecord(t *testing.T) {
 				usecase.createdRecord.Platform != r.Platform ||
 				usecase.createdRecord.Score != r.Score {
 				t.Errorf(
-					"CreateRecord(c) usecase record = %v, want %v",
+					"Create(c) usecase record = %v, want %v",
 					usecase.createdRecord, r,
 				)
 			}
@@ -222,17 +185,17 @@ func TestCreateRecord(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.CreateRecord(c)
+			recordHandler.Create(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"CreateRecord(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateRecord(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -252,17 +215,17 @@ func TestCreateRecord(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(`{"title":"Test Movie",}`),
 			)
 
-			recordHandler.CreateRecord(c)
+			recordHandler.Create(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"CreateRecord(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateRecord(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -283,17 +246,17 @@ func TestCreateRecord(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(body),
 			)
 
-			recordHandler.CreateRecord(c)
+			recordHandler.Create(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"CreateRecord(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateRecord(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -313,17 +276,17 @@ func TestCreateRecord(t *testing.T) {
 				http.MethodPost, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.CreateRecord(c)
+			recordHandler.Create(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"CreateRecord(c) code = %v, want %v",
+					"Create(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"CreateRecord(c) body = %v, want to contain %v",
+					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -331,7 +294,7 @@ func TestCreateRecord(t *testing.T) {
 	)
 }
 
-func TestGetRecord(t *testing.T) {
+func TestGetByID(t *testing.T) {
 	t.Run(
 		"returns the record and 200 when the request is valid",
 		func(t *testing.T) {
@@ -345,16 +308,16 @@ func TestGetRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.GetRecord(c)
+			recordHandler.GetByID(c)
 			if rec.Code != http.StatusOK {
 				t.Errorf(
-					"GetRecord(c) code = %v, want %v",
+					"GetByID(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
 				)
 			}
 			if rec.Body.String() != wantBody {
 				t.Errorf(
-					"GetRecord(c) body = %v, want %v",
+					"GetByID(c) body = %v, want %v",
 					rec.Body.String(), wantBody,
 				)
 			}
@@ -373,17 +336,17 @@ func TestGetRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "invalid"}}
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.GetRecord(c)
+			recordHandler.GetByID(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"GetRecord(c) code = %v, want %v",
+					"GetByID(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"GetRecord(c) body = %v, want to contain %v",
+					"GetByID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -402,17 +365,17 @@ func TestGetRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.GetRecord(c)
+			recordHandler.GetByID(c)
 			if rec.Code != http.StatusNotFound {
 				t.Errorf(
-					"GetRecord(c) code = %v, want %v",
+					"GetByID(c) code = %v, want %v",
 					rec.Code, http.StatusNotFound,
 				)
 			}
 			want := `"code":"RECORD_NOT_FOUND"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"GetRecord(c) body = %v, want to contain %v",
+					"GetByID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -430,17 +393,17 @@ func TestGetRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.GetRecord(c)
+			recordHandler.GetByID(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"GetRecord(c) code = %v, want %v",
+					"GetByID(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"GetRecord(c) body = %v, want to contain %v",
+					"GetByID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -448,7 +411,7 @@ func TestGetRecord(t *testing.T) {
 	)
 }
 
-func TestListRecords(t *testing.T) {
+func TestListByUserID(t *testing.T) {
 	t.Run(
 		"returns the records of the authenticated user and 200",
 		func(t *testing.T) {
@@ -461,17 +424,17 @@ func TestListRecords(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.ListRecords(c)
+			recordHandler.ListByUserID(c)
 			if rec.Code != http.StatusOK {
 				t.Errorf(
-					"ListRecords(c) code = %v, want %v",
+					"ListByUserID(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
 				)
 			}
 			want := `{"records":[` + wantBody + `]}`
 			if rec.Body.String() != want {
 				t.Errorf(
-					"ListRecords(c) body = %v, want %v",
+					"ListByUserID(c) body = %v, want %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -489,17 +452,17 @@ func TestListRecords(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.ListRecords(c)
+			recordHandler.ListByUserID(c)
 			if rec.Code != http.StatusOK {
 				t.Errorf(
-					"ListRecords(c) code = %v, want %v",
+					"ListByUserID(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
 				)
 			}
 			want := `{"records":[]}`
 			if rec.Body.String() != want {
 				t.Errorf(
-					"ListRecords(c) body = %v, want %v",
+					"ListByUserID(c) body = %v, want %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -517,17 +480,17 @@ func TestListRecords(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 
-			recordHandler.ListRecords(c)
+			recordHandler.ListByUserID(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"ListRecords(c) code = %v, want %v",
+					"ListByUserID(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"ListRecords(c) body = %v, want to contain %v",
+					"ListByUserID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -535,7 +498,7 @@ func TestListRecords(t *testing.T) {
 	)
 }
 
-func TestUpdateRecord(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	t.Run(
 		"passes the converted values to the usecase and returns 200 when the request is valid",
 		func(t *testing.T) {
@@ -553,29 +516,29 @@ func TestUpdateRecord(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.UpdateRecord(c)
+			recordHandler.Update(c)
 			if rec.Code != http.StatusOK {
 				t.Errorf(
-					"UpdateRecord(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
 				)
 			}
 			if rec.Body.String() != wantBody {
 				t.Errorf(
-					"UpdateRecord(c) body = %v, want %v",
+					"Update(c) body = %v, want %v",
 					rec.Body.String(), wantBody,
 				)
 			}
 
 			if usecase.updatedUserID != userID || usecase.updatedRecordID != recordID {
 				t.Errorf(
-					"UpdateRecord(c) usecase args = %v, %v, want %v, %v",
+					"Update(c) usecase args = %v, %v, want %v, %v",
 					usecase.updatedUserID, usecase.updatedRecordID, userID, recordID,
 				)
 			}
 			if usecase.updatedRecord.Title != r.Title {
 				t.Errorf(
-					"UpdateRecord(c) usecase record = %v, want %v",
+					"Update(c) usecase record = %v, want %v",
 					usecase.updatedRecord, r,
 				)
 			}
@@ -596,17 +559,17 @@ func TestUpdateRecord(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.UpdateRecord(c)
+			recordHandler.Update(c)
 			if rec.Code != http.StatusNotFound {
 				t.Errorf(
-					"UpdateRecord(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusNotFound,
 				)
 			}
 			want := `"code":"RECORD_NOT_FOUND"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateRecord(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -627,17 +590,17 @@ func TestUpdateRecord(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(`{"title":"Test Movie",}`),
 			)
 
-			recordHandler.UpdateRecord(c)
+			recordHandler.Update(c)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf(
-					"UpdateRecord(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusBadRequest,
 				)
 			}
 			want := `"code":"INVALID_INPUT","message":"malformed request body"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateRecord(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -657,17 +620,17 @@ func TestUpdateRecord(t *testing.T) {
 				http.MethodPut, "/", strings.NewReader(validBody),
 			)
 
-			recordHandler.UpdateRecord(c)
+			recordHandler.Update(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"UpdateRecord(c) code = %v, want %v",
+					"Update(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"UpdateRecord(c) body = %v, want to contain %v",
+					"Update(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -675,7 +638,7 @@ func TestUpdateRecord(t *testing.T) {
 	)
 }
 
-func TestDeleteRecord(t *testing.T) {
+func TestDelete(t *testing.T) {
 	t.Run(
 		"passes the ids to the usecase and returns 204 when the request is valid",
 		func(t *testing.T) {
@@ -690,25 +653,25 @@ func TestDeleteRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
 
-			recordHandler.DeleteRecord(c)
+			recordHandler.Delete(c)
 			c.Writer.WriteHeaderNow()
 			if rec.Code != http.StatusNoContent {
 				t.Errorf(
-					"DeleteRecord(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusNoContent,
 				)
 			}
 			want := ``
 			if rec.Body.String() != want {
 				t.Errorf(
-					"DeleteRecord(c) body = %v, want %v",
+					"Delete(c) body = %v, want %v",
 					rec.Body.String(), want,
 				)
 			}
 
 			if usecase.deletedUserID != userID || usecase.deletedRecordID != recordID {
 				t.Errorf(
-					"DeleteRecord(c) usecase args = %v, %v, want %v, %v",
+					"Delete(c) usecase args = %v, %v, want %v, %v",
 					usecase.deletedUserID, usecase.deletedRecordID, userID, recordID,
 				)
 			}
@@ -727,17 +690,17 @@ func TestDeleteRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
 
-			recordHandler.DeleteRecord(c)
+			recordHandler.Delete(c)
 			if rec.Code != http.StatusNotFound {
 				t.Errorf(
-					"DeleteRecord(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusNotFound,
 				)
 			}
 			want := `"code":"RECORD_NOT_FOUND"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"DeleteRecord(c) body = %v, want to contain %v",
+					"Delete(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
@@ -755,208 +718,17 @@ func TestDeleteRecord(t *testing.T) {
 			c.Params = gin.Params{{Key: "id", Value: "10"}}
 			c.Request = httptest.NewRequest(http.MethodDelete, "/", nil)
 
-			recordHandler.DeleteRecord(c)
+			recordHandler.Delete(c)
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
-					"DeleteRecord(c) code = %v, want %v",
+					"Delete(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}
 			want := `"code":"INTERNAL_SERVER_ERROR"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
-					"DeleteRecord(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-}
-
-func TestUploadPoster(t *testing.T) {
-	jpeg := []byte("\xFF\xD8\xFF")
-
-	t.Run(
-		"passes the converted poster to the usecase and returns 201 when the request is valid",
-		func(t *testing.T) {
-			userID := userdomain.ID(1)
-			posterURL := recorddomain.PosterURL("https://example.com/1/poster.jpg")
-			usecase := &fakeUsecase{posterURL: posterURL}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userID)
-			c.Request = newTestPosterRequest(t, "poster", jpeg)
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusCreated {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusCreated,
-				)
-			}
-			want := `{"poster_url":"https://example.com/1/poster.jpg"}`
-			if rec.Body.String() != want {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want %v",
-					rec.Body.String(), want,
-				)
-			}
-
-			if usecase.uploadedUserID != userID {
-				t.Errorf(
-					"UploadPoster(c) usecase user id = %v, want %v",
-					usecase.uploadedUserID, userID,
-				)
-			}
-			if !bytes.Equal(usecase.uploadedPoster.Data, jpeg) ||
-				usecase.uploadedPoster.ContentType != recorddomain.PosterContentTypeJPEG {
-				t.Errorf(
-					"UploadPoster(c) usecase poster = %v, want %v with %v",
-					usecase.uploadedPoster, jpeg, recorddomain.PosterContentTypeJPEG,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 400 when the request has no poster file",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userdomain.ID(1))
-			c.Request = newTestPosterRequest(t, "image", jpeg)
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusBadRequest {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusBadRequest,
-				)
-			}
-			want := `"code":"INVALID_INPUT","message":"malformed request body"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 400 when the file is not a supported image",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userdomain.ID(1))
-			c.Request = newTestPosterRequest(t, "poster", []byte("not an image"))
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusBadRequest {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusBadRequest,
-				)
-			}
-			want := `"message":"invalid: invalid poster content type"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 400 when the file is larger than 5 megabytes",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userdomain.ID(1))
-			data := append(
-				[]byte("\xFF\xD8\xFF"),
-				make([]byte, recorddomain.PosterMaxBytes)...,
-			)
-			c.Request = newTestPosterRequest(t, "poster", data)
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusBadRequest {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusBadRequest,
-				)
-			}
-			want := `"message":"invalid: poster must be at most 5 megabytes"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 500 when the usecase returns an unexpected error",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{err: errors.New("upload poster")}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userdomain.ID(1))
-			c.Request = newTestPosterRequest(t, "poster", jpeg)
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusInternalServerError {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusInternalServerError,
-				)
-			}
-			want := `"code":"INTERNAL_SERVER_ERROR"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 500 when the authenticated user ID is missing from the context",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{}
-			recordHandler := NewRecordHandler(usecase)
-
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = newTestPosterRequest(t, "poster", jpeg)
-
-			recordHandler.UploadPoster(c)
-			if rec.Code != http.StatusInternalServerError {
-				t.Errorf(
-					"UploadPoster(c) code = %v, want %v",
-					rec.Code, http.StatusInternalServerError,
-				)
-			}
-			want := `"code":"INTERNAL_SERVER_ERROR"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UploadPoster(c) body = %v, want to contain %v",
+					"Delete(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
