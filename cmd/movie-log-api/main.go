@@ -173,5 +173,7 @@ func main() {
 		media.POST("/", mediaHandler.Upload)
 	}
 
-	router.Run("0.0.0.0:8080")
+	if err := router.Run("0.0.0.0:8080"); err != nil {
+		log.Fatal(err)
+	}
 }
