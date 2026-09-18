@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/record"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
@@ -16,37 +17,32 @@ type Usecase interface {
 		recordID record.ID,
 	) (*record.Record, error)
 	ListByUserID(ctx context.Context, userID user.ID) ([]*record.Record, error)
-	CreateRecord(
+	Create(
 		ctx context.Context,
 		userID user.ID,
 		r record.Record,
 	) (*record.Record, error)
-	UpdateRecord(
+	Update(
 		ctx context.Context,
 		userID user.ID,
 		recordID record.ID,
 		r record.Record,
 	) (*record.Record, error)
-	DeleteRecord(ctx context.Context, userID user.ID, recordID record.ID) error
-	UploadPoster(
-		ctx context.Context,
-		userID user.ID,
-		poster record.Poster,
-	) (record.PosterURL, error)
+	Delete(ctx context.Context, userID user.ID, recordID record.ID) error
 }
 
 type RecordUsecase struct {
-	recordRepo    record.RecordRepository
-	posterService record.PosterService
+	recordRepo   record.RecordRepository
+	mediaService media.Service
 }
 
 func NewRecordUsecase(
 	recordRepo record.RecordRepository,
-	posterService record.PosterService,
+	mediaService media.Service,
 ) *RecordUsecase {
 	return &RecordUsecase{
-		recordRepo:    recordRepo,
-		posterService: posterService,
+		recordRepo:   recordRepo,
+		mediaService: mediaService,
 	}
 }
 
@@ -79,7 +75,7 @@ func (ru *RecordUsecase) ListByUserID(
 	return records, nil
 }
 
-func (ru *RecordUsecase) CreateRecord(
+func (ru *RecordUsecase) Create(
 	ctx context.Context,
 	userID user.ID,
 	r record.Record,
@@ -93,7 +89,7 @@ func (ru *RecordUsecase) CreateRecord(
 	return &r, nil
 }
 
-func (ru *RecordUsecase) UpdateRecord(
+func (ru *RecordUsecase) Update(
 	ctx context.Context,
 	userID user.ID,
 	recordID record.ID,
@@ -116,15 +112,15 @@ func (ru *RecordUsecase) UpdateRecord(
 	}
 
 	if current.PosterURL != r.PosterURL {
-		if err := ru.posterService.Delete(ctx, userID, current.PosterURL); err != nil {
-			return nil, fmt.Errorf("delete poster: %w", err)
+		if err := ru.mediaService.Delete(ctx, userID, media.URL(current.PosterURL)); err != nil {
+			return nil, fmt.Errorf("delete media: %w", err)
 		}
 	}
 
 	return &r, nil
 }
 
-func (ru *RecordUsecase) DeleteRecord(
+func (ru *RecordUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
 	recordID record.ID,
@@ -142,22 +138,9 @@ func (ru *RecordUsecase) DeleteRecord(
 		return fmt.Errorf("delete record: %w", err)
 	}
 
-	if err := ru.posterService.Delete(ctx, userID, r.PosterURL); err != nil {
-		return fmt.Errorf("delete poster: %w", err)
+	if err := ru.mediaService.Delete(ctx, userID, media.URL(r.PosterURL)); err != nil {
+		return fmt.Errorf("delete media: %w", err)
 	}
 
 	return nil
-}
-
-func (ru *RecordUsecase) UploadPoster(
-	ctx context.Context,
-	userID user.ID,
-	poster record.Poster,
-) (record.PosterURL, error) {
-	posterURL, err := ru.posterService.Upload(ctx, userID, poster)
-	if err != nil {
-		return "", fmt.Errorf("upload poster: %w", err)
-	}
-
-	return posterURL, nil
 }

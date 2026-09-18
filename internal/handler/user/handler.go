@@ -59,7 +59,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	return id, true
 }
 
-func (uh *UserHandler) CreateUser(c *gin.Context) {
+func (uh *UserHandler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req UserReq
@@ -79,7 +79,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	createdUser, err := uh.userUsecase.Register(ctx, username, email, password)
+	createdUser, err := uh.userUsecase.Create(ctx, username, email, password)
 	if errors.Is(err, exception.ErrAlreadyExists) {
 		response.UserAlreadyExists(c)
 		return
@@ -97,7 +97,7 @@ func (uh *UserHandler) CreateUser(c *gin.Context) {
 	})
 }
 
-func (uh *UserHandler) UpdateUser(c *gin.Context) {
+func (uh *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -122,7 +122,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	updatedUser, err := uh.userUsecase.UpdateUser(
+	updatedUser, err := uh.userUsecase.Update(
 		ctx,
 		authUserID,
 		username,
@@ -146,7 +146,7 @@ func (uh *UserHandler) UpdateUser(c *gin.Context) {
 	})
 }
 
-func (uh *UserHandler) DeleteUser(c *gin.Context) {
+func (uh *UserHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -154,7 +154,7 @@ func (uh *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	err := uh.userUsecase.DeleteUser(ctx, authUserID)
+	err := uh.userUsecase.Delete(ctx, authUserID)
 	if errors.Is(err, exception.ErrNotFound) {
 		response.UserNotFound(c)
 		return

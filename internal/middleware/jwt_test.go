@@ -59,7 +59,7 @@ func (u *fakeUserUsecase) GetByID(
 	return nil, u.err
 }
 
-func (u *fakeUserUsecase) Register(
+func (u *fakeUserUsecase) Create(
 	ctx context.Context,
 	username user.Username,
 	email user.Email,
@@ -68,7 +68,7 @@ func (u *fakeUserUsecase) Register(
 	return nil, nil
 }
 
-func (u *fakeUserUsecase) UpdateUser(
+func (u *fakeUserUsecase) Update(
 	ctx context.Context,
 	userID user.ID,
 	username user.Username,
@@ -78,7 +78,7 @@ func (u *fakeUserUsecase) UpdateUser(
 	return nil, nil
 }
 
-func (u *fakeUserUsecase) DeleteUser(
+func (u *fakeUserUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
 ) error {
