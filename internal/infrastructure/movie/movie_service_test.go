@@ -1,6 +1,7 @@
 package movie
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
@@ -16,6 +18,14 @@ import (
 
 func newTestMovie() movie.Movie {
 	releaseYear := movie.ReleaseYear(2020)
+	cast := movie.Cast{
+		ID:           movie.CastID(100),
+		Name:         movie.CastName("Test Actor"),
+		OriginalName: movie.OriginalCastName("Test Original Actor"),
+		Character:    movie.Character("Test Character"),
+		Role:         movie.Role("Acting"),
+		Gender:       movie.GenderFemale,
+	}
 
 	movie := movie.Movie{
 		ID:               movie.ID(1),
@@ -30,6 +40,7 @@ func newTestMovie() movie.Movie {
 		OriginCountry: []movie.OriginCountry{
 			movie.OriginCountry("US"), movie.OriginCountry("JP"),
 		},
+		Casts: []*movie.Cast{&cast},
 	}
 
 	return movie
@@ -92,6 +103,20 @@ func equalOriginCountry(got, want []movie.OriginCountry) bool {
 	return slices.Equal(g, w)
 }
 
+func equalCasts(got, want []*movie.Cast) bool {
+	g := slices.Clone(got)
+	w := slices.Clone(want)
+	slices.SortFunc(g, func(a, b *movie.Cast) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+	slices.SortFunc(w, func(a, b *movie.Cast) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return slices.EqualFunc(g, w, func(a, b *movie.Cast) bool {
+		return *a == *b
+	})
+}
+
 func assertMovieEqual(t *testing.T, call string, got, want *movie.Movie) {
 	t.Helper()
 
@@ -123,6 +148,12 @@ func assertMovieEqual(t *testing.T, call string, got, want *movie.Movie) {
 		t.Errorf(
 			"%s = %v, want OriginCountry %v",
 			call, got, want.OriginCountry,
+		)
+	}
+	if !equalCasts(got.Casts, want.Casts) {
+		t.Errorf(
+			"%s = %v, want Casts %v",
+			call, got, want.Casts,
 		)
 	}
 }
@@ -164,7 +195,7 @@ func TestGetByID(t *testing.T) {
 	t.Run(
 		"returns the movie with its associations when the ID exists",
 		func(t *testing.T) {
-			json := `{
+			movieJSON := `{
 				"id": 1,
 				"title": "Test Movie",
 				"original_title": "Test Original Title",
@@ -179,9 +210,25 @@ func TestGetByID(t *testing.T) {
 				"release_date": "2020-05-01",
 				"runtime": 120
 			}`
+			creditsJSON := `{
+				"cast": [
+					{
+						"id": 100,
+						"name": "Test Actor",
+						"original_name": "Test Original Actor",
+						"character": "Test Character",
+						"known_for_department": "Acting",
+						"gender": 1
+					}
+				]
+			}`
 			srv := httptest.NewServer(http.HandlerFunc(
 				func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(json))
+					if strings.Contains(r.URL.Path, "/credits") {
+						w.Write([]byte(creditsJSON))
+					} else {
+						w.Write([]byte(movieJSON))
+					}
 				},
 			))
 			defer srv.Close()
@@ -311,6 +358,112 @@ func TestGetByID(t *testing.T) {
 				t.Errorf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, want nil",
 					fakeID, displayLanguage, got,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the movie with empty casts when the credits endpoint returns 404",
+		func(t *testing.T) {
+			movieJSON := `{
+				"id": 1,
+				"title": "Test Movie",
+				"original_title": "Test Original Title",
+				"original_language": "en",
+				"overview": "Test Overview",
+				"genres": [],
+				"origin_country": [],
+				"poster_path": "/poster.jpg",
+				"release_date": "2020-05-01",
+				"runtime": 120
+			}`
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					if strings.Contains(r.URL.Path, "/credits") {
+						w.WriteHeader(http.StatusNotFound)
+					} else {
+						w.Write([]byte(movieJSON))
+					}
+				},
+			))
+			defer srv.Close()
+			endpoint, _ := url.Parse(srv.URL)
+
+			ms := NewMovieService(
+				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
+			)
+			ctx := context.Background()
+			id := movie.ID(1)
+			displayLanguage := movie.DisplayLanguage("en")
+
+			got, err := ms.GetByID(ctx, id, displayLanguage)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, %v, want no error",
+					id, displayLanguage, got, err,
+				)
+			}
+			if got == nil {
+				t.Fatalf(
+					"GetByID(ctx, %d, %v) (*movie.Movie, error) = nil, want movie",
+					id, displayLanguage,
+				)
+			}
+			if len(got.Casts) != 0 {
+				t.Errorf(
+					"GetByID(ctx, %d, %v).Casts = %v, want empty",
+					id, displayLanguage, got.Casts,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns an error when the credits response is invalid JSON",
+		func(t *testing.T) {
+			movieJSON := `{
+				"id": 1,
+				"title": "Test Movie",
+				"original_title": "Test Original Title",
+				"original_language": "en",
+				"overview": "Test Overview",
+				"genres": [],
+				"origin_country": [],
+				"poster_path": "/poster.jpg",
+				"release_date": "2020-05-01",
+				"runtime": 120
+			}`
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					if strings.Contains(r.URL.Path, "/credits") {
+						w.Write([]byte("invalid json"))
+					} else {
+						w.Write([]byte(movieJSON))
+					}
+				},
+			))
+			defer srv.Close()
+			endpoint, _ := url.Parse(srv.URL)
+
+			ms := NewMovieService(
+				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
+			)
+			ctx := context.Background()
+			id := movie.ID(1)
+			displayLanguage := movie.DisplayLanguage("en")
+
+			got, err := ms.GetByID(ctx, id, displayLanguage)
+			if err == nil {
+				t.Fatalf(
+					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, nil, want error",
+					id, displayLanguage, got,
+				)
+			}
+			if got != nil {
+				t.Errorf(
+					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, want nil",
+					id, displayLanguage, got,
 				)
 			}
 		},

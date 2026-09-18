@@ -23,6 +23,26 @@ type MovieResponse struct {
 	ReleaseYear      uint   `json:"release_year"`
 }
 
+type CastResponse struct {
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
+	OriginalName string `json:"original_name"`
+	Character    string `json:"character"`
+	Role         string `json:"role"`
+	Gender       string `json:"gender"`
+}
+
+func toCastResponse(c *moviedomain.Cast) CastResponse {
+	return CastResponse{
+		ID:           uint(c.ID),
+		Name:         string(c.Name),
+		OriginalName: string(c.OriginalName),
+		Character:    string(c.Character),
+		Role:         string(c.Role),
+		Gender:       string(c.Gender),
+	}
+}
+
 func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 	genres := make([]string, 0, len(m.Genres))
 	for _, genre := range m.Genres {
@@ -39,6 +59,11 @@ func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 		releaseYear = uint(*m.ReleaseYear)
 	}
 
+	casts := make([]CastResponse, 0, len(m.Casts))
+	for _, c := range m.Casts {
+		casts = append(casts, toCastResponse(c))
+	}
+
 	return gin.H{
 		"id":                uint(m.ID),
 		"title":             string(m.Title),
@@ -50,6 +75,7 @@ func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 		"runtime":           uint(m.Runtime),
 		"original_language": string(m.OriginalLanguage),
 		"origin_country":    countries,
+		"casts":             casts,
 	}
 }
 
