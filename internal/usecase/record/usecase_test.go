@@ -360,7 +360,7 @@ func TestDelete(t *testing.T) {
 	)
 
 	t.Run(
-		"returns an error when deleting the media fails",
+		"succeeds even when deleting the media fails",
 		func(t *testing.T) {
 			repo := &fakeRepository{
 				record: &record.Record{ID: recordID, UserID: userID},
@@ -372,10 +372,10 @@ func TestDelete(t *testing.T) {
 
 			ctx := context.Background()
 
-			if err := ru.Delete(ctx, userID, recordID); err == nil {
+			if err := ru.Delete(ctx, userID, recordID); err != nil {
 				t.Fatalf(
-					"Delete(ctx, %v, %v) error = nil, want an error",
-					userID, recordID,
+					"Delete(ctx, %v, %v) error = %v, want nil",
+					userID, recordID, err,
 				)
 			}
 		},

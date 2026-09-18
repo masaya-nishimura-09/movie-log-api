@@ -3,6 +3,7 @@ package record
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
@@ -113,7 +114,7 @@ func (ru *RecordUsecase) Update(
 
 	if current.PosterURL != r.PosterURL {
 		if err := ru.mediaService.Delete(ctx, userID, media.URL(current.PosterURL)); err != nil {
-			return nil, fmt.Errorf("delete media: %w", err)
+			log.Printf("delete media: %v", err)
 		}
 	}
 
@@ -139,7 +140,7 @@ func (ru *RecordUsecase) Delete(
 	}
 
 	if err := ru.mediaService.Delete(ctx, userID, media.URL(r.PosterURL)); err != nil {
-		return fmt.Errorf("delete media: %w", err)
+		log.Printf("delete media: %v", err)
 	}
 
 	return nil
