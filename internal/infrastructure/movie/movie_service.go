@@ -3,10 +3,12 @@ package movie
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/movie"
 )
 
@@ -30,6 +32,12 @@ var genreIDName = map[uint]movie.Genre{
 	53:    movie.GenreThriller,
 	10752: movie.GenreWar,
 	37:    movie.GenreWestern,
+}
+
+var genderIDName = map[uint]movie.Gender{
+	0: movie.GenderOther,
+	1: movie.GenderFemale,
+	2: movie.GenderMale,
 }
 
 type movieService struct {
@@ -77,30 +85,62 @@ type genreDTO struct {
 	ID uint `json:"id"`
 }
 
-func (ms *movieService) toMovie(dto *movieDTO) *movie.Movie {
+type creditsDTO struct {
+	Casts []castDTO `json:"cast"`
+}
+
+type castDTO struct {
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
+	OriginalName string `json:"original_name"`
+	Character    string `json:"character"`
+	Role         string `json:"known_for_department"`
+	Gender       uint   `json:"gender"`
+}
+
+func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 	var genres []movie.Genre
-	for _, g := range dto.Genres {
+	for _, g := range movieDto.Genres {
 		if name, ok := genreIDName[g.ID]; ok {
 			genres = append(genres, name)
 		}
 	}
 
 	var originCountry []movie.OriginCountry
-	for _, c := range dto.OriginCountry {
+	for _, c := range movieDto.OriginCountry {
 		originCountry = append(originCountry, movie.OriginCountry(c))
 	}
 
+	var casts []*movie.Cast
+	for _, c := range castDtos {
+		gender := movie.GenderOther
+		if name, ok := genderIDName[c.Gender]; ok {
+			gender = name
+		}
+
+		cast := movie.Cast{
+			ID:           movie.CastID(c.ID),
+			Name:         movie.CastName(c.Name),
+			OriginalName: movie.OriginalCastName(c.OriginalName),
+			Character:    movie.Character(c.Character),
+			Role:         movie.Role(c.Role),
+			Gender:       gender,
+		}
+		casts = append(casts, &cast)
+	}
+
 	return &movie.Movie{
-		ID:               movie.ID(dto.ID),
-		Title:            movie.Title(dto.Title),
-		OriginalTitle:    movie.OriginalTitle(dto.OriginalTitle),
-		Overview:         movie.Overview(dto.Overview),
+		ID:               movie.ID(movieDto.ID),
+		Title:            movie.Title(movieDto.Title),
+		OriginalTitle:    movie.OriginalTitle(movieDto.OriginalTitle),
+		Overview:         movie.Overview(movieDto.Overview),
 		Genres:           genres,
-		PosterURL:        ms.toPosterURL(dto.PosterPath),
-		ReleaseYear:      toReleaseYear(dto.ReleaseDate),
-		Runtime:          movie.Runtime(dto.Runtime),
-		OriginalLanguage: movie.OriginalLanguage(dto.OriginalLanguage),
+		PosterURL:        ms.toPosterURL(movieDto.PosterPath),
+		ReleaseYear:      toReleaseYear(movieDto.ReleaseDate),
+		Runtime:          movie.Runtime(movieDto.Runtime),
+		OriginalLanguage: movie.OriginalLanguage(movieDto.OriginalLanguage),
 		OriginCountry:    originCountry,
+		Casts:            casts,
 	}
 }
 
@@ -149,22 +189,38 @@ func (ms *movieService) GetByID(
 	movieID movie.ID,
 	displayLanguage movie.DisplayLanguage,
 ) (*movie.Movie, error) {
-	var dto movieDTO
+	var movieDto movieDTO
+	var creditsDto creditsDTO
 
 	query := url.Values{}
 	query.Set("language", string(displayLanguage))
 
-	body, err := ms.client.Get(
+	movieBody, err := ms.client.Get(
 		ctx, fmt.Sprintf("/movie/%d", movieID), query,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("request TMDB movie detail: %w", err)
 	}
 
-	if err := json.Unmarshal(body, &dto); err != nil {
+	if err := json.Unmarshal(movieBody, &movieDto); err != nil {
 		return nil, fmt.Errorf("unmarshal TMDB get response: %w", err)
 	}
-	return ms.toMovie(&dto), nil
+
+	creditsBody, err := ms.client.Get(
+		ctx, fmt.Sprintf("/movie/%d/credits", movieID), query,
+	)
+	if err != nil {
+		if errors.Is(err, exception.ErrNotFound) {
+			return ms.toMovie(&movieDto, nil), nil
+		}
+		return nil, fmt.Errorf("request TMDB casts: %w", err)
+	}
+
+	if err := json.Unmarshal(creditsBody, &creditsDto); err != nil {
+		return nil, fmt.Errorf("unmarshal TMDB get response: %w", err)
+	}
+
+	return ms.toMovie(&movieDto, creditsDto.Casts), nil
 }
 
 func (ms *movieService) SearchByTitle(
