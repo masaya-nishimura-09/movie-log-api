@@ -199,25 +199,56 @@ func (rr *recordRepository) GetByID(
 func (rr *recordRepository) ListByUserID(
 	ctx context.Context,
 	userID user.ID,
-) ([]*record.Record, error) {
-	var dtos []recordDTO
-	result := rr.db.WithContext(ctx).
+	query record.Query,
+) (record.ListResult, error) {
+	db := rr.db.WithContext(ctx).
 		Preload("Genres").
 		Preload("Countries").
 		Preload("Credits").
 		Preload("MoodTags").
-		Where("user_id = ?", uint(userID)).
-		Order("watched_at DESC, id DESC").
+		Where("user_id = ?", uint(userID))
+
+	if query.TitleKeyword != "" {
+		db = db.Where("title ILIKE ?", "%"+string(query.TitleKeyword)+"%")
+	}
+	if len(query.Scores) > 0 {
+		db = db.Where("score IN ?", query.Scores)
+	}
+	if len(query.Platforms) > 0 {
+		db = db.Where("platform IN ?", query.Platforms)
+	}
+	if len(query.MoodTags) > 0 {
+		db = db.Where("id IN (SELECT record_id FROM record_mood_tags WHERE value IN ?)", query.MoodTags)
+	}
+	if len(query.Genres) > 0 {
+		db = db.Where("id IN (SELECT record_id FROM record_genres WHERE value IN ?)", query.Genres)
+	}
+
+	var count int64
+	if err := db.Model(&recordDTO{}).Count(&count).Error; err != nil {
+		return record.ListResult{}, fmt.Errorf("count records: %w", err)
+	}
+
+	var dtos []recordDTO
+	result := db.
+		Order(string(query.SortField) + " " + string(query.SortOrder)).
+		Limit(int(query.PerPage)).
+		Offset(int((uint(query.Page) - 1) * uint(query.PerPage))).
 		Find(&dtos)
 	if result.Error != nil {
-		return nil, fmt.Errorf("list records by user id: %w", result.Error)
+		return record.ListResult{}, fmt.Errorf("list records by user id: %w", result.Error)
 	}
 
 	records := make([]*record.Record, 0, len(dtos))
 	for i := range dtos {
 		records = append(records, fromDTO(&dtos[i]))
 	}
-	return records, nil
+
+	totalCount, err := record.NewTotalCount(int(count))
+	if err != nil {
+		return record.ListResult{}, fmt.Errorf("create total count: %w", err)
+	}
+	return record.NewListResult(records, totalCount), nil
 }
 
 func (rr *recordRepository) Create(

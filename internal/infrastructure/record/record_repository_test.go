@@ -258,9 +258,23 @@ func TestGetByID(t *testing.T) {
 	)
 }
 
+func newEmptyQuery() record.Query {
+	return record.NewQuery(
+		nil,
+		nil,
+		nil,
+		nil,
+		"",
+		record.SortFieldWatchedAt,
+		record.SortOrderDesc,
+		record.Page(1),
+		record.PerPage(20),
+	)
+}
+
 func TestListByUserID(t *testing.T) {
 	t.Run(
-		"returns the records of the user ordered by watched_at descending",
+		"filters, sorts, paginates, and excludes other users",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
 			rr := NewRecordRepo(tx)
@@ -269,56 +283,167 @@ func TestListByUserID(t *testing.T) {
 			userID := newTestUser(t, tx, "test@example.com").ID
 			otherUserID := newTestUser(t, tx, "other@example.com").ID
 
-			watchedAts := []time.Time{
-				time.Date(2026, 5, 20, 12, 0, 0, 0, time.UTC),
-				time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC),
-				time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
+			// Records that match all filters
+			matching := []record.Record{
+				{
+					UserID:      userID,
+					Title:       record.Title("The Matrix"),
+					ReleaseYear: record.ReleaseYear(1999),
+					Runtime:     record.Runtime(136),
+					Genres:      []record.Genre{record.GenreDrama},
+					Countries:   []record.Country{record.Country("US")},
+					Language:    record.Language("en"),
+					Credits:     []record.Credit{{PersonName: "Lana Wachowski", CreditRole: record.CreditRoleDirector}},
+					PosterURL:   record.PosterURL("https://example.com/matrix.jpg"),
+					WatchedAt:   time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC),
+					Platform:    record.PlatformNetflix,
+					Score:       record.Score(5),
+					MoodTags:    []record.MoodTag{record.MoodTagTense},
+					Memo:        record.Memo(""),
+				},
+				{
+					UserID:      userID,
+					Title:       record.Title("The Matrix Reloaded"),
+					ReleaseYear: record.ReleaseYear(2003),
+					Runtime:     record.Runtime(138),
+					Genres:      []record.Genre{record.GenreDrama},
+					Countries:   []record.Country{record.Country("US")},
+					Language:    record.Language("en"),
+					Credits:     []record.Credit{{PersonName: "Lana Wachowski", CreditRole: record.CreditRoleDirector}},
+					PosterURL:   record.PosterURL("https://example.com/matrix2.jpg"),
+					WatchedAt:   time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC),
+					Platform:    record.PlatformNetflix,
+					Score:       record.Score(5),
+					MoodTags:    []record.MoodTag{record.MoodTagTense},
+					Memo:        record.Memo(""),
+				},
+				{
+					UserID:      userID,
+					Title:       record.Title("The Matrix Revolutions"),
+					ReleaseYear: record.ReleaseYear(2003),
+					Runtime:     record.Runtime(129),
+					Genres:      []record.Genre{record.GenreDrama},
+					Countries:   []record.Country{record.Country("US")},
+					Language:    record.Language("en"),
+					Credits:     []record.Credit{{PersonName: "Lana Wachowski", CreditRole: record.CreditRoleDirector}},
+					PosterURL:   record.PosterURL("https://example.com/matrix3.jpg"),
+					WatchedAt:   time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC),
+					Platform:    record.PlatformNetflix,
+					Score:       record.Score(5),
+					MoodTags:    []record.MoodTag{record.MoodTagTense},
+					Memo:        record.Memo(""),
+				},
 			}
-			for _, watchedAt := range watchedAts {
-				r := newTestRecord(userID, watchedAt)
-				if err := rr.Create(ctx, &r); err != nil {
-					t.Fatalf("Create(ctx, %v) error = %v", r, err)
+			for i := range matching {
+				if err := rr.Create(ctx, &matching[i]); err != nil {
+					t.Fatalf("Create(ctx, matching[%d]) error = %v", i, err)
 				}
 			}
 
-			other := newTestRecord(otherUserID, time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC))
+			// Records that fail each filter
+			excluded := []record.Record{
+				{ // TitleKeyword miss
+					UserID:    userID,
+					Title:     record.Title("Inception"),
+					Genres:    []record.Genre{record.GenreDrama},
+					Platform:  record.PlatformNetflix,
+					Score:     record.Score(5),
+					MoodTags:  []record.MoodTag{record.MoodTagTense},
+					WatchedAt: time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC),
+				},
+				{ // Score miss
+					UserID:    userID,
+					Title:     record.Title("The Matrix 4"),
+					Genres:    []record.Genre{record.GenreDrama},
+					Platform:  record.PlatformNetflix,
+					Score:     record.Score(3),
+					MoodTags:  []record.MoodTag{record.MoodTagTense},
+					WatchedAt: time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC),
+				},
+				{ // Platform miss
+					UserID:    userID,
+					Title:     record.Title("The Matrix 5"),
+					Genres:    []record.Genre{record.GenreDrama},
+					Platform:  record.PlatformTheater,
+					Score:     record.Score(5),
+					MoodTags:  []record.MoodTag{record.MoodTagTense},
+					WatchedAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
+				},
+				{ // MoodTag miss
+					UserID:    userID,
+					Title:     record.Title("The Matrix 6"),
+					Genres:    []record.Genre{record.GenreDrama},
+					Platform:  record.PlatformNetflix,
+					Score:     record.Score(5),
+					MoodTags:  []record.MoodTag{record.MoodTagMoving},
+					WatchedAt: time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
+				},
+				{ // Genre miss
+					UserID:    userID,
+					Title:     record.Title("The Matrix 7"),
+					Genres:    []record.Genre{record.GenreHorror},
+					Platform:  record.PlatformNetflix,
+					Score:     record.Score(5),
+					MoodTags:  []record.MoodTag{record.MoodTagTense},
+					WatchedAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+				},
+			}
+			for i := range excluded {
+				if err := rr.Create(ctx, &excluded[i]); err != nil {
+					t.Fatalf("Create(ctx, excluded[%d]) error = %v", i, err)
+				}
+			}
+
+			// Other user's record (matches all filters but should be excluded)
+			other := record.Record{
+				UserID:    otherUserID,
+				Title:     record.Title("The Matrix"),
+				Genres:    []record.Genre{record.GenreDrama},
+				Platform:  record.PlatformNetflix,
+				Score:     record.Score(5),
+				MoodTags:  []record.MoodTag{record.MoodTagTense},
+				WatchedAt: time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC),
+			}
 			if err := rr.Create(ctx, &other); err != nil {
-				t.Fatalf("Create(ctx, %v) error = %v", other, err)
+				t.Fatalf("Create(ctx, other) error = %v", err)
 			}
 
-			got, err := rr.ListByUserID(ctx, userID)
+			query := record.NewQuery(
+				[]record.Score{record.Score(5)},
+				[]record.Platform{record.PlatformNetflix},
+				[]record.MoodTag{record.MoodTagTense},
+				[]record.Genre{record.GenreDrama},
+				record.TitleKeyword("Matrix"),
+				record.SortFieldWatchedAt,
+				record.SortOrderDesc,
+				record.Page(1),
+				record.PerPage(2),
+			)
+
+			got, err := rr.ListByUserID(ctx, userID, query)
 			if err != nil {
-				t.Fatalf(
-					"ListByUserID(ctx, %d) ([]*record.Record, error) = %v, %v",
-					userID, got, err,
-				)
-			}
-			if len(got) != len(watchedAts) {
-				t.Fatalf(
-					"ListByUserID(ctx, %d) returns %d records, want %d",
-					userID, len(got), len(watchedAts),
-				)
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
 
-			wantOrder := []time.Time{watchedAts[1], watchedAts[2], watchedAts[0]}
-			for i, r := range got {
-				if r.UserID != userID {
-					t.Errorf(
-						"ListByUserID(ctx, %d) returns a record of user %d",
-						userID, r.UserID,
-					)
-				}
-				if !r.WatchedAt.Equal(wantOrder[i]) {
-					t.Errorf(
-						"ListByUserID(ctx, %d) record[%d] WatchedAt = %v, want %v",
-						userID, i, r.WatchedAt, wantOrder[i],
-					)
-				}
+			if got.TotalCount != 3 {
+				t.Errorf("ListByUserID TotalCount = %d, want 3", got.TotalCount)
+			}
+			if len(got.Records) != 2 {
+				t.Fatalf("ListByUserID returns %d records, want 2", len(got.Records))
+			}
+
+			// Check sort order (watched_at desc)
+			if got.Records[0].ID != matching[0].ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, matching[0].ID)
+			}
+			if got.Records[1].ID != matching[1].ID {
+				t.Errorf("ListByUserID Records[1].ID = %d, want %d", got.Records[1].ID, matching[1].ID)
+			}
+
+			// Check associations are preloaded
+			for i, r := range got.Records {
 				if len(r.Genres) == 0 || len(r.Credits) == 0 {
-					t.Errorf(
-						"ListByUserID(ctx, %d) record[%d] = %v, want preloaded associations",
-						userID, i, r,
-					)
+					t.Errorf("ListByUserID Records[%d] = %v, want preloaded associations", i, r)
 				}
 			}
 		},
@@ -333,17 +458,23 @@ func TestListByUserID(t *testing.T) {
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
-			got, err := rr.ListByUserID(ctx, userID)
+			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
 			if err != nil {
 				t.Fatalf(
-					"ListByUserID(ctx, %d) ([]*record.Record, error) = %v, %v",
-					userID, got, err,
+					"ListByUserID(ctx, %d, query) error = %v",
+					userID, err,
 				)
 			}
-			if len(got) != 0 {
+			if len(got.Records) != 0 {
 				t.Errorf(
-					"ListByUserID(ctx, %d) returns %d records, want 0",
-					userID, len(got),
+					"ListByUserID(ctx, %d, query) returns %d records, want 0",
+					userID, len(got.Records),
+				)
+			}
+			if got.TotalCount != 0 {
+				t.Errorf(
+					"ListByUserID(ctx, %d, query) TotalCount = %d, want 0",
+					userID, got.TotalCount,
 				)
 			}
 		},
@@ -359,18 +490,18 @@ func TestListByUserID(t *testing.T) {
 			cancel()
 
 			userID := user.ID(1)
-			got, err := rr.ListByUserID(ctx, userID)
+			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
 
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
-					"ListByUserID(ctx, %d) ([]*record.Record, error) = %v, %v, want %v",
-					userID, got, err, context.Canceled,
+					"ListByUserID(ctx, %d, query) error = %v, want %v",
+					userID, err, context.Canceled,
 				)
 			}
-			if got != nil {
+			if len(got.Records) != 0 {
 				t.Errorf(
-					"ListByUserID(ctx, %d) ([]*record.Record, error) = %v, %v, want nil",
-					userID, got, err,
+					"ListByUserID(ctx, %d, query) Records = %v, want empty",
+					userID, got.Records,
 				)
 			}
 		},
