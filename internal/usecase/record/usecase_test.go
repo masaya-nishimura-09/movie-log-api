@@ -28,8 +28,9 @@ func (r *fakeRepository) GetByID(
 func (r *fakeRepository) ListByUserID(
 	ctx context.Context,
 	userID user.ID,
-) ([]*record.Record, error) {
-	return nil, nil
+	query record.Query,
+) (record.ListResult, error) {
+	return record.ListResult{}, nil
 }
 
 func (r *fakeRepository) Create(ctx context.Context, rec *record.Record) error {
