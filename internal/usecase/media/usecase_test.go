@@ -38,6 +38,13 @@ func (s *fakeService) Delete(
 	return s.err
 }
 
+func (s *fakeService) DeleteAllForUser(
+	ctx context.Context,
+	userID user.ID,
+) error {
+	return s.err
+}
+
 func TestUpload(t *testing.T) {
 	t.Run(
 		"passes values to the service and returns the URL",

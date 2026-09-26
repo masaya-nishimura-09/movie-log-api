@@ -127,7 +127,11 @@ func main() {
 		accessTokenService,
 		refreshTokenRepo,
 	)
-	userUsecase := userusecase.NewUserUsecase(userRepo, refreshTokenRepo)
+	userUsecase := userusecase.NewUserUsecase(
+		userRepo,
+		refreshTokenRepo,
+		mediaService,
+	)
 	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, mediaService)
 	movieUsecase := movieusecase.NewMovieUsecase(movieService)
 	mediaUsecase := mediausecase.NewMediaUsecase(mediaService)

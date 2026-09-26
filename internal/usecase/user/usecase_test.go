@@ -2,9 +2,11 @@ package user
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -72,6 +74,35 @@ func (r *fakeRefreshTokenRepo) RevokeAllForUser(
 	return nil
 }
 
+type fakeMediaService struct {
+	deletedAllUserID user.ID
+	err              error
+}
+
+func (s *fakeMediaService) Upload(
+	ctx context.Context,
+	userID user.ID,
+	m media.Media,
+) (media.URL, error) {
+	return "", s.err
+}
+
+func (s *fakeMediaService) Delete(
+	ctx context.Context,
+	userID user.ID,
+	url media.URL,
+) error {
+	return s.err
+}
+
+func (s *fakeMediaService) DeleteAllForUser(
+	ctx context.Context,
+	userID user.ID,
+) error {
+	s.deletedAllUserID = userID
+	return s.err
+}
+
 func hashPassword(t *testing.T, password user.Password) user.HashedPassword {
 	t.Helper()
 	hashed, err := bcrypt.GenerateFromPassword(
@@ -92,7 +123,7 @@ func TestCreate(t *testing.T) {
 		"hashes the password and sets the role to user",
 		func(t *testing.T) {
 			repo := &fakeRepository{}
-			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{})
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
 
 			ctx := context.Background()
 			username := user.Username("Test")
@@ -142,7 +173,7 @@ func TestUpdate(t *testing.T) {
 					HashedPassword: hashPassword(t, password),
 				},
 			}
-			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{})
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
 
 			ctx := context.Background()
 
@@ -177,7 +208,7 @@ func TestUpdate(t *testing.T) {
 				},
 			}
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
-			uu := NewUserUsecase(repo, refreshTokenRepo)
+			uu := NewUserUsecase(repo, refreshTokenRepo, &fakeMediaService{})
 
 			ctx := context.Background()
 
@@ -210,7 +241,7 @@ func TestUpdate(t *testing.T) {
 				},
 			}
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
-			uu := NewUserUsecase(repo, refreshTokenRepo)
+			uu := NewUserUsecase(repo, refreshTokenRepo, &fakeMediaService{})
 
 			ctx := context.Background()
 
@@ -227,6 +258,52 @@ func TestUpdate(t *testing.T) {
 					"Update(ctx, %v, %v, %v, %v) revoked user id = %v, want no revocation",
 					userID, username, email, password,
 					refreshTokenRepo.revokedUserID,
+				)
+			}
+		},
+	)
+}
+
+func TestDelete(t *testing.T) {
+	userID := user.ID(1)
+
+	t.Run(
+		"deletes all media of the user",
+		func(t *testing.T) {
+			mediaService := &fakeMediaService{}
+			uu := NewUserUsecase(&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService)
+
+			ctx := context.Background()
+
+			if err := uu.Delete(ctx, userID); err != nil {
+				t.Fatalf(
+					"Delete(ctx, %v) error = %v",
+					userID, err,
+				)
+			}
+			if mediaService.deletedAllUserID != userID {
+				t.Errorf(
+					"Delete(ctx, %v) deletes media of user %v, want %v",
+					userID, mediaService.deletedAllUserID, userID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"succeeds even when deleting the media fails",
+		func(t *testing.T) {
+			mediaService := &fakeMediaService{
+				err: errors.New("delete media"),
+			}
+			uu := NewUserUsecase(&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService)
+
+			ctx := context.Background()
+
+			if err := uu.Delete(ctx, userID); err != nil {
+				t.Fatalf(
+					"Delete(ctx, %v) error = %v, want nil",
+					userID, err,
 				)
 			}
 		},

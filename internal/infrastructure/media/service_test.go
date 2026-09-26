@@ -246,3 +246,66 @@ func TestDelete(t *testing.T) {
 		},
 	)
 }
+
+func TestDeleteAllForUser(t *testing.T) {
+	t.Run(
+		"removes all objects of the user and keeps objects of other users",
+		func(t *testing.T) {
+			s := NewService(testS3Client, testBucket, testBaseURL)
+
+			ctx := context.Background()
+			ownerID := user.ID(1)
+			otherID := user.ID(2)
+			m := newTestMedia(t, []byte("\xFF\xD8\xFF"))
+
+			first, err := s.Upload(ctx, ownerID, m)
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, media) error = %v", ownerID, err)
+			}
+			second, err := s.Upload(ctx, ownerID, m)
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, media) error = %v", ownerID, err)
+			}
+			other, err := s.Upload(ctx, otherID, m)
+			if err != nil {
+				t.Fatalf("Upload(ctx, %d, media) error = %v", otherID, err)
+			}
+			t.Cleanup(func() { _ = s.Delete(ctx, otherID, other) })
+
+			if err := s.DeleteAllForUser(ctx, ownerID); err != nil {
+				t.Fatalf("DeleteAllForUser(ctx, %d) error = %v", ownerID, err)
+			}
+
+			for _, url := range []media.URL{first, second} {
+				key := strings.TrimPrefix(string(url), testBaseURL+"/")
+				if objectExists(t, key) {
+					t.Errorf("DeleteAllForUser(ctx, %d) did not remove %q from %q", ownerID, key, testBucket)
+				}
+			}
+			otherKey := strings.TrimPrefix(string(other), testBaseURL+"/")
+			if !objectExists(t, otherKey) {
+				t.Errorf("DeleteAllForUser(ctx, %d) removed %q from %q", ownerID, otherKey, testBucket)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			s := NewService(testS3Client, testBucket, testBaseURL)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			userID := user.ID(1)
+
+			err := s.DeleteAllForUser(ctx, userID)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"DeleteAllForUser(ctx, %d) error = %v, want %v",
+					userID, err, context.Canceled,
+				)
+			}
+		},
+	)
+}

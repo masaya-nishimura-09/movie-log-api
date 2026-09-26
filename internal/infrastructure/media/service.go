@@ -80,3 +80,28 @@ func (s *service) Delete(
 	}
 	return nil
 }
+
+func (s *service) DeleteAllForUser(ctx context.Context, userID user.ID) error {
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(s.bucket),
+		Prefix: aws.String(fmt.Sprintf("%d/", uint(userID))),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("list media: %w", err)
+		}
+
+		for _, object := range page.Contents {
+			_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+				Bucket: aws.String(s.bucket),
+				Key:    object.Key,
+			})
+			if err != nil {
+				return fmt.Errorf("delete media: %w", err)
+			}
+		}
+	}
+	return nil
+}
