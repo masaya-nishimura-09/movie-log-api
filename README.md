@@ -43,6 +43,7 @@ Create a `.env` file based on `.env.example`:
 - `ACCESS_TOKEN_TTL` / `REFRESH_TOKEN_TTL` - Token expiration
 - `AWS_*` / `S3_*` - S3/MinIO configuration
 - `TMDB_*` - TMDb API settings
+- `TRUSTED_PROXIES` - Trusted proxy IPs
 
 ## Project Structure
 

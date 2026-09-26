@@ -83,6 +83,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	trustedProxies, err := config.TrustedProxies()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	tmdbClient := movieinfra.NewTMDBClient(tmdbEndpoint, tmdbAccessToken)
 
 	rate := limiter.Rate{
@@ -130,6 +135,9 @@ func main() {
 
 	// routing
 	router := gin.Default()
+	if err := router.SetTrustedProxies(trustedProxies); err != nil {
+		log.Fatal(err)
+	}
 
 	auth := router.Group("/auth")
 	{
