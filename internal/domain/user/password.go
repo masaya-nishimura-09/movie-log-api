@@ -13,6 +13,12 @@ func NewPassword(value string) (Password, error) {
 		return "", fmt.Errorf("%w: password is required", exception.ErrInvalid)
 	}
 
+	for _, r := range value {
+		if r < '!' || r > '~' {
+			return "", fmt.Errorf("%w: password must contain only half-width letters, digits, and symbols", exception.ErrInvalid)
+		}
+	}
+
 	if len(value) < 8 {
 		return "", fmt.Errorf("%w: password must be at least 8 characters", exception.ErrInvalid)
 	}
