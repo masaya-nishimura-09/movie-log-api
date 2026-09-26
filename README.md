@@ -41,7 +41,7 @@ Create a `.env` file based on `.env.example`:
 - `GIN_MODE` - Gin mode (debug/release)
 - `POSTGRES_*` - Database connection
 - `JWT_SECRET` - Secret key for JWT signing
-- `ACCESS_TOKEN_TTL` / `REFRESH_TOKEN_TTL` - Token expiration
+- `ACCESS_TOKEN_TTL_HOURS` / `REFRESH_TOKEN_TTL_HOURS` - Token expiration (hours)
 - `AWS_*` / `S3_*` - S3/MinIO configuration
 - `TMDB_*` - TMDb API settings
 - `TRUSTED_PROXIES` - Trusted proxy IPs
