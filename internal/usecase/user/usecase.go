@@ -3,8 +3,10 @@ package user
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,15 +32,18 @@ type Usecase interface {
 type UserUsecase struct {
 	userRepo         user.UserRepository
 	refreshTokenRepo auth.RefreshTokenRepository
+	mediaService     media.Service
 }
 
 func NewUserUsecase(
 	userRepo user.UserRepository,
 	refreshTokenRepo auth.RefreshTokenRepository,
+	mediaService media.Service,
 ) *UserUsecase {
 	return &UserUsecase{
 		userRepo:         userRepo,
 		refreshTokenRepo: refreshTokenRepo,
+		mediaService:     mediaService,
 	}
 }
 
@@ -125,6 +130,10 @@ func (uu *UserUsecase) Update(
 func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
+	}
+
+	if err := uu.mediaService.DeleteAllForUser(ctx, userID); err != nil {
+		log.Printf("delete media: %v", err)
 	}
 
 	return nil

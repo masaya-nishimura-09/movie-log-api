@@ -70,6 +70,13 @@ func (s *fakeMediaService) Delete(
 	return s.err
 }
 
+func (s *fakeMediaService) DeleteAllForUser(
+	ctx context.Context,
+	userID user.ID,
+) error {
+	return s.err
+}
+
 func TestGetByID(t *testing.T) {
 	userID := user.ID(1)
 	recordID := record.ID(10)
