@@ -434,8 +434,8 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?scores=4&scores=5&platforms=netflix&moodTags=moving&genres=drama"+
-					"&title=test+movie&sortField=title&sortOrder=asc&page=2&perPage=10",
+				"/?scores=4&scores=5&platforms=netflix&mood_tags=moving&genres=drama"+
+					"&title=test+movie&sort_field=title&sort_order=asc&page=2&per_page=10",
 				nil,
 			)
 
@@ -663,7 +663,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?moodTags=invalid",
+				"/?mood_tags=invalid",
 				nil,
 			)
 
@@ -759,7 +759,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?sortField=invalid",
+				"/?sort_field=invalid",
 				nil,
 			)
 
@@ -791,7 +791,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?sortOrder=invalid",
+				"/?sort_order=invalid",
 				nil,
 			)
 
@@ -855,7 +855,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?perPage=invalid",
+				"/?per_page=invalid",
 				nil,
 			)
 

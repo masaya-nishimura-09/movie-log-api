@@ -219,7 +219,7 @@ func getPlatforms(c *gin.Context) ([]recorddomain.Platform, bool) {
 }
 
 func getMoodTags(c *gin.Context) ([]recorddomain.MoodTag, bool) {
-	m := c.QueryArray("moodTags")
+	m := c.QueryArray("mood_tags")
 	dm, err := recorddomain.NewMoodTags(m)
 	if err != nil {
 		response.InvalidInput(c, err)
@@ -249,7 +249,7 @@ func getTitleKeyword(c *gin.Context) (recorddomain.TitleKeyword, bool) {
 }
 
 func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
-	t := c.Query("sortField")
+	t := c.Query("sort_field")
 	dsf, err := recorddomain.NewSortField(t)
 	if err != nil {
 		response.InvalidInput(c, err)
@@ -259,7 +259,7 @@ func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
 }
 
 func getSortOrder(c *gin.Context) (recorddomain.SortOrder, bool) {
-	t := c.Query("sortOrder")
+	t := c.Query("sort_order")
 	dso, err := recorddomain.NewSortOrder(t)
 	if err != nil {
 		response.InvalidInput(c, err)
@@ -288,7 +288,7 @@ func getPage(c *gin.Context) (recorddomain.Page, bool) {
 }
 
 func getPerPage(c *gin.Context) (recorddomain.PerPage, bool) {
-	p := c.Query("perPage")
+	p := c.Query("per_page")
 	if p == "" {
 		p = "20"
 	}
