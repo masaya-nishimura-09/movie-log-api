@@ -133,6 +133,10 @@ func (uh *UserHandler) Update(c *gin.Context) {
 		response.UserNotFound(c)
 		return
 	}
+	if errors.Is(err, exception.ErrAlreadyExists) {
+		response.UserAlreadyExists(c)
+		return
+	}
 	if err != nil {
 		log.Println(err)
 		response.InternalServerError(c)

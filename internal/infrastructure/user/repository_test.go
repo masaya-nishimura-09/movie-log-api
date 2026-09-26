@@ -419,6 +419,50 @@ func TestUpdate(t *testing.T) {
 	)
 
 	t.Run(
+		"returns ErrAlreadyExists when the email is used by another user",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			ur := NewUserRepo(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleAdmin,
+			}
+			if err := ur.Create(ctx, &u1); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
+
+			u2 := user.User{
+				Username:       user.Username("Test2"),
+				Email:          user.Email("test2@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleAdmin,
+			}
+			if err := ur.Create(ctx, &u2); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u2, err,
+				)
+			}
+
+			u2.Email = u1.Email
+			if err := ur.Update(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
+				t.Fatalf(
+					"Update(ctx, %v) error = %v, want %v",
+					u2, err, exception.ErrAlreadyExists,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
