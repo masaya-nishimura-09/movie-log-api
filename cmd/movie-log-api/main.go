@@ -163,7 +163,7 @@ func main() {
 	users := router.Group("/users")
 	users.Use(bodyLimit)
 	{
-		users.POST("/register", userHandler.Create)
+		users.POST("/register", loginLimiter, userHandler.Create)
 	}
 
 	authUsers := router.Group("/users")
