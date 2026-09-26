@@ -48,6 +48,13 @@ func Unauthenticated(c *gin.Context) {
 	})
 }
 
+func NotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, gin.H{
+		"code":    "NOT_FOUND",
+		"message": "not found",
+	})
+}
+
 func UserNotFound(c *gin.Context) {
 	c.JSON(http.StatusNotFound, gin.H{
 		"code":    "USER_NOT_FOUND",

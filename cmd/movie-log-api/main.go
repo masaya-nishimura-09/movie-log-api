@@ -171,6 +171,7 @@ func main() {
 		response.InternalServerError(c)
 		c.Abort()
 	}))
+	router.NoRoute(response.NotFound)
 	if err := router.SetTrustedProxies(trustedProxies); err != nil {
 		log.Fatal(err)
 	}
