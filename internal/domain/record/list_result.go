@@ -18,7 +18,7 @@ func NewListResult(records []*Record, totalCount TotalCount) ListResult {
 	}
 }
 
-type TotalCount int
+type TotalCount uint
 
 func NewTotalCount(value int) (TotalCount, error) {
 	if value < 0 {
