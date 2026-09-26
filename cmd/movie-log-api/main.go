@@ -13,6 +13,7 @@ import (
 	mediahandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/media"
 	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
 	mediainfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/media"
@@ -103,7 +104,10 @@ func main() {
 		Limit:  5,
 	}
 	store := memory.NewStore()
-	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
+	loginLimiter := ginlimiter.NewMiddleware(
+		limiter.New(store, rate),
+		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+	)
 
 	mediaRate := limiter.Rate{
 		Period: 1 * time.Hour,
@@ -115,6 +119,7 @@ func main() {
 		ginlimiter.WithKeyGetter(func(c *gin.Context) string {
 			return fmt.Sprint(c.MustGet("userID"))
 		}),
+		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
 	)
 
 	bodyLimit := middleware.BodyLimit(1024 * 1024)
