@@ -450,6 +450,42 @@ func TestListByUserID(t *testing.T) {
 	)
 
 	t.Run(
+		"orders records with the same sort value by id desc",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rr := NewRecordRepo(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+			watchedAt := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+
+			first := newTestRecord(userID, watchedAt)
+			if err := rr.Create(ctx, &first); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", first, err)
+			}
+			second := newTestRecord(userID, watchedAt)
+			if err := rr.Create(ctx, &second); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", second, err)
+			}
+
+			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if len(got.Records) != 2 {
+				t.Fatalf("ListByUserID returns %d records, want 2", len(got.Records))
+			}
+
+			if got.Records[0].ID != second.ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, second.ID)
+			}
+			if got.Records[1].ID != first.ID {
+				t.Errorf("ListByUserID Records[1].ID = %d, want %d", got.Records[1].ID, first.ID)
+			}
+		},
+	)
+
+	t.Run(
 		"returns an empty slice when the user has no records",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
