@@ -14,3 +14,10 @@ type CastName string
 type OriginalCastName string
 type Character string
 type Department string
+type Gender string
+
+const (
+	GenderFemale Gender = "female"
+	GenderMale   Gender = "male"
+	GenderOther  Gender = "other"
+)
