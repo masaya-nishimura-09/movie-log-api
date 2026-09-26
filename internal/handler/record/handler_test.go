@@ -348,7 +348,7 @@ func TestGetByID(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"invalid: record id must be a number"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"GetByID(c) body = %v, want to contain %v",
@@ -610,7 +610,7 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"invalid: score must be a number"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",
@@ -834,7 +834,7 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"invalid: page must be a number"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",
@@ -866,7 +866,7 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT"`
+			want := `"code":"INVALID_INPUT","message":"invalid: per page must be a number"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",

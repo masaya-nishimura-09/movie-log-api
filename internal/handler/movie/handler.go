@@ -2,6 +2,7 @@ package movie
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -121,7 +122,7 @@ func NewMovieHandler(movieUsecase movieusecase.Usecase) *MovieHandler {
 func getMovieID(c *gin.Context) (moviedomain.ID, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidInput(c, err)
+		response.InvalidInput(c, fmt.Errorf("%w: movie id must be a number", exception.ErrInvalid))
 		return 0, false
 	}
 	return moviedomain.ID(id), true
@@ -157,7 +158,7 @@ func getPage(c *gin.Context) (moviedomain.Page, bool) {
 	}
 	page, err := strconv.ParseUint(p, 10, 64)
 	if err != nil {
-		response.InvalidInput(c, err)
+		response.InvalidInput(c, fmt.Errorf("%w: page must be a number", exception.ErrInvalid))
 		return 0, false
 	}
 	return moviedomain.Page(page), true
