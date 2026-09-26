@@ -235,7 +235,6 @@ func (ms *movieService) SearchByTitle(
 	query.Set("query", string(title))
 	query.Set("page", fmt.Sprintf("%d", page))
 	query.Set("language", string(displayLanguage))
-	query.Set("include_adult", "true")
 
 	body, err := ms.client.Get(ctx, "/search/movie", query)
 	if err != nil {
