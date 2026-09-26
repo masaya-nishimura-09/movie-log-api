@@ -199,6 +199,38 @@ func TestUpload(t *testing.T) {
 	)
 
 	t.Run(
+		"returns 400 when the request body is larger than 6 megabytes",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			mediaHandler := NewMediaHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			data := append(
+				[]byte("\xFF\xD8\xFF"),
+				make([]byte, mediadomain.MaxBytes+1024*1024)...,
+			)
+			c.Request = newTestMediaRequest(t, "file", data)
+
+			mediaHandler.Upload(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"Upload(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"message":"invalid: media must be at most 5 megabytes"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"Upload(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns 500 when the usecase returns an unexpected error",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{err: errors.New("upload media")}
