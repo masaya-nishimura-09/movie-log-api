@@ -11,12 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type userRepository struct {
+type repository struct {
 	db *gorm.DB
 }
 
-func NewUserRepo(db *gorm.DB) user.UserRepository {
-	return &userRepository{db}
+func NewRepository(db *gorm.DB) user.Repository {
+	return &repository{db}
 }
 
 type userDTO struct {
@@ -57,12 +57,12 @@ func fromDTO(dto *userDTO) *user.User {
 	}
 }
 
-func (ur *userRepository) GetByID(
+func (r *repository) GetByID(
 	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
 	var dto userDTO
-	result := ur.db.WithContext(ctx).First(&dto, userID)
+	result := r.db.WithContext(ctx).First(&dto, userID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
@@ -72,12 +72,12 @@ func (ur *userRepository) GetByID(
 	return fromDTO(&dto), nil
 }
 
-func (ur *userRepository) GetByEmail(
+func (r *repository) GetByEmail(
 	ctx context.Context,
 	email user.Email,
 ) (*user.User, error) {
 	var dto userDTO
-	result := ur.db.WithContext(ctx).Where("email = ?", string(email)).First(&dto)
+	result := r.db.WithContext(ctx).Where("email = ?", string(email)).First(&dto)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
 	}
@@ -87,7 +87,7 @@ func (ur *userRepository) GetByEmail(
 	return fromDTO(&dto), nil
 }
 
-func (ur *userRepository) Create(
+func (r *repository) Create(
 	ctx context.Context,
 	u *user.User,
 ) error {
@@ -95,7 +95,7 @@ func (ur *userRepository) Create(
 	u.UpdatedAt = time.Now()
 
 	dto := toDTO(u)
-	result := ur.db.WithContext(ctx).Create(&dto)
+	result := r.db.WithContext(ctx).Create(&dto)
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 		return exception.ErrAlreadyExists
 	}
@@ -106,14 +106,14 @@ func (ur *userRepository) Create(
 	return nil
 }
 
-func (ur *userRepository) Update(
+func (r *repository) Update(
 	ctx context.Context,
 	u *user.User,
 ) error {
 	u.UpdatedAt = time.Now()
 
 	dto := toDTO(u)
-	result := ur.db.WithContext(ctx).
+	result := r.db.WithContext(ctx).
 		Model(&userDTO{}).
 		Where("id = ?", u.ID).
 		Select("username", "email", "hashed_password", "updated_at").
@@ -135,8 +135,8 @@ func (ur *userRepository) Update(
 	return nil
 }
 
-func (ur *userRepository) Delete(ctx context.Context, userID user.ID) error {
-	result := ur.db.WithContext(ctx).Delete(&userDTO{}, userID)
+func (r *repository) Delete(ctx context.Context, userID user.ID) error {
+	result := r.db.WithContext(ctx).Delete(&userDTO{}, userID)
 	if result.Error != nil {
 		return fmt.Errorf("delete user: %w", result.Error)
 	}

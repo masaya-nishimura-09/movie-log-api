@@ -25,7 +25,7 @@ func newTestUser(t *testing.T, tx *gorm.DB, email string) user.User {
 		HashedPassword: user.HashedPassword("testpassword"),
 		Role:           user.RoleUser,
 	}
-	if err := userinfra.NewUserRepo(tx).Create(context.Background(), &u); err != nil {
+	if err := userinfra.NewRepository(tx).Create(context.Background(), &u); err != nil {
 		t.Fatalf(
 			"Create(ctx, %v) error = %v",
 			u, err,
@@ -180,17 +180,17 @@ func TestGetByID(t *testing.T) {
 		"returns the record with its associations when the ID exists",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 			want := newTestRecord(userID, time.Now())
 
-			if err := rr.Create(ctx, &want); err != nil {
+			if err := r.Create(ctx, &want); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", want, err)
 			}
 
-			got, err := rr.GetByID(ctx, want.ID)
+			got, err := r.GetByID(ctx, want.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (record.Record, error) = %v, %v",
@@ -209,12 +209,12 @@ func TestGetByID(t *testing.T) {
 		"returns ErrNotFound when the ID does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			fakeID := record.ID(999999)
 
-			got, err := rr.GetByID(ctx, fakeID)
+			got, err := r.GetByID(ctx, fakeID)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByID(ctx, %d) (record.Record, error) = %v, %v, want %v",
@@ -234,13 +234,13 @@ func TestGetByID(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			id := record.ID(1)
-			got, err := rr.GetByID(ctx, id)
+			got, err := r.GetByID(ctx, id)
 
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
@@ -277,7 +277,7 @@ func TestListByUserID(t *testing.T) {
 		"filters, sorts, paginates, and excludes other users",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
@@ -335,7 +335,7 @@ func TestListByUserID(t *testing.T) {
 				},
 			}
 			for i := range matching {
-				if err := rr.Create(ctx, &matching[i]); err != nil {
+				if err := r.Create(ctx, &matching[i]); err != nil {
 					t.Fatalf("Create(ctx, matching[%d]) error = %v", i, err)
 				}
 			}
@@ -389,7 +389,7 @@ func TestListByUserID(t *testing.T) {
 				},
 			}
 			for i := range excluded {
-				if err := rr.Create(ctx, &excluded[i]); err != nil {
+				if err := r.Create(ctx, &excluded[i]); err != nil {
 					t.Fatalf("Create(ctx, excluded[%d]) error = %v", i, err)
 				}
 			}
@@ -404,7 +404,7 @@ func TestListByUserID(t *testing.T) {
 				MoodTags:  []record.MoodTag{record.MoodTagTense},
 				WatchedAt: time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC),
 			}
-			if err := rr.Create(ctx, &other); err != nil {
+			if err := r.Create(ctx, &other); err != nil {
 				t.Fatalf("Create(ctx, other) error = %v", err)
 			}
 
@@ -420,7 +420,7 @@ func TestListByUserID(t *testing.T) {
 				record.PerPage(2),
 			)
 
-			got, err := rr.ListByUserID(ctx, userID, query)
+			got, err := r.ListByUserID(ctx, userID, query)
 			if err != nil {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
@@ -441,9 +441,9 @@ func TestListByUserID(t *testing.T) {
 			}
 
 			// Check associations are preloaded
-			for i, r := range got.Records {
-				if len(r.Genres) == 0 || len(r.Credits) == 0 {
-					t.Errorf("ListByUserID Records[%d] = %v, want preloaded associations", i, r)
+			for i, rec := range got.Records {
+				if len(rec.Genres) == 0 || len(rec.Credits) == 0 {
+					t.Errorf("ListByUserID Records[%d] = %v, want preloaded associations", i, rec)
 				}
 			}
 		},
@@ -453,22 +453,22 @@ func TestListByUserID(t *testing.T) {
 		"orders records with the same sort value by id desc",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 			watchedAt := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
 
 			first := newTestRecord(userID, watchedAt)
-			if err := rr.Create(ctx, &first); err != nil {
+			if err := r.Create(ctx, &first); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", first, err)
 			}
 			second := newTestRecord(userID, watchedAt)
-			if err := rr.Create(ctx, &second); err != nil {
+			if err := r.Create(ctx, &second); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", second, err)
 			}
 
-			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
+			got, err := r.ListByUserID(ctx, userID, newEmptyQuery())
 			if err != nil {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
@@ -489,7 +489,7 @@ func TestListByUserID(t *testing.T) {
 		"returns the records of the given page",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
@@ -500,7 +500,7 @@ func TestListByUserID(t *testing.T) {
 				newTestRecord(userID, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)),
 			}
 			for i := range records {
-				if err := rr.Create(ctx, &records[i]); err != nil {
+				if err := r.Create(ctx, &records[i]); err != nil {
 					t.Fatalf("Create(ctx, records[%d]) error = %v", i, err)
 				}
 			}
@@ -517,7 +517,7 @@ func TestListByUserID(t *testing.T) {
 				record.PerPage(2),
 			)
 
-			got, err := rr.ListByUserID(ctx, userID, query)
+			got, err := r.ListByUserID(ctx, userID, query)
 			if err != nil {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
@@ -538,19 +538,19 @@ func TestListByUserID(t *testing.T) {
 		"treats % in the title keyword as a literal character",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
 			matching := newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
 			matching.Title = record.Title("100% Love")
-			if err := rr.Create(ctx, &matching); err != nil {
+			if err := r.Create(ctx, &matching); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", matching, err)
 			}
 			excluded := newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC))
 			excluded.Title = record.Title("1000 Years")
-			if err := rr.Create(ctx, &excluded); err != nil {
+			if err := r.Create(ctx, &excluded); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", excluded, err)
 			}
 
@@ -566,7 +566,7 @@ func TestListByUserID(t *testing.T) {
 				record.PerPage(20),
 			)
 
-			got, err := rr.ListByUserID(ctx, userID, query)
+			got, err := r.ListByUserID(ctx, userID, query)
 			if err != nil {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
@@ -583,12 +583,12 @@ func TestListByUserID(t *testing.T) {
 		"returns an empty slice when the user has no records",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
-			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
+			got, err := r.ListByUserID(ctx, userID, newEmptyQuery())
 			if err != nil {
 				t.Fatalf(
 					"ListByUserID(ctx, %d, query) error = %v",
@@ -614,13 +614,13 @@ func TestListByUserID(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			userID := user.ID(1)
-			got, err := rr.ListByUserID(ctx, userID, newEmptyQuery())
+			got, err := r.ListByUserID(ctx, userID, newEmptyQuery())
 
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
@@ -643,13 +643,13 @@ func TestCreate(t *testing.T) {
 		"persists the record and its associations",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 			want := newTestRecord(userID, time.Now())
 
-			if err := rr.Create(ctx, &want); err != nil {
+			if err := r.Create(ctx, &want); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", want, err)
 			}
 			if want.ID == 0 {
@@ -662,7 +662,7 @@ func TestCreate(t *testing.T) {
 				)
 			}
 
-			got, err := rr.GetByID(ctx, want.ID)
+			got, err := r.GetByID(ctx, want.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (record.Record, error) = %v, %v",
@@ -691,17 +691,17 @@ func TestCreate(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			r := newTestRecord(user.ID(1), time.Now())
-			err := rr.Create(ctx, &r)
+			rec := newTestRecord(user.ID(1), time.Now())
+			err := r.Create(ctx, &rec)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v, want %v",
-					r, err, context.Canceled,
+					rec, err, context.Canceled,
 				)
 			}
 		},
@@ -713,13 +713,13 @@ func TestUpdate(t *testing.T) {
 		"updates the record and replaces its associations",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
 			created := newTestRecord(userID, time.Now())
-			if err := rr.Create(ctx, &created); err != nil {
+			if err := r.Create(ctx, &created); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", created, err)
 			}
 
@@ -745,11 +745,11 @@ func TestUpdate(t *testing.T) {
 				MoodTags:  []record.MoodTag{record.MoodTagDark},
 				Memo:      record.Memo("updated memo"),
 			}
-			if err := rr.Update(ctx, &want); err != nil {
+			if err := r.Update(ctx, &want); err != nil {
 				t.Fatalf("Update(ctx, %v) error = %v", want, err)
 			}
 
-			got, err := rr.GetByID(ctx, created.ID)
+			got, err := r.GetByID(ctx, created.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (record.Record, error) = %v, %v",
@@ -791,18 +791,18 @@ func TestUpdate(t *testing.T) {
 		"returns ErrNotFound when the record does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
-			r := newTestRecord(userID, time.Now())
-			r.ID = record.ID(999999)
+			rec := newTestRecord(userID, time.Now())
+			rec.ID = record.ID(999999)
 
-			if err := rr.Update(ctx, &r); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Update(ctx, &rec); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
-					r, err, exception.ErrNotFound,
+					rec, err, exception.ErrNotFound,
 				)
 			}
 		},
@@ -812,14 +812,14 @@ func TestUpdate(t *testing.T) {
 		"returns ErrNotFound when the record belongs to another user",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 			otherUserID := newTestUser(t, tx, "other@example.com").ID
 
 			created := newTestRecord(userID, time.Now())
-			if err := rr.Create(ctx, &created); err != nil {
+			if err := r.Create(ctx, &created); err != nil {
 				t.Fatalf("Create(ctx, %v) error = %v", created, err)
 			}
 
@@ -827,7 +827,7 @@ func TestUpdate(t *testing.T) {
 			hijacked.ID = created.ID
 			hijacked.Title = record.Title("Hijacked Movie")
 
-			if err := rr.Update(ctx, &hijacked); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Update(ctx, &hijacked); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
 					hijacked, err, exception.ErrNotFound,
@@ -840,19 +840,19 @@ func TestUpdate(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			r := newTestRecord(user.ID(1), time.Now())
-			r.ID = record.ID(1)
+			rec := newTestRecord(user.ID(1), time.Now())
+			rec.ID = record.ID(1)
 
-			err := rr.Update(ctx, &r)
+			err := r.Update(ctx, &rec)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
-					r, err, context.Canceled,
+					rec, err, context.Canceled,
 				)
 			}
 		},
@@ -864,31 +864,31 @@ func TestDelete(t *testing.T) {
 		"deletes the record and its associations",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			userID := newTestUser(t, tx, "test@example.com").ID
 
-			r := newTestRecord(userID, time.Now())
-			if err := rr.Create(ctx, &r); err != nil {
-				t.Fatalf("Create(ctx, %v) error = %v", r, err)
+			rec := newTestRecord(userID, time.Now())
+			if err := r.Create(ctx, &rec); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", rec, err)
 			}
 
-			if err := rr.Delete(ctx, r.ID); err != nil {
-				t.Fatalf("Delete(ctx, %d) error = %v", r.ID, err)
+			if err := r.Delete(ctx, rec.ID); err != nil {
+				t.Fatalf("Delete(ctx, %d) error = %v", rec.ID, err)
 			}
 
-			got, err := rr.GetByID(ctx, r.ID)
+			got, err := r.GetByID(ctx, rec.ID)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByID(ctx, %d) (record.Record, error) = %v, %v, want %v",
-					r.ID, got, err, exception.ErrNotFound,
+					rec.ID, got, err, exception.ErrNotFound,
 				)
 			}
-			if count := countAssociations(t, tx, r.ID); count != 0 {
+			if count := countAssociations(t, tx, rec.ID); count != 0 {
 				t.Errorf(
 					"Delete(ctx, %d) leaves %d association rows, want 0",
-					r.ID, count,
+					rec.ID, count,
 				)
 			}
 		},
@@ -898,12 +898,12 @@ func TestDelete(t *testing.T) {
 		"returns ErrNotFound when the record does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			id := record.ID(999999)
 
-			if err := rr.Delete(ctx, id); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Delete(ctx, id); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v, want %v",
 					id, err, exception.ErrNotFound,
@@ -916,13 +916,13 @@ func TestDelete(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rr := NewRecordRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			id := record.ID(1)
-			err := rr.Delete(ctx, id)
+			err := r.Delete(ctx, id)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v, want %v",

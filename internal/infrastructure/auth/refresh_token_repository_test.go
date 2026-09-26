@@ -24,7 +24,7 @@ func newTestUser(t *testing.T, tx *gorm.DB, email string) user.User {
 		HashedPassword: user.HashedPassword("testpassword"),
 		Role:           user.RoleAdmin,
 	}
-	if err := userinfra.NewUserRepo(tx).Create(context.Background(), &u); err != nil {
+	if err := userinfra.NewRepository(tx).Create(context.Background(), &u); err != nil {
 		t.Fatalf(
 			"Create(ctx, %v) error = %v",
 			u, err,
@@ -38,7 +38,7 @@ func TestCreate(t *testing.T) {
 		"returns the refresh token when valid principal is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			u := newTestUser(t, tx, "test@example.com")
@@ -100,7 +100,7 @@ func TestCreate(t *testing.T) {
 		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			principal := auth.Principal{
@@ -128,7 +128,7 @@ func TestCreate(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -160,7 +160,7 @@ func TestFindValidByValue(t *testing.T) {
 		"returns the refresh token when valid value is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			u := newTestUser(t, tx, "test@example.com")
@@ -204,7 +204,7 @@ func TestFindValidByValue(t *testing.T) {
 		"returns ErrInvalid when value does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 
@@ -226,7 +226,7 @@ func TestFindValidByValue(t *testing.T) {
 		"returns ErrInvalid when refresh token is expired",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, -time.Hour)
+			rtr := NewRefreshTokenRepository(tx, -time.Hour)
 
 			ctx := context.Background()
 			u := newTestUser(t, tx, "test@example.com")
@@ -258,7 +258,7 @@ func TestFindValidByValue(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -289,7 +289,7 @@ func TestRevoke(t *testing.T) {
 		"revokes the refresh token when a valid id is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			u := newTestUser(t, tx, "test@example.com")
@@ -328,7 +328,7 @@ func TestRevoke(t *testing.T) {
 		"returns ErrInvalid when the refresh token is already revoked",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			u := newTestUser(t, tx, "test@example.com")
@@ -366,7 +366,7 @@ func TestRevoke(t *testing.T) {
 		"returns ErrInvalid when refresh token is not found",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 			id := auth.RefreshTokenID(1)
@@ -385,7 +385,7 @@ func TestRevoke(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -408,7 +408,7 @@ func TestRevokeAllForUser(t *testing.T) {
 		"revokes the all refresh tokens when a valid user id is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 
@@ -478,7 +478,7 @@ func TestRevokeAllForUser(t *testing.T) {
 		"returns no error when the user has no refresh tokens",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx := context.Background()
 
@@ -499,7 +499,7 @@ func TestRevokeAllForUser(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			rtr := NewRefreshTokenRepo(tx, time.Hour)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()

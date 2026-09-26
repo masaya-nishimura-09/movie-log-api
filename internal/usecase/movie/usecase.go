@@ -22,11 +22,11 @@ type Usecase interface {
 }
 
 type MovieUsecase struct {
-	movieService movie.MovieService
+	movieService movie.Service
 }
 
 func NewMovieUsecase(
-	movieService movie.MovieService,
+	movieService movie.Service,
 ) *MovieUsecase {
 	return &MovieUsecase{
 		movieService: movieService,

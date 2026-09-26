@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type MovieService interface {
+type Service interface {
 	GetByID(
 		ctx context.Context,
 		movieID ID,

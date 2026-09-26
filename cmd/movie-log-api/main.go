@@ -129,10 +129,10 @@ func main() {
 		secret,
 		accessTokenTTL,
 	)
-	refreshTokenRepo := authinfra.NewRefreshTokenRepo(db, refreshTokenTTL)
-	userRepo := userinfra.NewUserRepo(db)
-	recordRepo := recordinfra.NewRecordRepo(db)
-	movieService := movieinfra.NewMovieService(
+	refreshTokenRepo := authinfra.NewRefreshTokenRepository(db, refreshTokenTTL)
+	userRepo := userinfra.NewRepository(db)
+	recordRepo := recordinfra.NewRepository(db)
+	movieService := movieinfra.NewService(
 		tmdbClient,
 		tmdbPosterBaseURL,
 	)
