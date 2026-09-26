@@ -99,13 +99,13 @@ func main() {
 
 	tmdbClient := movieinfra.NewTMDBClient(tmdbEndpoint, tmdbAccessToken)
 
-	rate := limiter.Rate{
+	loginRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  5,
 	}
-	store := memory.NewStore()
+	loginStore := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(
-		limiter.New(store, rate),
+		limiter.New(loginStore, loginRate),
 		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
 	)
 
