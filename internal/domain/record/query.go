@@ -64,7 +64,7 @@ const (
 
 func NewSortField(value string) (SortField, error) {
 	if value == "" {
-		return SortFieldWatchedAt, nil
+		return "", fmt.Errorf("%w: sort field is required", exception.ErrInvalid)
 	}
 
 	switch sortField := SortField(value); sortField {
@@ -87,7 +87,7 @@ const (
 
 func NewSortOrder(value string) (SortOrder, error) {
 	if value == "" {
-		return SortOrderDesc, nil
+		return "", fmt.Errorf("%w: sort order is required", exception.ErrInvalid)
 	}
 
 	switch sortOrder := SortOrder(value); sortOrder {

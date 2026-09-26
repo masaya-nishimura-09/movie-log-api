@@ -251,6 +251,9 @@ func getTitleKeyword(c *gin.Context) (recorddomain.TitleKeyword, bool) {
 
 func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
 	t := c.Query("sort_field")
+	if t == "" {
+		t = "watched_at"
+	}
 	dsf, err := recorddomain.NewSortField(t)
 	if err != nil {
 		response.InvalidInput(c, err)
@@ -261,6 +264,9 @@ func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
 
 func getSortOrder(c *gin.Context) (recorddomain.SortOrder, bool) {
 	t := c.Query("sort_order")
+	if t == "" {
+		t = "desc"
+	}
 	dso, err := recorddomain.NewSortOrder(t)
 	if err != nil {
 		response.InvalidInput(c, err)
