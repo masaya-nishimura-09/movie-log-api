@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -191,7 +192,12 @@ func main() {
 		media.POST("/", mediaHandler.Upload)
 	}
 
-	if err := router.Run("0.0.0.0:8080"); err != nil {
+	server := &http.Server{
+		Addr:              "0.0.0.0:8080",
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
