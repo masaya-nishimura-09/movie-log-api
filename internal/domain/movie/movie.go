@@ -11,7 +11,7 @@ type Movie struct {
 	Runtime          Runtime
 	OriginalLanguage OriginalLanguage
 	OriginCountry    []OriginCountry
-	Casts            []*Cast
+	Casts            []Cast
 }
 
 type ID uint
