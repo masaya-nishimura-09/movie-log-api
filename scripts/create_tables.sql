@@ -18,6 +18,8 @@ CREATE TABLE refresh_tokens (
     revoked_at TIMESTAMPTZ DEFAULT NULL
 );
 
+CREATE UNIQUE INDEX refresh_tokens_hash_idx ON refresh_tokens (hash);
+
 CREATE TABLE records (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
