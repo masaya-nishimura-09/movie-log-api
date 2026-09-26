@@ -2,6 +2,7 @@ package record
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -194,7 +195,7 @@ func getScores(c *gin.Context) ([]recorddomain.Score, bool) {
 	for _, v := range s {
 		value, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
-			response.InvalidInput(c, err)
+			response.InvalidInput(c, fmt.Errorf("%w: score must be a number", exception.ErrInvalid))
 			return nil, false
 		}
 		values = append(values, uint(value))
@@ -275,7 +276,7 @@ func getPage(c *gin.Context) (recorddomain.Page, bool) {
 	}
 	page, err := strconv.ParseUint(p, 10, 64)
 	if err != nil {
-		response.InvalidInput(c, err)
+		response.InvalidInput(c, fmt.Errorf("%w: page must be a number", exception.ErrInvalid))
 		return 0, false
 	}
 
@@ -294,7 +295,7 @@ func getPerPage(c *gin.Context) (recorddomain.PerPage, bool) {
 	}
 	perPage, err := strconv.ParseUint(p, 10, 64)
 	if err != nil {
-		response.InvalidInput(c, err)
+		response.InvalidInput(c, fmt.Errorf("%w: per page must be a number", exception.ErrInvalid))
 		return 0, false
 	}
 
@@ -370,7 +371,7 @@ func getQuery(c *gin.Context) (recorddomain.Query, bool) {
 func getRecordID(c *gin.Context) (recorddomain.ID, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		response.InvalidInput(c, err)
+		response.InvalidInput(c, fmt.Errorf("%w: record id must be a number", exception.ErrInvalid))
 		return 0, false
 	}
 	return recorddomain.ID(id), true
