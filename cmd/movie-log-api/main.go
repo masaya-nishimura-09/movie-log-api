@@ -33,6 +33,12 @@ func main() {
 		log.Println(".env file not found, using environment variables")
 	}
 
+	ginMode, err := config.GinMode()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gin.SetMode(ginMode)
+
 	db, err := config.NewDB()
 	if err != nil {
 		log.Fatalf("%v", err)
