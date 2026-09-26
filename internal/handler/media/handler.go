@@ -2,6 +2,7 @@ package media
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -50,7 +51,17 @@ func (mh *MediaHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	c.Request.Body = http.MaxBytesReader(
+		c.Writer, c.Request.Body, media.MaxBytes+1024*1024,
+	)
 	fileHeader, err := c.FormFile("file")
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		response.InvalidInput(
+			c, fmt.Errorf("%w: media must be at most 5 megabytes", exception.ErrInvalid),
+		)
+		return
+	}
 	if err != nil {
 		response.MalformedBody(c)
 		return
