@@ -93,7 +93,7 @@ func newTestMovie() moviedomain.Movie {
 		OriginCountry: []moviedomain.OriginCountry{
 			moviedomain.OriginCountry("US"),
 		},
-		Casts: []*moviedomain.Cast{&cast},
+		Casts: []moviedomain.Cast{cast},
 	}
 }
 

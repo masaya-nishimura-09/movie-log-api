@@ -40,7 +40,7 @@ func newTestMovie() movie.Movie {
 		OriginCountry: []movie.OriginCountry{
 			movie.OriginCountry("US"), movie.OriginCountry("JP"),
 		},
-		Casts: []*movie.Cast{&cast},
+		Casts: []movie.Cast{cast},
 	}
 
 	return movie
@@ -103,18 +103,16 @@ func equalOriginCountry(got, want []movie.OriginCountry) bool {
 	return slices.Equal(g, w)
 }
 
-func equalCasts(got, want []*movie.Cast) bool {
+func equalCasts(got, want []movie.Cast) bool {
 	g := slices.Clone(got)
 	w := slices.Clone(want)
-	slices.SortFunc(g, func(a, b *movie.Cast) int {
+	slices.SortFunc(g, func(a, b movie.Cast) int {
 		return cmp.Compare(a.ID, b.ID)
 	})
-	slices.SortFunc(w, func(a, b *movie.Cast) int {
+	slices.SortFunc(w, func(a, b movie.Cast) int {
 		return cmp.Compare(a.ID, b.ID)
 	})
-	return slices.EqualFunc(g, w, func(a, b *movie.Cast) bool {
-		return *a == *b
-	})
+	return slices.Equal(g, w)
 }
 
 func assertMovieEqual(t *testing.T, call string, got, want *movie.Movie) {

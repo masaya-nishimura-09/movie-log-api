@@ -111,7 +111,7 @@ func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.M
 		originCountry = append(originCountry, movie.OriginCountry(c))
 	}
 
-	var casts []*movie.Cast
+	var casts []movie.Cast
 	for _, c := range castDtos {
 		gender := movie.GenderOther
 		if name, ok := genderIDName[c.Gender]; ok {
@@ -126,7 +126,7 @@ func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.M
 			Role:         movie.Role(c.Role),
 			Gender:       gender,
 		}
-		casts = append(casts, &cast)
+		casts = append(casts, cast)
 	}
 
 	return &movie.Movie{

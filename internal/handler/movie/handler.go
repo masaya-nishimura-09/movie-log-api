@@ -33,7 +33,7 @@ type CastResponse struct {
 	Gender       string `json:"gender"`
 }
 
-func toCastResponse(c *moviedomain.Cast) CastResponse {
+func toCastResponse(c moviedomain.Cast) CastResponse {
 	return CastResponse{
 		ID:           uint(c.ID),
 		Name:         string(c.Name),
