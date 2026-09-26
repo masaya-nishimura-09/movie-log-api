@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,8 @@ import (
 
 type fakeUsecase struct {
 	record          *recorddomain.Record
-	records         []*recorddomain.Record
+	listResult      recorddomain.ListResult
+	listedQuery     recorddomain.Query
 	createdUserID   userdomain.ID
 	createdRecord   recorddomain.Record
 	updatedUserID   userdomain.ID
@@ -39,8 +41,11 @@ func (u *fakeUsecase) GetByID(
 func (u *fakeUsecase) ListByUserID(
 	ctx context.Context,
 	userID userdomain.ID,
-) ([]*recorddomain.Record, error) {
-	return u.records, u.err
+	query recorddomain.Query,
+) (recorddomain.ListResult, error) {
+	u.listedQuery = query
+
+	return u.listResult, u.err
 }
 
 func (u *fakeUsecase) Create(
@@ -413,10 +418,107 @@ func TestGetByID(t *testing.T) {
 
 func TestListByUserID(t *testing.T) {
 	t.Run(
-		"returns the records of the authenticated user and 200",
+		"passes the converted query to the usecase and returns the records and 200 when the request is valid",
 		func(t *testing.T) {
 			r := newTestRecord()
-			usecase := &fakeUsecase{records: []*recorddomain.Record{&r}}
+			usecase := &fakeUsecase{
+				listResult: recorddomain.ListResult{
+					Records:    []*recorddomain.Record{&r},
+					TotalCount: recorddomain.TotalCount(1),
+				},
+			}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?scores=4&scores=5&platforms=netflix&moodTags=moving&genres=drama"+
+					"&title=test+movie&sortField=title&sortOrder=asc&page=2&perPage=10",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"records":[` + wantBody + `],"total_count":1}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+
+			wantScores := []recorddomain.Score{4, 5}
+			if !slices.Equal(usecase.listedQuery.Scores, wantScores) {
+				t.Errorf(
+					"ListByUserID(c) scores = %v, want %v",
+					usecase.listedQuery.Scores, wantScores,
+				)
+			}
+			wantPlatforms := []recorddomain.Platform{recorddomain.PlatformNetflix}
+			if !slices.Equal(usecase.listedQuery.Platforms, wantPlatforms) {
+				t.Errorf(
+					"ListByUserID(c) platforms = %v, want %v",
+					usecase.listedQuery.Platforms, wantPlatforms,
+				)
+			}
+			wantMoodTags := []recorddomain.MoodTag{recorddomain.MoodTagMoving}
+			if !slices.Equal(usecase.listedQuery.MoodTags, wantMoodTags) {
+				t.Errorf(
+					"ListByUserID(c) moodTags = %v, want %v",
+					usecase.listedQuery.MoodTags, wantMoodTags,
+				)
+			}
+			wantGenres := []recorddomain.Genre{recorddomain.GenreDrama}
+			if !slices.Equal(usecase.listedQuery.Genres, wantGenres) {
+				t.Errorf(
+					"ListByUserID(c) genres = %v, want %v",
+					usecase.listedQuery.Genres, wantGenres,
+				)
+			}
+			if usecase.listedQuery.TitleKeyword != "test movie" {
+				t.Errorf(
+					"ListByUserID(c) title = %v, want %v",
+					usecase.listedQuery.TitleKeyword, "test movie",
+				)
+			}
+			if usecase.listedQuery.SortField != recorddomain.SortFieldTitle {
+				t.Errorf(
+					"ListByUserID(c) sortField = %v, want %v",
+					usecase.listedQuery.SortField, recorddomain.SortFieldTitle,
+				)
+			}
+			if usecase.listedQuery.SortOrder != recorddomain.SortOrderAsc {
+				t.Errorf(
+					"ListByUserID(c) sortOrder = %v, want %v",
+					usecase.listedQuery.SortOrder, recorddomain.SortOrderAsc,
+				)
+			}
+			if usecase.listedQuery.Page != 2 {
+				t.Errorf(
+					"ListByUserID(c) page = %v, want %v",
+					usecase.listedQuery.Page, 2,
+				)
+			}
+			if usecase.listedQuery.PerPage != 10 {
+				t.Errorf(
+					"ListByUserID(c) perPage = %v, want %v",
+					usecase.listedQuery.PerPage, 10,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"passes the default query to the usecase when the query parameters are omitted",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
 			recordHandler := NewRecordHandler(usecase)
 
 			rec := httptest.NewRecorder()
@@ -431,11 +533,28 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			want := `{"records":[` + wantBody + `]}`
-			if rec.Body.String() != want {
+			if usecase.listedQuery.SortField != recorddomain.SortFieldWatchedAt {
 				t.Errorf(
-					"ListByUserID(c) body = %v, want %v",
-					rec.Body.String(), want,
+					"ListByUserID(c) sortField = %v, want %v",
+					usecase.listedQuery.SortField, recorddomain.SortFieldWatchedAt,
+				)
+			}
+			if usecase.listedQuery.SortOrder != recorddomain.SortOrderDesc {
+				t.Errorf(
+					"ListByUserID(c) sortOrder = %v, want %v",
+					usecase.listedQuery.SortOrder, recorddomain.SortOrderDesc,
+				)
+			}
+			if usecase.listedQuery.Page != 1 {
+				t.Errorf(
+					"ListByUserID(c) page = %v, want %v",
+					usecase.listedQuery.Page, 1,
+				)
+			}
+			if usecase.listedQuery.PerPage != 20 {
+				t.Errorf(
+					"ListByUserID(c) perPage = %v, want %v",
+					usecase.listedQuery.PerPage, 20,
 				)
 			}
 		},
@@ -459,10 +578,325 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			want := `{"records":[]}`
+			want := `{"records":[],"total_count":0}`
 			if rec.Body.String() != want {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the score is not a number",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?scores=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the platform is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?platforms=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the mood tag is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?moodTags=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the genre is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?genres=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the title is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?title="+strings.Repeat("a", 256),
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the sort field is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?sortField=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the sort order is invalid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?sortOrder=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the page is not a number",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?page=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the per page is not a number",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?perPage=invalid",
+				nil,
+			)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the authenticated user ID is missing from the context",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}

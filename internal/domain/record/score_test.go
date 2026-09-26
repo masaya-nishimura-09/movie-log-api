@@ -1,6 +1,9 @@
 package record
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestNewScore(t *testing.T) {
 	tests := []struct {
@@ -23,6 +26,33 @@ func TestNewScore(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("NewScore(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewScores(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []uint
+		want    []Score
+		wantErr bool
+	}{
+		{"multiple values", []uint{1, 5}, []Score{1, 5}, false},
+		{"empty slice", []uint{}, []Score{}, false},
+
+		{"duplicate value", []uint{3, 3}, nil, true},
+		{"zero element", []uint{3, 0}, nil, true},
+		{"over max element", []uint{3, 6}, nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewScores(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewScores(%v) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("NewScores(%v) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

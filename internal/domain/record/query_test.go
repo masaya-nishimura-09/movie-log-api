@@ -67,7 +67,7 @@ func TestNewSortOrder(t *testing.T) {
 		want    SortOrder
 		wantErr bool
 	}{
-		{"empty defaults to asc", "", SortOrderAsc, false},
+		{"empty defaults to desc", "", SortOrderDesc, false},
 		{"asc", "asc", SortOrderAsc, false},
 		{"desc", "desc", SortOrderDesc, false},
 
