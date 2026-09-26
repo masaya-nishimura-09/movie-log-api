@@ -18,7 +18,7 @@ func Secret() ([]byte, error) {
 func AccessTokenTTL() (time.Duration, error) {
 	raw := os.Getenv("ACCESS_TOKEN_TTL_HOURS")
 	if raw == "" {
-		return 24 * time.Hour, nil
+		return 1 * time.Hour, nil
 	}
 	hours, err := strconv.Atoi(raw)
 	if err != nil {
