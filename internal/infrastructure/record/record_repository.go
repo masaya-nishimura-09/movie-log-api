@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
@@ -209,7 +210,8 @@ func (rr *recordRepository) ListByUserID(
 		Where("user_id = ?", uint(userID))
 
 	if query.TitleKeyword != "" {
-		db = db.Where("title ILIKE ?", "%"+string(query.TitleKeyword)+"%")
+		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(string(query.TitleKeyword))
+		db = db.Where("title ILIKE ?", "%"+escaped+"%")
 	}
 	if len(query.Scores) > 0 {
 		db = db.Where("score IN ?", query.Scores)
