@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -104,6 +105,18 @@ func main() {
 	store := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
 
+	mediaRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  30,
+	}
+	mediaStore := memory.NewStore()
+	mediaLimiter := ginlimiter.NewMiddleware(
+		limiter.New(mediaStore, mediaRate),
+		ginlimiter.WithKeyGetter(func(c *gin.Context) string {
+			return fmt.Sprint(c.MustGet("userID"))
+		}),
+	)
+
 	bodyLimit := middleware.BodyLimit(1024 * 1024)
 
 	// infrastructure
@@ -195,7 +208,7 @@ func main() {
 	media := router.Group("/media")
 	media.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
-		media.POST("/", mediaHandler.Upload)
+		media.POST("/", mediaLimiter, mediaHandler.Upload)
 	}
 
 	server := &http.Server{
