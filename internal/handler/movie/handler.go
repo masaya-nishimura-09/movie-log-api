@@ -50,8 +50,8 @@ func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 		genres = append(genres, string(genre))
 	}
 
-	countries := make([]string, 0, len(m.OriginCountry))
-	for _, country := range m.OriginCountry {
+	countries := make([]string, 0, len(m.OriginCountries))
+	for _, country := range m.OriginCountries {
 		countries = append(countries, string(country))
 	}
 
