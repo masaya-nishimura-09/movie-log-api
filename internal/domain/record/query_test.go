@@ -39,12 +39,12 @@ func TestNewSortField(t *testing.T) {
 		want    SortField
 		wantErr bool
 	}{
-		{"empty defaults to watched_at", "", SortFieldWatchedAt, false},
 		{"watched_at", "watched_at", SortFieldWatchedAt, false},
 		{"release_year", "release_year", SortFieldReleaseYear, false},
 		{"score", "score", SortFieldScore, false},
 		{"title", "title", SortFieldTitle, false},
 
+		{"empty", "", "", true},
 		{"invalid", "invalid", "", true},
 	}
 	for _, tt := range tests {
@@ -67,10 +67,10 @@ func TestNewSortOrder(t *testing.T) {
 		want    SortOrder
 		wantErr bool
 	}{
-		{"empty defaults to desc", "", SortOrderDesc, false},
 		{"asc", "asc", SortOrderAsc, false},
 		{"desc", "desc", SortOrderDesc, false},
 
+		{"empty", "", "", true},
 		{"invalid", "invalid", "", true},
 	}
 	for _, tt := range tests {
