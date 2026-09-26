@@ -123,6 +123,9 @@ func (ur *userRepository) Update(
 			HashedPassword: dto.HashedPassword,
 			UpdatedAt:      dto.UpdatedAt,
 		})
+	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+		return exception.ErrAlreadyExists
+	}
 	if result.Error != nil {
 		return fmt.Errorf("update user: %w", result.Error)
 	}

@@ -458,6 +458,42 @@ func TestUpdate(t *testing.T) {
 	)
 
 	t.Run(
+		"returns 409 when the email is already registered",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrAlreadyExists}
+			userHandler := NewUserHandler(usecase)
+
+			userID := user.ID(1)
+			body := `{
+				"name":"Test",
+				"email":"test@example.com",
+				"password":"testpassword"
+			}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = httptest.NewRequest(
+				http.MethodPut, "/", strings.NewReader(body),
+			)
+
+			userHandler.Update(c)
+			if rec.Code != http.StatusConflict {
+				t.Errorf(
+					"Update(c) code = %v, want %v",
+					rec.Code, http.StatusConflict,
+				)
+			}
+			want := `"code":"USER_ALREADY_EXISTS"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"Update(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns 500 when the usecase returns an unexpected error",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{err: errors.New("unexpected")}
