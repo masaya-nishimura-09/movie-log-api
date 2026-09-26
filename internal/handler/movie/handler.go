@@ -161,7 +161,13 @@ func getPage(c *gin.Context) (moviedomain.Page, bool) {
 		response.InvalidInput(c, fmt.Errorf("%w: page must be a number", exception.ErrInvalid))
 		return 0, false
 	}
-	return moviedomain.Page(page), true
+
+	dp, err := moviedomain.NewPage(uint(page))
+	if err != nil {
+		response.InvalidInput(c, err)
+		return 0, false
+	}
+	return dp, true
 }
 
 func (mh *MovieHandler) GetByID(c *gin.Context) {

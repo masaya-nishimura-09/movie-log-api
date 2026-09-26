@@ -393,6 +393,37 @@ func TestSearchByTitle(t *testing.T) {
 	)
 
 	t.Run(
+		"returns 400 when the page is zero",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			movieHandler := NewMovieHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodGet,
+				"/?title=test+movie&page=0&language=en",
+				nil,
+			)
+
+			movieHandler.SearchByTitle(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"SearchByTitle(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT","message":"invalid: page must be more than 0"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"SearchByTitle(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns 400 when display language is invalid",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{}

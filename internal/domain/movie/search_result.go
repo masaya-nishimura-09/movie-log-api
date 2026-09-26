@@ -1,5 +1,11 @@
 package movie
 
+import (
+	"fmt"
+
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+)
+
 type SearchResult struct {
 	Movies       []*Movie
 	Page         Page
@@ -8,5 +14,14 @@ type SearchResult struct {
 }
 
 type Page uint
+
+func NewPage(value uint) (Page, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: page must be more than 0", exception.ErrInvalid)
+	}
+
+	return Page(value), nil
+}
+
 type TotalPages uint
 type TotalResults uint
