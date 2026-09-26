@@ -17,7 +17,7 @@ type Page uint
 
 func NewPage(value uint) (Page, error) {
 	if value < 1 {
-		return 0, fmt.Errorf("%w: page must be more than 0", exception.ErrInvalid)
+		return 0, fmt.Errorf("%w: page must be at least 1", exception.ErrInvalid)
 	}
 
 	return Page(value), nil

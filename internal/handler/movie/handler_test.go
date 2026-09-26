@@ -413,7 +413,7 @@ func TestSearchByTitle(t *testing.T) {
 					rec.Code, http.StatusBadRequest,
 				)
 			}
-			want := `"code":"INVALID_INPUT","message":"invalid: page must be more than 0"`
+			want := `"code":"INVALID_INPUT","message":"invalid: page must be at least 1"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"SearchByTitle(c) body = %v, want to contain %v",
