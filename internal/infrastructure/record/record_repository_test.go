@@ -535,6 +535,51 @@ func TestListByUserID(t *testing.T) {
 	)
 
 	t.Run(
+		"treats % in the title keyword as a literal character",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rr := NewRecordRepo(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			matching := newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
+			matching.Title = record.Title("100% Love")
+			if err := rr.Create(ctx, &matching); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", matching, err)
+			}
+			excluded := newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC))
+			excluded.Title = record.Title("1000 Years")
+			if err := rr.Create(ctx, &excluded); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", excluded, err)
+			}
+
+			query := record.NewQuery(
+				nil,
+				nil,
+				nil,
+				nil,
+				record.TitleKeyword("100%"),
+				record.SortFieldWatchedAt,
+				record.SortOrderDesc,
+				record.Page(1),
+				record.PerPage(20),
+			)
+
+			got, err := rr.ListByUserID(ctx, userID, query)
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if got.Records[0].ID != matching.ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, matching.ID)
+			}
+		},
+	)
+
+	t.Run(
 		"returns an empty slice when the user has no records",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
