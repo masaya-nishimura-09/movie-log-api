@@ -5,7 +5,7 @@ type Cast struct {
 	Name         CastName
 	OriginalName OriginalCastName
 	Character    Character
-	Role         Role
+	Department   Department
 	Gender       Gender
 }
 
@@ -13,4 +13,4 @@ type CastID uint
 type CastName string
 type OriginalCastName string
 type Character string
-type Role string
+type Department string

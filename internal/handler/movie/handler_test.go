@@ -48,7 +48,7 @@ func (u *fakeUsecase) SearchByTitle(
 
 const wantGetByIDBody = `{"casts":[{"id":100,"name":"Test Actor",` +
 	`"original_name":"Test Original Actor","character":"Test Character",` +
-	`"role":"Acting","gender":"female"}],` +
+	`"department":"Acting","gender":"female"}],` +
 	`"genres":["drama"],` +
 	`"id":1,` +
 	`"origin_country":["US"],` +
@@ -76,7 +76,7 @@ func newTestMovie() moviedomain.Movie {
 		Name:         moviedomain.CastName("Test Actor"),
 		OriginalName: moviedomain.OriginalCastName("Test Original Actor"),
 		Character:    moviedomain.Character("Test Character"),
-		Role:         moviedomain.Role("Acting"),
+		Department:   moviedomain.Department("Acting"),
 		Gender:       moviedomain.GenderFemale,
 	}
 

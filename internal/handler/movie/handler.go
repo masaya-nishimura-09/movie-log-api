@@ -29,7 +29,7 @@ type CastResponse struct {
 	Name         string `json:"name"`
 	OriginalName string `json:"original_name"`
 	Character    string `json:"character"`
-	Role         string `json:"role"`
+	Department   string `json:"department"`
 	Gender       string `json:"gender"`
 }
 
@@ -39,7 +39,7 @@ func toCastResponse(c moviedomain.Cast) CastResponse {
 		Name:         string(c.Name),
 		OriginalName: string(c.OriginalName),
 		Character:    string(c.Character),
-		Role:         string(c.Role),
+		Department:   string(c.Department),
 		Gender:       string(c.Gender),
 	}
 }

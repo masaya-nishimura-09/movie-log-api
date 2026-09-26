@@ -94,7 +94,7 @@ type castDTO struct {
 	Name         string `json:"name"`
 	OriginalName string `json:"original_name"`
 	Character    string `json:"character"`
-	Role         string `json:"known_for_department"`
+	Department   string `json:"known_for_department"`
 	Gender       uint   `json:"gender"`
 }
 
@@ -123,7 +123,7 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 			Name:         movie.CastName(c.Name),
 			OriginalName: movie.OriginalCastName(c.OriginalName),
 			Character:    movie.Character(c.Character),
-			Role:         movie.Role(c.Role),
+			Department:   movie.Department(c.Department),
 			Gender:       gender,
 		}
 		casts = append(casts, cast)

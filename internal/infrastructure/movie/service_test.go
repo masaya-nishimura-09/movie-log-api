@@ -23,7 +23,7 @@ func newTestMovie() movie.Movie {
 		Name:         movie.CastName("Test Actor"),
 		OriginalName: movie.OriginalCastName("Test Original Actor"),
 		Character:    movie.Character("Test Character"),
-		Role:         movie.Role("Acting"),
+		Department:   movie.Department("Acting"),
 		Gender:       movie.GenderFemale,
 	}
 
