@@ -13,9 +13,13 @@ func TestNewPassword(t *testing.T) {
 	}{
 		{"valid minimum length", strings.Repeat("a", 8), false},
 		{"valid maximum length", strings.Repeat("a", 72), false},
+		{"valid with digits and symbols", "Passw0rd!~", false},
 		{"empty", "", true},
 		{"too short", strings.Repeat("a", 7), true},
 		{"too long", strings.Repeat("a", 73), true},
+		{"japanese", strings.Repeat("あ", 8), true},
+		{"full-width letters", strings.Repeat("ａ", 8), true},
+		{"space", "pass word", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
