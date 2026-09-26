@@ -38,6 +38,7 @@ go run ./cmd/movie-log-api
 
 Create a `.env` file based on `.env.example`:
 
+- `GIN_MODE` - Gin mode (debug/release)
 - `POSTGRES_*` - Database connection
 - `JWT_SECRET` - Secret key for JWT signing
 - `ACCESS_TOKEN_TTL` / `REFRESH_TOKEN_TTL` - Token expiration
