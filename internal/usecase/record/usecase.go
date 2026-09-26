@@ -18,7 +18,7 @@ type Usecase interface {
 		recordID record.ID,
 	) (*record.Record, error)
 	ListByUserID(
-		ctx context.Context, 
+		ctx context.Context,
 		userID user.ID,
 		query record.Query,
 	) (record.ListResult, error)
@@ -70,7 +70,7 @@ func (ru *RecordUsecase) GetByID(
 
 func (ru *RecordUsecase) ListByUserID(
 	ctx context.Context,
-	userID user.ID, 
+	userID user.ID,
 	query record.Query,
 ) (record.ListResult, error) {
 	listResult, err := ru.recordRepo.ListByUserID(ctx, userID, query)
