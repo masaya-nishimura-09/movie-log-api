@@ -10,7 +10,7 @@ type Movie struct {
 	ReleaseYear      *ReleaseYear
 	Runtime          Runtime
 	OriginalLanguage OriginalLanguage
-	OriginCountry    []OriginCountry
+	OriginCountries  []OriginCountry
 	Casts            []Cast
 }
 

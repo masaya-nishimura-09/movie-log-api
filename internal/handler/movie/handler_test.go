@@ -90,7 +90,7 @@ func newTestMovie() moviedomain.Movie {
 		ReleaseYear:      &releaseYear,
 		Runtime:          moviedomain.Runtime(120),
 		OriginalLanguage: moviedomain.OriginalLanguage("en"),
-		OriginCountry: []moviedomain.OriginCountry{
+		OriginCountries: []moviedomain.OriginCountry{
 			moviedomain.OriginCountry("US"),
 		},
 		Casts: []moviedomain.Cast{cast},
@@ -111,7 +111,7 @@ func newTestSearchResult() moviedomain.SearchResult {
 		ReleaseYear:      &releaseYear,
 		Runtime:          moviedomain.Runtime(180),
 		OriginalLanguage: moviedomain.OriginalLanguage("fr"),
-		OriginCountry: []moviedomain.OriginCountry{
+		OriginCountries: []moviedomain.OriginCountry{
 			moviedomain.OriginCountry("FR"),
 		},
 	}

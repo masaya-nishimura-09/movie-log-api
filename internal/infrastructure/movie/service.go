@@ -106,9 +106,9 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 		}
 	}
 
-	var originCountry []movie.OriginCountry
+	var originCountries []movie.OriginCountry
 	for _, c := range movieDto.OriginCountry {
-		originCountry = append(originCountry, movie.OriginCountry(c))
+		originCountries = append(originCountries, movie.OriginCountry(c))
 	}
 
 	var casts []movie.Cast
@@ -139,7 +139,7 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 		ReleaseYear:      toReleaseYear(movieDto.ReleaseDate),
 		Runtime:          movie.Runtime(movieDto.Runtime),
 		OriginalLanguage: movie.OriginalLanguage(movieDto.OriginalLanguage),
-		OriginCountry:    originCountry,
+		OriginCountries:  originCountries,
 		Casts:            casts,
 	}
 }
