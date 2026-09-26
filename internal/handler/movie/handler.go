@@ -97,7 +97,7 @@ func toMovieResponse(m *moviedomain.Movie) MovieResponse {
 	}
 }
 
-func toSearchMovieResponse(sr *moviedomain.SearchResult) gin.H {
+func toSearchMovieResponse(sr moviedomain.SearchResult) gin.H {
 	movies := make([]MovieResponse, 0, len(sr.Movies))
 	for _, m := range sr.Movies {
 		movies = append(movies, toMovieResponse(m))

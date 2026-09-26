@@ -18,7 +18,7 @@ type Usecase interface {
 		title movie.Title,
 		page movie.Page,
 		language movie.DisplayLanguage,
-	) (*movie.SearchResult, error)
+	) (movie.SearchResult, error)
 }
 
 type MovieUsecase struct {
@@ -51,10 +51,10 @@ func (mu *MovieUsecase) SearchByTitle(
 	title movie.Title,
 	page movie.Page,
 	displayLanguage movie.DisplayLanguage,
-) (*movie.SearchResult, error) {
+) (movie.SearchResult, error) {
 	sr, err := mu.movieService.SearchByTitle(ctx, title, page, displayLanguage)
 	if err != nil {
-		return nil, fmt.Errorf("search movies by title: %w", err)
+		return movie.SearchResult{}, fmt.Errorf("search movies by title: %w", err)
 	}
 
 	return sr, nil
