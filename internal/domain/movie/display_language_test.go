@@ -2,7 +2,7 @@ package movie
 
 import "testing"
 
-func TestNewLanguage(t *testing.T) {
+func TestNewDisplayLanguage(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string

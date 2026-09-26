@@ -67,9 +67,12 @@ func NewSortField(value string) (SortField, error) {
 		return SortFieldWatchedAt, nil
 	}
 
-	switch SortField(value) {
-	case SortFieldWatchedAt, SortFieldReleaseYear, SortFieldScore, SortFieldTitle:
-		return SortField(value), nil
+	switch sortField := SortField(value); sortField {
+	case SortFieldWatchedAt,
+		SortFieldReleaseYear,
+		SortFieldScore,
+		SortFieldTitle:
+		return sortField, nil
 	default:
 		return "", fmt.Errorf("%w: invalid sort field", exception.ErrInvalid)
 	}
@@ -87,9 +90,10 @@ func NewSortOrder(value string) (SortOrder, error) {
 		return SortOrderDesc, nil
 	}
 
-	switch SortOrder(value) {
-	case SortOrderAsc, SortOrderDesc:
-		return SortOrder(value), nil
+	switch sortOrder := SortOrder(value); sortOrder {
+	case SortOrderAsc,
+		SortOrderDesc:
+		return sortOrder, nil
 	default:
 		return "", fmt.Errorf("%w: invalid sort order", exception.ErrInvalid)
 	}
@@ -99,7 +103,7 @@ type Page uint
 
 func NewPage(value uint) (Page, error) {
 	if value < 1 {
-		return 0, fmt.Errorf("%w: page must be more than 0", exception.ErrInvalid)
+		return 0, fmt.Errorf("%w: page must be at least 1", exception.ErrInvalid)
 	}
 
 	return Page(value), nil
