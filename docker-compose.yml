@@ -9,6 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - postgres-data:/var/lib/postgresql/data
       - ./scripts/create_tables.sql:/docker-entrypoint-initdb.d/01_create_table.sql:z
       - ./scripts/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:Z
 
@@ -34,6 +35,8 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+    volumes:
+      - minio-data:/data
 
   minio-test:
     image: minio/minio:latest
@@ -61,3 +64,7 @@ services:
       mc mb --ignore-existing test/movie-log-media-test;
       mc anonymous set download test/movie-log-media-test;
       "
+
+volumes:
+  postgres-data:
+  minio-data:
