@@ -76,6 +76,13 @@ func UserAlreadyExists(c *gin.Context) {
 	})
 }
 
+func TooManyRequests(c *gin.Context) {
+	c.JSON(http.StatusTooManyRequests, gin.H{
+		"code":    "TOO_MANY_REQUESTS",
+		"message": "too many requests",
+	})
+}
+
 func InternalServerError(c *gin.Context) {
 	c.JSON(http.StatusInternalServerError, gin.H{
 		"code":    "INTERNAL_SERVER_ERROR",
