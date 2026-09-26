@@ -108,6 +108,15 @@ docker compose up -d postgres-test minio-test createbuckets
 go test ./...
 ```
 
+## Roadmap
+
+- Elasticsearch for search
+- Recommend a movie to watch today
+- Recommend movies to others
+- Look back on watched movies
+- Support for old movies
+- Free-form mood tags converted by an LLM
+
 ## License
 
 MIT
