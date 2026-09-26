@@ -104,6 +104,8 @@ func main() {
 	store := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(limiter.New(store, rate))
 
+	bodyLimit := middleware.BodyLimit(1024 * 1024)
+
 	// infrastructure
 	accessTokenService := authinfra.NewAccessTokenService(
 		secret,
@@ -151,6 +153,7 @@ func main() {
 	}
 
 	auth := router.Group("/auth")
+	auth.Use(bodyLimit)
 	{
 		auth.POST("/login", loginLimiter, authHandler.Login)
 		auth.POST("/logout", authHandler.Logout)
@@ -158,11 +161,13 @@ func main() {
 	}
 
 	users := router.Group("/users")
+	users.Use(bodyLimit)
 	{
 		users.POST("/register", userHandler.Create)
 	}
 
 	authUsers := router.Group("/users")
+	authUsers.Use(bodyLimit)
 	authUsers.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		authUsers.PUT("/", userHandler.Update)
@@ -170,6 +175,7 @@ func main() {
 	}
 
 	records := router.Group("/records")
+	records.Use(bodyLimit)
 	records.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		records.POST("/", recordHandler.Create)
