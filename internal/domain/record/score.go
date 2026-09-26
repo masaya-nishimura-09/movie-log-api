@@ -2,6 +2,7 @@ package record
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
@@ -14,4 +15,23 @@ func NewScore(value uint) (Score, error) {
 	}
 
 	return Score(value), nil
+}
+
+func NewScores(values []uint) ([]Score, error) {
+	scores := make([]Score, 0, len(values))
+
+	for _, value := range values {
+		score, err := NewScore(value)
+		if err != nil {
+			return nil, err
+		}
+
+		if slices.Contains(scores, score) {
+			return nil, fmt.Errorf("%w: duplicate score", exception.ErrInvalid)
+		}
+
+		scores = append(scores, score)
+	}
+
+	return scores, nil
 }

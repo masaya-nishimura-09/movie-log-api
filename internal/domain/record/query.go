@@ -84,7 +84,7 @@ const (
 
 func NewSortOrder(value string) (SortOrder, error) {
 	if value == "" {
-		return SortOrderAsc, nil
+		return SortOrderDesc, nil
 	}
 
 	switch SortOrder(value) {

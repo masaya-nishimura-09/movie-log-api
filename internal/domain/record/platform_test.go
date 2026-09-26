@@ -1,6 +1,9 @@
 package record
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestNewPlatform(t *testing.T) {
 	tests := []struct {
@@ -24,6 +27,32 @@ func TestNewPlatform(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("NewPlatform(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewPlatforms(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		want    []Platform
+		wantErr bool
+	}{
+		{"multiple values", []string{"netflix", "theater"}, []Platform{PlatformNetflix, PlatformTheater}, false},
+		{"empty slice", []string{}, []Platform{}, false},
+
+		{"duplicate value", []string{"netflix", "netflix"}, nil, true},
+		{"undefined element", []string{"netflix", "disney"}, nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewPlatforms(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewPlatforms(%v) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("NewPlatforms(%v) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

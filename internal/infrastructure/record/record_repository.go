@@ -231,7 +231,7 @@ func (rr *recordRepository) ListByUserID(
 
 	var dtos []recordDTO
 	result := db.
-		Order(string(query.SortField) + " " + string(query.SortOrder)).
+		Order(string(query.SortField) + " " + string(query.SortOrder) + ", id DESC").
 		Limit(int(query.PerPage)).
 		Offset(int((uint(query.Page) - 1) * uint(query.PerPage))).
 		Find(&dtos)
