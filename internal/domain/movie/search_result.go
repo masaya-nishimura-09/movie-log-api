@@ -13,6 +13,20 @@ type SearchResult struct {
 	TotalResults TotalResults
 }
 
+func NewSearchResult(
+	movies []*Movie,
+	page Page,
+	totalPages TotalPages,
+	totalResults TotalResults,
+) SearchResult {
+	return SearchResult{
+		Movies:       movies,
+		Page:         page,
+		TotalPages:   totalPages,
+		TotalResults: totalResults,
+	}
+}
+
 type Page uint
 
 func NewPage(value uint) (Page, error) {

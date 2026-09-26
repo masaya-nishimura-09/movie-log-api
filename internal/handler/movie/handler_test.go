@@ -15,7 +15,7 @@ import (
 
 type fakeUsecase struct {
 	movie        *moviedomain.Movie
-	searchResult *moviedomain.SearchResult
+	searchResult moviedomain.SearchResult
 	err          error
 
 	receivedMovieID         moviedomain.ID
@@ -39,7 +39,7 @@ func (u *fakeUsecase) SearchByTitle(
 	title moviedomain.Title,
 	page moviedomain.Page,
 	displayLanguage moviedomain.DisplayLanguage,
-) (*moviedomain.SearchResult, error) {
+) (moviedomain.SearchResult, error) {
 	u.receivedTitle = title
 	u.receivedPage = page
 	u.receivedDisplayLanguage = displayLanguage
@@ -284,8 +284,7 @@ func TestSearchByTitle(t *testing.T) {
 	t.Run(
 		"returns the search result and 200 when the request is valid",
 		func(t *testing.T) {
-			sr := newTestSearchResult()
-			usecase := &fakeUsecase{searchResult: &sr}
+			usecase := &fakeUsecase{searchResult: newTestSearchResult()}
 			movieHandler := NewMovieHandler(usecase)
 
 			rec := httptest.NewRecorder()

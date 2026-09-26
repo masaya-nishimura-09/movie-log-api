@@ -531,7 +531,7 @@ func TestSearchByTitle(t *testing.T) {
 					"SearchByTitle(ctx, %v, %d, %v)",
 					title, page, displayLanguage,
 				),
-				got, &want,
+				&got, &want,
 			)
 		},
 	)
@@ -560,12 +560,6 @@ func TestSearchByTitle(t *testing.T) {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, %v, want %v",
 					fakeTitle, page, displayLanguage, got, err, exception.ErrNotFound,
-				)
-			}
-			if got != nil {
-				t.Errorf(
-					"SearchByTitle(ctx, %v, %d, %v) = %v, want nil",
-					fakeTitle, page, displayLanguage, got,
 				)
 			}
 		},
@@ -597,12 +591,6 @@ func TestSearchByTitle(t *testing.T) {
 					title, page, displayLanguage, got,
 				)
 			}
-			if got != nil {
-				t.Errorf(
-					"SearchByTitle(ctx, %v, %d, %v) = %v, want nil",
-					title, page, displayLanguage, got,
-				)
-			}
 		},
 	)
 
@@ -630,12 +618,6 @@ func TestSearchByTitle(t *testing.T) {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, %v, want %v",
 					title, page, displayLanguage, got, err, context.Canceled,
-				)
-			}
-			if got != nil {
-				t.Errorf(
-					"SearchByTitle(ctx, %v, %d, %v) = %v, want nil",
-					title, page, displayLanguage, got,
 				)
 			}
 		},

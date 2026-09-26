@@ -144,7 +144,7 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 	}
 }
 
-func (s *service) toSearchResult(dto *searchMovieDTO) *movie.SearchResult {
+func (s *service) toSearchResult(dto *searchMovieDTO) movie.SearchResult {
 	var movies []*movie.Movie
 	for _, r := range dto.Results {
 		m := movie.Movie{
@@ -159,12 +159,12 @@ func (s *service) toSearchResult(dto *searchMovieDTO) *movie.SearchResult {
 		movies = append(movies, &m)
 	}
 
-	return &movie.SearchResult{
-		Page:         movie.Page(dto.Page),
-		Movies:       movies,
-		TotalPages:   movie.TotalPages(dto.TotalPages),
-		TotalResults: movie.TotalResults(dto.TotalResults),
-	}
+	return movie.NewSearchResult(
+		movies,
+		movie.Page(dto.Page),
+		movie.TotalPages(dto.TotalPages),
+		movie.TotalResults(dto.TotalResults),
+	)
 }
 
 func (s *service) toPosterURL(path string) movie.PosterURL {
@@ -228,7 +228,7 @@ func (s *service) SearchByTitle(
 	title movie.Title,
 	page movie.Page,
 	displayLanguage movie.DisplayLanguage,
-) (*movie.SearchResult, error) {
+) (movie.SearchResult, error) {
 	var dto searchMovieDTO
 
 	query := url.Values{}
@@ -238,11 +238,11 @@ func (s *service) SearchByTitle(
 
 	body, err := s.client.Get(ctx, "/search/movie", query)
 	if err != nil {
-		return nil, fmt.Errorf("request TMDB search: %w", err)
+		return movie.SearchResult{}, fmt.Errorf("request TMDB search: %w", err)
 	}
 
 	if err := json.Unmarshal(body, &dto); err != nil {
-		return nil, fmt.Errorf("unmarshal TMDB search response: %w", err)
+		return movie.SearchResult{}, fmt.Errorf("unmarshal TMDB search response: %w", err)
 	}
 	return s.toSearchResult(&dto), nil
 }
