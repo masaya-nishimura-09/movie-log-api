@@ -486,6 +486,55 @@ func TestListByUserID(t *testing.T) {
 	)
 
 	t.Run(
+		"returns the records of the given page",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rr := NewRecordRepo(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			records := []record.Record{
+				newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)),
+				newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)),
+				newTestRecord(userID, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)),
+			}
+			for i := range records {
+				if err := rr.Create(ctx, &records[i]); err != nil {
+					t.Fatalf("Create(ctx, records[%d]) error = %v", i, err)
+				}
+			}
+
+			query := record.NewQuery(
+				nil,
+				nil,
+				nil,
+				nil,
+				"",
+				record.SortFieldWatchedAt,
+				record.SortOrderDesc,
+				record.Page(2),
+				record.PerPage(2),
+			)
+
+			got, err := rr.ListByUserID(ctx, userID, query)
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+
+			if got.TotalCount != 3 {
+				t.Errorf("ListByUserID TotalCount = %d, want 3", got.TotalCount)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if got.Records[0].ID != records[2].ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, records[2].ID)
+			}
+		},
+	)
+
+	t.Run(
 		"returns an empty slice when the user has no records",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
