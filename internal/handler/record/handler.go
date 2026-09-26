@@ -187,6 +187,186 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	return id, true
 }
 
+func getScores(c *gin.Context) ([]recorddomain.Score, bool) {
+	s := c.QueryArray("scores")
+	values := make([]uint, 0, len(s))
+
+	for _, v := range s {
+		value, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			response.InvalidInput(c, err)
+			return nil, false
+		}
+		values = append(values, uint(value))
+	}
+
+	ds, err := recorddomain.NewScores(values)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return nil, false
+	}
+	return ds, true
+}
+
+func getPlatforms(c *gin.Context) ([]recorddomain.Platform, bool) {
+	p := c.QueryArray("platforms")
+	dp, err := recorddomain.NewPlatforms(p)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return nil, false
+	}
+	return dp, true
+}
+
+func getMoodTags(c *gin.Context) ([]recorddomain.MoodTag, bool) {
+	m := c.QueryArray("moodTags")
+	dm, err := recorddomain.NewMoodTags(m)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return nil, false
+	}
+	return dm, true
+}
+
+func getGenres(c *gin.Context) ([]recorddomain.Genre, bool) {
+	g := c.QueryArray("genres")
+	dg, err := recorddomain.NewGenres(g)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return nil, false
+	}
+	return dg, true
+}
+
+func getTitleKeyword(c *gin.Context) (recorddomain.TitleKeyword, bool) {
+	t := c.Query("title")
+	dt, err := recorddomain.NewTitleKeyword(t)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return "", false
+	}
+	return dt, true
+}
+
+func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
+	t := c.Query("sortField")
+	dsf, err := recorddomain.NewSortField(t)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return "", false
+	}
+	return dsf, true
+}
+
+func getSortOrder(c *gin.Context) (recorddomain.SortOrder, bool) {
+	t := c.Query("sortOrder")
+	dso, err := recorddomain.NewSortOrder(t)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return "", false
+	}
+	return dso, true
+}
+
+func getPage(c *gin.Context) (recorddomain.Page, bool) {
+	p := c.Query("page")
+	if p == "" {
+		p = "1"
+	}
+	page, err := strconv.ParseUint(p, 10, 64)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return 0, false
+	}
+
+	dp, err := recorddomain.NewPage(uint(page))
+	if err != nil {
+		response.InvalidInput(c, err)
+		return 0, false
+	}
+	return dp, true
+}
+
+func getPerPage(c *gin.Context) (recorddomain.PerPage, bool) {
+	p := c.Query("perPage")
+	if p == "" {
+		p = "20"
+	}
+	perPage, err := strconv.ParseUint(p, 10, 64)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return 0, false
+	}
+
+	dpp, err := recorddomain.NewPerPage(uint(perPage))
+	if err != nil {
+		response.InvalidInput(c, err)
+		return 0, false
+	}
+	return dpp, true
+}
+
+func getQuery(c *gin.Context) (recorddomain.Query, bool) {
+	scores, ok := getScores(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	platforms, ok := getPlatforms(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	moodTags, ok := getMoodTags(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	genres, ok := getGenres(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	titleKeyword, ok := getTitleKeyword(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	sortField, ok := getSortField(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	sortOrder, ok := getSortOrder(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	page, ok := getPage(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	perPage, ok := getPerPage(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
+	query := recorddomain.NewQuery(
+		scores,
+		platforms,
+		moodTags,
+		genres,
+		titleKeyword,
+		sortField,
+		sortOrder,
+		page,
+		perPage,
+	)
+
+	return query, true
+}
+
 func getRecordID(c *gin.Context) (recorddomain.ID, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -194,41 +374,6 @@ func getRecordID(c *gin.Context) (recorddomain.ID, bool) {
 		return 0, false
 	}
 	return recorddomain.ID(id), true
-}
-
-func (rh *RecordHandler) Create(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	authUserID, ok := getUserID(c)
-	if !ok {
-		return
-	}
-
-	var req RecordReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.MalformedBody(c)
-		return
-	}
-
-	r, err := req.toDomain(authUserID)
-	if errors.Is(err, exception.ErrInvalid) {
-		response.InvalidInput(c, err)
-		return
-	}
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-
-	createdRecord, err := rh.recordUsecase.Create(ctx, authUserID, r)
-	if err != nil {
-		log.Println(err)
-		response.InternalServerError(c)
-		return
-	}
-
-	c.JSON(http.StatusCreated, toResponse(createdRecord))
 }
 
 func (rh *RecordHandler) GetByID(c *gin.Context) {
@@ -266,19 +411,62 @@ func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 		return
 	}
 
-	records, err := rh.recordUsecase.ListByUserID(ctx, authUserID)
+	query, ok := getQuery(c)
+	if !ok {
+		return
+	}
+
+	listResult, err := rh.recordUsecase.ListByUserID(ctx, authUserID, query)
 	if err != nil {
 		log.Println(err)
 		response.InternalServerError(c)
 		return
 	}
 
-	responses := make([]gin.H, 0, len(records))
-	for _, r := range records {
-		responses = append(responses, toResponse(r))
+	records := make([]gin.H, 0, len(listResult.Records))
+	for _, r := range listResult.Records {
+		records = append(records, toResponse(r))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"records": responses})
+	c.JSON(http.StatusOK, gin.H{
+		"records":     records,
+		"total_count": uint(listResult.TotalCount),
+	})
+}
+
+func (rh *RecordHandler) Create(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req RecordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	r, err := req.toDomain(authUserID)
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	createdRecord, err := rh.recordUsecase.Create(ctx, authUserID, r)
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusCreated, toResponse(createdRecord))
 }
 
 func (rh *RecordHandler) Update(c *gin.Context) {

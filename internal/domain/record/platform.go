@@ -2,6 +2,7 @@ package record
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 )
@@ -86,4 +87,23 @@ func NewPlatform(value string) (Platform, error) {
 	default:
 		return "", fmt.Errorf("%w: invalid platform", exception.ErrInvalid)
 	}
+}
+
+func NewPlatforms(values []string) ([]Platform, error) {
+	platforms := make([]Platform, 0, len(values))
+
+	for _, value := range values {
+		platform, err := NewPlatform(value)
+		if err != nil {
+			return nil, err
+		}
+
+		if slices.Contains(platforms, platform) {
+			return nil, fmt.Errorf("%w: duplicate platform", exception.ErrInvalid)
+		}
+
+		platforms = append(platforms, platform)
+	}
+
+	return platforms, nil
 }
