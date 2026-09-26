@@ -6,7 +6,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
-type RecordRepository interface {
+type Repository interface {
 	GetByID(ctx context.Context, recordID ID) (*Record, error)
 	ListByUserID(ctx context.Context, userID user.ID, query Query) (ListResult, error)
 	Create(ctx context.Context, r *Record) error

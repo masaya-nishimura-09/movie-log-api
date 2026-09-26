@@ -20,7 +20,7 @@ type refreshTokenRepository struct {
 	ttl time.Duration
 }
 
-func NewRefreshTokenRepo(db *gorm.DB, ttl time.Duration) auth.RefreshTokenRepository {
+func NewRefreshTokenRepository(db *gorm.DB, ttl time.Duration) auth.RefreshTokenRepository {
 	return &refreshTokenRepository{db: db, ttl: ttl}
 }
 

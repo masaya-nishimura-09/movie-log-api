@@ -40,15 +40,15 @@ var genderIDName = map[uint]movie.Gender{
 	2: movie.GenderMale,
 }
 
-type movieService struct {
+type service struct {
 	client        *TMDBClient
 	posterBaseURL *url.URL
 }
 
-func NewMovieService(
+func NewService(
 	client *TMDBClient, posterBaseURL *url.URL,
-) movie.MovieService {
-	return &movieService{client: client, posterBaseURL: posterBaseURL}
+) movie.Service {
+	return &service{client: client, posterBaseURL: posterBaseURL}
 }
 
 type searchMovieDTO struct {
@@ -98,7 +98,7 @@ type castDTO struct {
 	Gender       uint   `json:"gender"`
 }
 
-func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
+func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 	var genres []movie.Genre
 	for _, g := range movieDto.Genres {
 		if name, ok := genreIDName[g.ID]; ok {
@@ -135,7 +135,7 @@ func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.M
 		OriginalTitle:    movie.OriginalTitle(movieDto.OriginalTitle),
 		Overview:         movie.Overview(movieDto.Overview),
 		Genres:           genres,
-		PosterURL:        ms.toPosterURL(movieDto.PosterPath),
+		PosterURL:        s.toPosterURL(movieDto.PosterPath),
 		ReleaseYear:      toReleaseYear(movieDto.ReleaseDate),
 		Runtime:          movie.Runtime(movieDto.Runtime),
 		OriginalLanguage: movie.OriginalLanguage(movieDto.OriginalLanguage),
@@ -144,7 +144,7 @@ func (ms *movieService) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.M
 	}
 }
 
-func (ms *movieService) toSearchResult(dto *searchMovieDTO) *movie.SearchResult {
+func (s *service) toSearchResult(dto *searchMovieDTO) *movie.SearchResult {
 	var movies []*movie.Movie
 	for _, r := range dto.Results {
 		m := movie.Movie{
@@ -153,7 +153,7 @@ func (ms *movieService) toSearchResult(dto *searchMovieDTO) *movie.SearchResult 
 			OriginalTitle:    movie.OriginalTitle(r.OriginalTitle),
 			Title:            movie.Title(r.Title),
 			Overview:         movie.Overview(r.Overview),
-			PosterURL:        ms.toPosterURL(r.PosterPath),
+			PosterURL:        s.toPosterURL(r.PosterPath),
 			ReleaseYear:      toReleaseYear(r.ReleaseDate),
 		}
 		movies = append(movies, &m)
@@ -167,12 +167,12 @@ func (ms *movieService) toSearchResult(dto *searchMovieDTO) *movie.SearchResult 
 	}
 }
 
-func (ms *movieService) toPosterURL(path string) movie.PosterURL {
+func (s *service) toPosterURL(path string) movie.PosterURL {
 	if path == "" {
 		return ""
 	}
 
-	return movie.PosterURL(ms.posterBaseURL.JoinPath(path).String())
+	return movie.PosterURL(s.posterBaseURL.JoinPath(path).String())
 }
 
 func toReleaseYear(date string) *movie.ReleaseYear {
@@ -184,7 +184,7 @@ func toReleaseYear(date string) *movie.ReleaseYear {
 	return &y
 }
 
-func (ms *movieService) GetByID(
+func (s *service) GetByID(
 	ctx context.Context,
 	movieID movie.ID,
 	displayLanguage movie.DisplayLanguage,
@@ -195,7 +195,7 @@ func (ms *movieService) GetByID(
 	query := url.Values{}
 	query.Set("language", string(displayLanguage))
 
-	movieBody, err := ms.client.Get(
+	movieBody, err := s.client.Get(
 		ctx, fmt.Sprintf("/movie/%d", movieID), query,
 	)
 	if err != nil {
@@ -206,12 +206,12 @@ func (ms *movieService) GetByID(
 		return nil, fmt.Errorf("unmarshal TMDB get response: %w", err)
 	}
 
-	creditsBody, err := ms.client.Get(
+	creditsBody, err := s.client.Get(
 		ctx, fmt.Sprintf("/movie/%d/credits", movieID), query,
 	)
 	if err != nil {
 		if errors.Is(err, exception.ErrNotFound) {
-			return ms.toMovie(&movieDto, nil), nil
+			return s.toMovie(&movieDto, nil), nil
 		}
 		return nil, fmt.Errorf("request TMDB casts: %w", err)
 	}
@@ -220,10 +220,10 @@ func (ms *movieService) GetByID(
 		return nil, fmt.Errorf("unmarshal TMDB get response: %w", err)
 	}
 
-	return ms.toMovie(&movieDto, creditsDto.Casts), nil
+	return s.toMovie(&movieDto, creditsDto.Casts), nil
 }
 
-func (ms *movieService) SearchByTitle(
+func (s *service) SearchByTitle(
 	ctx context.Context,
 	title movie.Title,
 	page movie.Page,
@@ -236,7 +236,7 @@ func (ms *movieService) SearchByTitle(
 	query.Set("page", fmt.Sprintf("%d", page))
 	query.Set("language", string(displayLanguage))
 
-	body, err := ms.client.Get(ctx, "/search/movie", query)
+	body, err := s.client.Get(ctx, "/search/movie", query)
 	if err != nil {
 		return nil, fmt.Errorf("request TMDB search: %w", err)
 	}
@@ -244,5 +244,5 @@ func (ms *movieService) SearchByTitle(
 	if err := json.Unmarshal(body, &dto); err != nil {
 		return nil, fmt.Errorf("unmarshal TMDB search response: %w", err)
 	}
-	return ms.toSearchResult(&dto), nil
+	return s.toSearchResult(&dto), nil
 }

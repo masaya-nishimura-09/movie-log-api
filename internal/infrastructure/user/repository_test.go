@@ -16,7 +16,7 @@ func TestGetByID(t *testing.T) {
 		"returns the user when the ID exists",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -26,14 +26,14 @@ func TestGetByID(t *testing.T) {
 				Role:           user.RoleAdmin,
 			}
 
-			if err := ur.Create(ctx, &want); err != nil {
+			if err := r.Create(ctx, &want); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					want, err,
 				)
 			}
 
-			got, err := ur.GetByID(ctx, want.ID)
+			got, err := r.GetByID(ctx, want.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (user.User, error) = %v, %v",
@@ -57,12 +57,12 @@ func TestGetByID(t *testing.T) {
 		"returns ErrNotFound when the ID does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			fakeID := user.ID(999999)
 
-			got, err := ur.GetByID(ctx, fakeID)
+			got, err := r.GetByID(ctx, fakeID)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByID(ctx, %d) (user.User, error) = %v, %v, want %v",
@@ -82,13 +82,13 @@ func TestGetByID(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			id := user.ID(1)
-			got, err := ur.GetByID(ctx, id)
+			got, err := r.GetByID(ctx, id)
 
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
@@ -111,7 +111,7 @@ func TestGetByEmail(t *testing.T) {
 		"returns the user when the email exists",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -121,14 +121,14 @@ func TestGetByEmail(t *testing.T) {
 				Role:           user.RoleAdmin,
 			}
 
-			if err := ur.Create(ctx, &want); err != nil {
+			if err := r.Create(ctx, &want); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					want, err,
 				)
 			}
 
-			got, err := ur.GetByEmail(ctx, want.Email)
+			got, err := r.GetByEmail(ctx, want.Email)
 			if err != nil {
 				t.Fatalf(
 					"GetByEmail(ctx, %v) (user.User, error) = %v, %v",
@@ -152,12 +152,12 @@ func TestGetByEmail(t *testing.T) {
 		"returns ErrNotFound when the email does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			fakeEmail := user.Email("fake@example.com")
 
-			got, err := ur.GetByEmail(ctx, fakeEmail)
+			got, err := r.GetByEmail(ctx, fakeEmail)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByEmail(ctx, %v) (user.User, error) = %v, %v, want %v",
@@ -177,13 +177,13 @@ func TestGetByEmail(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			email := user.Email("test@example.com")
-			got, err := ur.GetByEmail(ctx, email)
+			got, err := r.GetByEmail(ctx, email)
 
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
@@ -206,7 +206,7 @@ func TestCreate(t *testing.T) {
 		"persists the user when a valid user is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 			want := user.User{
@@ -216,7 +216,7 @@ func TestCreate(t *testing.T) {
 				Role:           user.RoleAdmin,
 			}
 
-			if err := ur.Create(ctx, &want); err != nil {
+			if err := r.Create(ctx, &want); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					want, err,
@@ -229,7 +229,7 @@ func TestCreate(t *testing.T) {
 				)
 			}
 
-			got, err := ur.GetByID(ctx, want.ID)
+			got, err := r.GetByID(ctx, want.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (user.User, error) = %v, %v",
@@ -262,7 +262,7 @@ func TestCreate(t *testing.T) {
 		"returns ErrAlreadyExists when the user already exists",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
@@ -272,7 +272,7 @@ func TestCreate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u1); err != nil {
+			if err := r.Create(ctx, &u1); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					u1, err,
@@ -285,7 +285,7 @@ func TestCreate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
+			if err := r.Create(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v, want %v",
 					u2, err, exception.ErrAlreadyExists,
@@ -298,7 +298,7 @@ func TestCreate(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -310,7 +310,7 @@ func TestCreate(t *testing.T) {
 				Role:           user.RoleAdmin,
 			}
 
-			err := ur.Create(ctx, &u)
+			err := r.Create(ctx, &u)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v, want %v",
@@ -326,7 +326,7 @@ func TestUpdate(t *testing.T) {
 		"updates the user when a valid user is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
@@ -336,7 +336,7 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u1); err != nil {
+			if err := r.Create(ctx, &u1); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					u1, err,
@@ -350,14 +350,14 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("test2password"),
 				Role:           user.RoleUser,
 			}
-			if err := ur.Update(ctx, &u2); err != nil {
+			if err := r.Update(ctx, &u2); err != nil {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v",
 					u2, err,
 				)
 			}
 
-			got, err := ur.GetByID(ctx, u1.ID)
+			got, err := r.GetByID(ctx, u1.ID)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d) (user.User, error) = %v, %v",
@@ -398,7 +398,7 @@ func TestUpdate(t *testing.T) {
 		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
@@ -409,7 +409,7 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Update(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Update(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
 					u1, err, exception.ErrNotFound,
@@ -422,7 +422,7 @@ func TestUpdate(t *testing.T) {
 		"returns ErrAlreadyExists when the email is used by another user",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
@@ -432,7 +432,7 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u1); err != nil {
+			if err := r.Create(ctx, &u1); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					u1, err,
@@ -445,7 +445,7 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u2); err != nil {
+			if err := r.Create(ctx, &u2); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					u2, err,
@@ -453,7 +453,7 @@ func TestUpdate(t *testing.T) {
 			}
 
 			u2.Email = u1.Email
-			if err := ur.Update(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
+			if err := r.Update(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
 					u2, err, exception.ErrAlreadyExists,
@@ -466,7 +466,7 @@ func TestUpdate(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
@@ -478,7 +478,7 @@ func TestUpdate(t *testing.T) {
 				Role:           user.RoleAdmin,
 			}
 
-			err := ur.Update(ctx, &u)
+			err := r.Update(ctx, &u)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Update(ctx, %v) error = %v, want %v",
@@ -494,7 +494,7 @@ func TestDelete(t *testing.T) {
 		"deletes the user when a valid ID is given",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
@@ -504,21 +504,21 @@ func TestDelete(t *testing.T) {
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := ur.Create(ctx, &u); err != nil {
+			if err := r.Create(ctx, &u); err != nil {
 				t.Fatalf(
 					"Create(ctx, %v) error = %v",
 					u, err,
 				)
 			}
 
-			if err := ur.Delete(ctx, u.ID); err != nil {
+			if err := r.Delete(ctx, u.ID); err != nil {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v",
 					u.ID, err,
 				)
 			}
 
-			got, err := ur.GetByID(ctx, u.ID)
+			got, err := r.GetByID(ctx, u.ID)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByID(ctx, %d) (user.User, error) = %v, %v, want %v",
@@ -532,12 +532,12 @@ func TestDelete(t *testing.T) {
 		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx := context.Background()
 
 			id := user.ID(999999)
-			if err := ur.Delete(ctx, id); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Delete(ctx, id); !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v, want %v",
 					id, err, exception.ErrNotFound,
@@ -550,13 +550,13 @@ func TestDelete(t *testing.T) {
 		"returns a wrapped error when the context is canceled",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
-			ur := NewUserRepo(tx)
+			r := NewRepository(tx)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			id := user.ID(1)
-			err := ur.Delete(ctx, id)
+			err := r.Delete(ctx, id)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"Delete(ctx, %d) error = %v, want %v",

@@ -30,13 +30,13 @@ type Usecase interface {
 }
 
 type UserUsecase struct {
-	userRepo         user.UserRepository
+	userRepo         user.Repository
 	refreshTokenRepo auth.RefreshTokenRepository
 	mediaService     media.Service
 }
 
 func NewUserUsecase(
-	userRepo user.UserRepository,
+	userRepo user.Repository,
 	refreshTokenRepo auth.RefreshTokenRepository,
 	mediaService media.Service,
 ) *UserUsecase {

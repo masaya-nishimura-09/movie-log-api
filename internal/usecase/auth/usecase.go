@@ -32,13 +32,13 @@ type Usecase interface {
 }
 
 type AuthUsecase struct {
-	userRepo           user.UserRepository
+	userRepo           user.Repository
 	accessTokenService auth.AccessTokenService
 	refreshTokenRepo   auth.RefreshTokenRepository
 }
 
 func NewAuthUsecase(
-	userRepo user.UserRepository,
+	userRepo user.Repository,
 	accessTokenService auth.AccessTokenService,
 	refreshTokenRepo auth.RefreshTokenRepository,
 ) *AuthUsecase {

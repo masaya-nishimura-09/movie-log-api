@@ -13,12 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type recordRepository struct {
+type repository struct {
 	db *gorm.DB
 }
 
-func NewRecordRepo(db *gorm.DB) record.RecordRepository {
-	return &recordRepository{db}
+func NewRepository(db *gorm.DB) record.Repository {
+	return &repository{db}
 }
 
 type recordDTO struct {
@@ -177,12 +177,12 @@ func fromDTO(dto *recordDTO) *record.Record {
 	}
 }
 
-func (rr *recordRepository) GetByID(
+func (r *repository) GetByID(
 	ctx context.Context,
 	recordID record.ID,
 ) (*record.Record, error) {
 	var dto recordDTO
-	result := rr.db.WithContext(ctx).
+	result := r.db.WithContext(ctx).
 		Preload("Genres").
 		Preload("Countries").
 		Preload("Credits").
@@ -197,12 +197,12 @@ func (rr *recordRepository) GetByID(
 	return fromDTO(&dto), nil
 }
 
-func (rr *recordRepository) ListByUserID(
+func (r *repository) ListByUserID(
 	ctx context.Context,
 	userID user.ID,
 	query record.Query,
 ) (record.ListResult, error) {
-	db := rr.db.WithContext(ctx).
+	db := r.db.WithContext(ctx).
 		Preload("Genres").
 		Preload("Countries").
 		Preload("Credits").
@@ -253,7 +253,7 @@ func (rr *recordRepository) ListByUserID(
 	return record.NewListResult(records, totalCount), nil
 }
 
-func (rr *recordRepository) Create(
+func (r *repository) Create(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
@@ -262,7 +262,7 @@ func (rr *recordRepository) Create(
 	rec.UpdatedAt = now
 
 	dto := toDTO(rec)
-	result := rr.db.WithContext(ctx).Create(&dto)
+	result := r.db.WithContext(ctx).Create(&dto)
 	if result.Error != nil {
 		return fmt.Errorf("create record: %w", result.Error)
 	}
@@ -270,14 +270,14 @@ func (rr *recordRepository) Create(
 	return nil
 }
 
-func (rr *recordRepository) Update(
+func (r *repository) Update(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
 	rec.UpdatedAt = time.Now()
 
 	dto := toDTO(rec)
-	return rr.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&recordDTO{}).
 			Where("id = ? AND user_id = ?", dto.ID, dto.UserID).
 			Select(
@@ -348,8 +348,8 @@ func (rr *recordRepository) Update(
 	})
 }
 
-func (rr *recordRepository) Delete(ctx context.Context, recordID record.ID) error {
-	result := rr.db.WithContext(ctx).Delete(&recordDTO{}, uint(recordID))
+func (r *repository) Delete(ctx context.Context, recordID record.ID) error {
+	result := r.db.WithContext(ctx).Delete(&recordDTO{}, uint(recordID))
 	if result.Error != nil {
 		return fmt.Errorf("delete record: %w", result.Error)
 	}

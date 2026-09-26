@@ -232,7 +232,7 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
@@ -240,7 +240,7 @@ func TestGetByID(t *testing.T) {
 			displayLanguage := movie.DisplayLanguage("en")
 			want := newTestMovie()
 
-			got, err := ms.GetByID(ctx, want.ID, displayLanguage)
+			got, err := s.GetByID(ctx, want.ID, displayLanguage)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, %v",
@@ -270,14 +270,14 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
 			fakeID := movie.ID(999999)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.GetByID(ctx, fakeID, displayLanguage)
+			got, err := s.GetByID(ctx, fakeID, displayLanguage)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, %v, want %v",
@@ -304,14 +304,14 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
 			id := movie.ID(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.GetByID(ctx, id, displayLanguage)
+			got, err := s.GetByID(ctx, id, displayLanguage)
 			if err == nil {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, nil, want error",
@@ -336,7 +336,7 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -345,7 +345,7 @@ func TestGetByID(t *testing.T) {
 			fakeID := movie.ID(999999)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.GetByID(ctx, fakeID, displayLanguage)
+			got, err := s.GetByID(ctx, fakeID, displayLanguage)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, %v, want %v",
@@ -388,14 +388,14 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
 			id := movie.ID(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.GetByID(ctx, id, displayLanguage)
+			got, err := s.GetByID(ctx, id, displayLanguage)
 			if err != nil {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, %v, want no error",
@@ -444,14 +444,14 @@ func TestGetByID(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
 			id := movie.ID(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.GetByID(ctx, id, displayLanguage)
+			got, err := s.GetByID(ctx, id, displayLanguage)
 			if err == nil {
 				t.Fatalf(
 					"GetByID(ctx, %d, %v) (*movie.Movie, error) = %v, nil, want error",
@@ -507,7 +507,7 @@ func TestSearchByTitle(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
@@ -517,7 +517,7 @@ func TestSearchByTitle(t *testing.T) {
 
 			want := newTestSearchResult()
 
-			got, err := ms.SearchByTitle(ctx, title, page, displayLanguage)
+			got, err := s.SearchByTitle(ctx, title, page, displayLanguage)
 			if err != nil {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, %v",
@@ -547,7 +547,7 @@ func TestSearchByTitle(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
@@ -555,7 +555,7 @@ func TestSearchByTitle(t *testing.T) {
 			page := movie.Page(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.SearchByTitle(ctx, fakeTitle, page, displayLanguage)
+			got, err := s.SearchByTitle(ctx, fakeTitle, page, displayLanguage)
 			if !errors.Is(err, exception.ErrNotFound) {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, %v, want %v",
@@ -582,7 +582,7 @@ func TestSearchByTitle(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx := context.Background()
@@ -590,7 +590,7 @@ func TestSearchByTitle(t *testing.T) {
 			page := movie.Page(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.SearchByTitle(ctx, title, page, displayLanguage)
+			got, err := s.SearchByTitle(ctx, title, page, displayLanguage)
 			if err == nil {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, want error",
@@ -615,7 +615,7 @@ func TestSearchByTitle(t *testing.T) {
 			defer srv.Close()
 			endpoint, _ := url.Parse(srv.URL)
 
-			ms := NewMovieService(
+			s := NewService(
 				NewTMDBClient(endpoint, "test-token"), posterBaseURL,
 			)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -625,7 +625,7 @@ func TestSearchByTitle(t *testing.T) {
 			page := movie.Page(1)
 			displayLanguage := movie.DisplayLanguage("en")
 
-			got, err := ms.SearchByTitle(ctx, title, page, displayLanguage)
+			got, err := s.SearchByTitle(ctx, title, page, displayLanguage)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
 					"SearchByTitle(ctx, %v, %d, %v) = %v, %v, want %v",

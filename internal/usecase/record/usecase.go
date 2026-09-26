@@ -37,12 +37,12 @@ type Usecase interface {
 }
 
 type RecordUsecase struct {
-	recordRepo   record.RecordRepository
+	recordRepo   record.Repository
 	mediaService media.Service
 }
 
 func NewRecordUsecase(
-	recordRepo record.RecordRepository,
+	recordRepo record.Repository,
 	mediaService media.Service,
 ) *RecordUsecase {
 	return &RecordUsecase{
