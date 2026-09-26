@@ -165,7 +165,12 @@ func main() {
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
 
 	// routing
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+		response.InternalServerError(c)
+		c.Abort()
+	}))
 	if err := router.SetTrustedProxies(trustedProxies); err != nil {
 		log.Fatal(err)
 	}
