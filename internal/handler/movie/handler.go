@@ -24,23 +24,15 @@ type MovieResponse struct {
 	ReleaseYear      uint   `json:"release_year"`
 }
 
-type CastResponse struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	OriginalName string `json:"original_name"`
-	Character    string `json:"character"`
-	Department   string `json:"department"`
-	Gender       string `json:"gender"`
+type CreditResponse struct {
+	PersonName string `json:"person_name"`
+	CreditRole string `json:"credit_role"`
 }
 
-func toCastResponse(c moviedomain.Cast) CastResponse {
-	return CastResponse{
-		ID:           uint(c.ID),
-		Name:         string(c.Name),
-		OriginalName: string(c.OriginalName),
-		Character:    string(c.Character),
-		Department:   string(c.Department),
-		Gender:       string(c.Gender),
+func toCreditResponse(c moviedomain.Credit) CreditResponse {
+	return CreditResponse{
+		PersonName: string(c.PersonName),
+		CreditRole: string(c.CreditRole),
 	}
 }
 
@@ -60,9 +52,9 @@ func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 		releaseYear = uint(*m.ReleaseYear)
 	}
 
-	casts := make([]CastResponse, 0, len(m.Casts))
-	for _, c := range m.Casts {
-		casts = append(casts, toCastResponse(c))
+	credits := make([]CreditResponse, 0, len(m.Credits))
+	for _, c := range m.Credits {
+		credits = append(credits, toCreditResponse(c))
 	}
 
 	return gin.H{
@@ -76,7 +68,7 @@ func toGetByIDResponse(m *moviedomain.Movie) gin.H {
 		"runtime":           uint(m.Runtime),
 		"original_language": string(m.OriginalLanguage),
 		"origin_country":    countries,
-		"casts":             casts,
+		"credits":           credits,
 	}
 }
 
