@@ -46,9 +46,9 @@ func (u *fakeUsecase) SearchByTitle(
 	return u.searchResult, u.err
 }
 
-const wantGetByIDBody = `{"casts":[{"id":100,"name":"Test Actor",` +
-	`"original_name":"Test Original Actor","character":"Test Character",` +
-	`"department":"Acting","gender":"female"}],` +
+const wantGetByIDBody = `{"credits":[` +
+	`{"person_name":"Test Director","credit_role":"director"},` +
+	`{"person_name":"Test Actor","credit_role":"cast"}],` +
 	`"genres":["drama"],` +
 	`"id":1,` +
 	`"origin_country":["US"],` +
@@ -71,14 +71,6 @@ const wantSearchByTitleBody = `{"movies":[` +
 
 func newTestMovie() moviedomain.Movie {
 	releaseYear := moviedomain.ReleaseYear(2020)
-	cast := moviedomain.Cast{
-		ID:           moviedomain.CastID(100),
-		Name:         moviedomain.CastName("Test Actor"),
-		OriginalName: moviedomain.OriginalCastName("Test Original Actor"),
-		Character:    moviedomain.Character("Test Character"),
-		Department:   moviedomain.Department("Acting"),
-		Gender:       moviedomain.GenderFemale,
-	}
 
 	return moviedomain.Movie{
 		ID:               moviedomain.ID(1),
@@ -93,7 +85,10 @@ func newTestMovie() moviedomain.Movie {
 		OriginCountries: []moviedomain.OriginCountry{
 			moviedomain.OriginCountry("US"),
 		},
-		Casts: []moviedomain.Cast{cast},
+		Credits: []moviedomain.Credit{
+			{PersonName: moviedomain.PersonName("Test Director"), CreditRole: moviedomain.CreditRoleDirector},
+			{PersonName: moviedomain.PersonName("Test Actor"), CreditRole: moviedomain.CreditRoleCast},
+		},
 	}
 }
 

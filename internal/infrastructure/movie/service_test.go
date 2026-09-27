@@ -18,14 +18,6 @@ import (
 
 func newTestMovie() movie.Movie {
 	releaseYear := movie.ReleaseYear(2020)
-	cast := movie.Cast{
-		ID:           movie.CastID(100),
-		Name:         movie.CastName("Test Actor"),
-		OriginalName: movie.OriginalCastName("Test Original Actor"),
-		Character:    movie.Character("Test Character"),
-		Department:   movie.Department("Acting"),
-		Gender:       movie.GenderFemale,
-	}
 
 	movie := movie.Movie{
 		ID:               movie.ID(1),
@@ -40,7 +32,13 @@ func newTestMovie() movie.Movie {
 		OriginCountries: []movie.OriginCountry{
 			movie.OriginCountry("US"), movie.OriginCountry("JP"),
 		},
-		Casts: []movie.Cast{cast},
+		Credits: []movie.Credit{
+			{PersonName: movie.PersonName("Test Director"), CreditRole: movie.CreditRoleDirector},
+			{PersonName: movie.PersonName("Test Writer"), CreditRole: movie.CreditRoleWriter},
+			{PersonName: movie.PersonName("Test Cinematographer"), CreditRole: movie.CreditRoleCinematographer},
+			{PersonName: movie.PersonName("Test Composer"), CreditRole: movie.CreditRoleComposer},
+			{PersonName: movie.PersonName("Test Actor"), CreditRole: movie.CreditRoleCast},
+		},
 	}
 
 	return movie
@@ -103,14 +101,14 @@ func equalOriginCountries(got, want []movie.OriginCountry) bool {
 	return slices.Equal(g, w)
 }
 
-func equalCasts(got, want []movie.Cast) bool {
+func equalCredits(got, want []movie.Credit) bool {
 	g := slices.Clone(got)
 	w := slices.Clone(want)
-	slices.SortFunc(g, func(a, b movie.Cast) int {
-		return cmp.Compare(a.ID, b.ID)
+	slices.SortFunc(g, func(a, b movie.Credit) int {
+		return cmp.Compare(a.PersonName, b.PersonName)
 	})
-	slices.SortFunc(w, func(a, b movie.Cast) int {
-		return cmp.Compare(a.ID, b.ID)
+	slices.SortFunc(w, func(a, b movie.Credit) int {
+		return cmp.Compare(a.PersonName, b.PersonName)
 	})
 	return slices.Equal(g, w)
 }
@@ -148,10 +146,10 @@ func assertMovieEqual(t *testing.T, call string, got, want *movie.Movie) {
 			call, got, want.OriginCountries,
 		)
 	}
-	if !equalCasts(got.Casts, want.Casts) {
+	if !equalCredits(got.Credits, want.Credits) {
 		t.Errorf(
-			"%s = %v, want Casts %v",
-			call, got, want.Casts,
+			"%s = %v, want Credits %v",
+			call, got, want.Credits,
 		)
 	}
 }
@@ -213,11 +211,17 @@ func TestGetByID(t *testing.T) {
 					{
 						"id": 100,
 						"name": "Test Actor",
-						"original_name": "Test Original Actor",
 						"character": "Test Character",
-						"known_for_department": "Acting",
-						"gender": 1
+						"known_for_department": "Acting"
 					}
+				],
+				"crew": [
+					{"id": 200, "name": "Test Director", "department": "Directing", "job": "Director"},
+					{"id": 201, "name": "Test Writer", "department": "Writing", "job": "Screenplay"},
+					{"id": 201, "name": "Test Writer", "department": "Writing", "job": "Writer"},
+					{"id": 202, "name": "Test Cinematographer", "department": "Camera", "job": "Director of Photography"},
+					{"id": 203, "name": "Test Composer", "department": "Sound", "job": "Original Music Composer"},
+					{"id": 204, "name": "Test Producer", "department": "Production", "job": "Producer"}
 				]
 			}`
 			srv := httptest.NewServer(http.HandlerFunc(
@@ -362,7 +366,7 @@ func TestGetByID(t *testing.T) {
 	)
 
 	t.Run(
-		"returns the movie with empty casts when the credits endpoint returns 404",
+		"returns the movie with empty credits when the credits endpoint returns 404",
 		func(t *testing.T) {
 			movieJSON := `{
 				"id": 1,
@@ -408,10 +412,10 @@ func TestGetByID(t *testing.T) {
 					id, displayLanguage,
 				)
 			}
-			if len(got.Casts) != 0 {
+			if len(got.Credits) != 0 {
 				t.Errorf(
-					"GetByID(ctx, %d, %v).Casts = %v, want empty",
-					id, displayLanguage, got.Casts,
+					"GetByID(ctx, %d, %v).Credits = %v, want empty",
+					id, displayLanguage, got.Credits,
 				)
 			}
 		},

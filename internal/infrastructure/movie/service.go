@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
@@ -34,10 +35,12 @@ var genreIDName = map[uint]movie.Genre{
 	37:    movie.GenreWestern,
 }
 
-var genderIDName = map[uint]movie.Gender{
-	0: movie.GenderOther,
-	1: movie.GenderFemale,
-	2: movie.GenderMale,
+var jobCreditRole = map[string]movie.CreditRole{
+	"Director":                movie.CreditRoleDirector,
+	"Screenplay":              movie.CreditRoleWriter,
+	"Writer":                  movie.CreditRoleWriter,
+	"Director of Photography": movie.CreditRoleCinematographer,
+	"Original Music Composer": movie.CreditRoleComposer,
 }
 
 type service struct {
@@ -87,18 +90,19 @@ type genreDTO struct {
 
 type creditsDTO struct {
 	Casts []castDTO `json:"cast"`
+	Crews []crewDTO `json:"crew"`
 }
 
 type castDTO struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	OriginalName string `json:"original_name"`
-	Character    string `json:"character"`
-	Department   string `json:"known_for_department"`
-	Gender       uint   `json:"gender"`
+	Name string `json:"name"`
 }
 
-func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
+type crewDTO struct {
+	Name string `json:"name"`
+	Job  string `json:"job"`
+}
+
+func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO, crewDtos []crewDTO) *movie.Movie {
 	var genres []movie.Genre
 	for _, g := range movieDto.Genres {
 		if name, ok := genreIDName[g.ID]; ok {
@@ -111,22 +115,26 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 		originCountries = append(originCountries, movie.OriginCountry(c))
 	}
 
-	var casts []movie.Cast
-	for _, c := range castDtos {
-		gender := movie.GenderOther
-		if name, ok := genderIDName[c.Gender]; ok {
-			gender = name
+	var credits []movie.Credit
+	for _, c := range crewDtos {
+		role, ok := jobCreditRole[c.Job]
+		if !ok {
+			continue
 		}
 
-		cast := movie.Cast{
-			ID:           movie.CastID(c.ID),
-			Name:         movie.CastName(c.Name),
-			OriginalName: movie.OriginalCastName(c.OriginalName),
-			Character:    movie.Character(c.Character),
-			Department:   movie.Department(c.Department),
-			Gender:       gender,
+		credit := movie.Credit{
+			PersonName: movie.PersonName(c.Name),
+			CreditRole: role,
 		}
-		casts = append(casts, cast)
+		if !slices.Contains(credits, credit) {
+			credits = append(credits, credit)
+		}
+	}
+	for _, c := range castDtos {
+		credits = append(credits, movie.Credit{
+			PersonName: movie.PersonName(c.Name),
+			CreditRole: movie.CreditRoleCast,
+		})
 	}
 
 	return &movie.Movie{
@@ -140,7 +148,7 @@ func (s *service) toMovie(movieDto *movieDTO, castDtos []castDTO) *movie.Movie {
 		Runtime:          movie.Runtime(movieDto.Runtime),
 		OriginalLanguage: movie.OriginalLanguage(movieDto.OriginalLanguage),
 		OriginCountries:  originCountries,
-		Casts:            casts,
+		Credits:          credits,
 	}
 }
 
@@ -211,16 +219,16 @@ func (s *service) GetByID(
 	)
 	if err != nil {
 		if errors.Is(err, exception.ErrNotFound) {
-			return s.toMovie(&movieDto, nil), nil
+			return s.toMovie(&movieDto, nil, nil), nil
 		}
-		return nil, fmt.Errorf("request TMDB casts: %w", err)
+		return nil, fmt.Errorf("request TMDB credits: %w", err)
 	}
 
 	if err := json.Unmarshal(creditsBody, &creditsDto); err != nil {
 		return nil, fmt.Errorf("unmarshal TMDB get response: %w", err)
 	}
 
-	return s.toMovie(&movieDto, creditsDto.Casts), nil
+	return s.toMovie(&movieDto, creditsDto.Casts, creditsDto.Crews), nil
 }
 
 func (s *service) SearchByTitle(
