@@ -2,6 +2,31 @@ package record
 
 import "testing"
 
+func TestNewFilteredCount(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		want    FilteredCount
+		wantErr bool
+	}{
+		{"zero", 0, 0, false},
+		{"positive", 100, 100, false},
+
+		{"negative", -1, 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewFilteredCount(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewFilteredCount(%d) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("NewFilteredCount(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewTotalCount(t *testing.T) {
 	tests := []struct {
 		name    string

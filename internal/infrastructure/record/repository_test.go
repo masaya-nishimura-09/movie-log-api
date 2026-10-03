@@ -425,8 +425,11 @@ func TestListByUserID(t *testing.T) {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
 
-			if got.TotalCount != 3 {
-				t.Errorf("ListByUserID TotalCount = %d, want 3", got.TotalCount)
+			if got.FilteredCount != 3 {
+				t.Errorf("ListByUserID FilteredCount = %d, want 3", got.FilteredCount)
+			}
+			if got.TotalCount != 8 {
+				t.Errorf("ListByUserID TotalCount = %d, want 8", got.TotalCount)
 			}
 			if len(got.Records) != 2 {
 				t.Fatalf("ListByUserID returns %d records, want 2", len(got.Records))
@@ -522,6 +525,9 @@ func TestListByUserID(t *testing.T) {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
 			}
 
+			if got.FilteredCount != 3 {
+				t.Errorf("ListByUserID FilteredCount = %d, want 3", got.FilteredCount)
+			}
 			if got.TotalCount != 3 {
 				t.Errorf("ListByUserID TotalCount = %d, want 3", got.TotalCount)
 			}
@@ -599,6 +605,12 @@ func TestListByUserID(t *testing.T) {
 				t.Errorf(
 					"ListByUserID(ctx, %d, query) returns %d records, want 0",
 					userID, len(got.Records),
+				)
+			}
+			if got.FilteredCount != 0 {
+				t.Errorf(
+					"ListByUserID(ctx, %d, query) FilteredCount = %d, want 0",
+					userID, got.FilteredCount,
 				)
 			}
 			if got.TotalCount != 0 {

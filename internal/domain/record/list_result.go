@@ -7,15 +7,27 @@ import (
 )
 
 type ListResult struct {
-	Records    []*Record
-	TotalCount TotalCount
+	Records       []*Record
+	FilteredCount FilteredCount
+	TotalCount    TotalCount
 }
 
-func NewListResult(records []*Record, totalCount TotalCount) ListResult {
+func NewListResult(records []*Record, filteredCount FilteredCount, totalCount TotalCount) ListResult {
 	return ListResult{
-		Records:    records,
-		TotalCount: totalCount,
+		Records:       records,
+		FilteredCount: filteredCount,
+		TotalCount:    totalCount,
 	}
+}
+
+type FilteredCount uint
+
+func NewFilteredCount(value int) (FilteredCount, error) {
+	if value < 0 {
+		return 0, fmt.Errorf("%w: filtered count must not be negative", exception.ErrInvalid)
+	}
+
+	return FilteredCount(value), nil
 }
 
 type TotalCount uint
