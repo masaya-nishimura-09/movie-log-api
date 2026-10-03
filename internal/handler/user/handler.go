@@ -59,6 +59,32 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	return id, true
 }
 
+func (uh *UserHandler) GetByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	u, err := uh.userUsecase.GetByID(ctx, authUserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		response.UserNotFound(c)
+		return
+	}
+	if err != nil {
+		log.Println(err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  strconv.FormatUint(uint64(u.ID), 10),
+		"username": string(u.Username),
+		"email":    string(u.Email),
+	})
+}
+
 func (uh *UserHandler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
 

@@ -194,6 +194,7 @@ func main() {
 	authUsers.Use(bodyLimit)
 	authUsers.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
+		authUsers.GET("/", userHandler.GetByID)
 		authUsers.PUT("/", userHandler.Update)
 		authUsers.DELETE("/", userHandler.Delete)
 	}

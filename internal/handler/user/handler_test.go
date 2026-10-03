@@ -15,6 +15,7 @@ import (
 
 type fakeUsecase struct {
 	user               *user.User
+	gotUserID          user.ID
 	registeredUsername user.Username
 	registeredEmail    user.Email
 	registeredPassword user.Password
@@ -30,7 +31,8 @@ func (u *fakeUsecase) GetByID(
 	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
-	return nil, nil
+	u.gotUserID = userID
+	return u.user, u.err
 }
 
 func (u *fakeUsecase) Create(
@@ -67,6 +69,142 @@ func (u *fakeUsecase) Delete(
 ) error {
 	u.deletedUserID = userID
 	return u.err
+}
+
+func TestGetByID(t *testing.T) {
+	t.Run(
+		"passes the authenticated user ID to the usecase and returns the user and 200",
+		func(t *testing.T) {
+			userID := user.ID(1)
+			u := user.User{
+				ID:       userID,
+				Username: user.Username("Test"),
+				Email:    user.Email("test@example.com"),
+			}
+			usecase := &fakeUsecase{user: &u}
+			userHandler := NewUserHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = httptest.NewRequest(
+				http.MethodGet, "/", nil,
+			)
+
+			userHandler.GetByID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"GetByID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"email":"test@example.com","user_id":"1","username":"Test"}`
+			if rec.Body.String() != want {
+				t.Errorf("GetByID(c) body = %v, want %v", rec.Body.String(), want)
+			}
+
+			if usecase.gotUserID != userID {
+				t.Errorf(
+					"GetByID(c) usecase args = %v, want %v",
+					usecase.gotUserID,
+					userID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the authenticated user ID is missing from the context",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodGet, "/", nil,
+			)
+
+			userHandler.GetByID(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"GetByID(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"GetByID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 404 when the user does not exist",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrNotFound}
+			userHandler := NewUserHandler(usecase)
+
+			userID := user.ID(1)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = httptest.NewRequest(
+				http.MethodGet, "/", nil,
+			)
+
+			userHandler.GetByID(c)
+			if rec.Code != http.StatusNotFound {
+				t.Errorf(
+					"GetByID(c) code = %v, want %v",
+					rec.Code, http.StatusNotFound,
+				)
+			}
+			want := `"code":"USER_NOT_FOUND"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"GetByID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			userID := user.ID(1)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = httptest.NewRequest(
+				http.MethodGet, "/", nil,
+			)
+
+			userHandler.GetByID(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"GetByID(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"GetByID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
 }
 
 func TestCreate(t *testing.T) {
