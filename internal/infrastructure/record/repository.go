@@ -226,9 +226,17 @@ func (r *repository) ListByUserID(
 		db = db.Where("id IN (SELECT record_id FROM record_genres WHERE value IN ?)", query.Genres)
 	}
 
-	var count int64
-	if err := db.Model(&recordDTO{}).Count(&count).Error; err != nil {
-		return record.ListResult{}, fmt.Errorf("count records: %w", err)
+	var filtered int64
+	if err := db.Model(&recordDTO{}).Count(&filtered).Error; err != nil {
+		return record.ListResult{}, fmt.Errorf("count filtered records: %w", err)
+	}
+
+	var total int64
+	if err := r.db.WithContext(ctx).
+		Model(&recordDTO{}).
+		Where("user_id = ?", uint(userID)).
+		Count(&total).Error; err != nil {
+		return record.ListResult{}, fmt.Errorf("count total records: %w", err)
 	}
 
 	var dtos []recordDTO
@@ -246,11 +254,15 @@ func (r *repository) ListByUserID(
 		records = append(records, fromDTO(&dtos[i]))
 	}
 
-	totalCount, err := record.NewTotalCount(int(count))
+	filteredCount, err := record.NewFilteredCount(int(filtered))
+	if err != nil {
+		return record.ListResult{}, fmt.Errorf("create filtered count: %w", err)
+	}
+	totalCount, err := record.NewTotalCount(int(total))
 	if err != nil {
 		return record.ListResult{}, fmt.Errorf("create total count: %w", err)
 	}
-	return record.NewListResult(records, totalCount), nil
+	return record.NewListResult(records, filteredCount, totalCount), nil
 }
 
 func (r *repository) Create(

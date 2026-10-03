@@ -423,8 +423,9 @@ func TestListByUserID(t *testing.T) {
 			r := newTestRecord()
 			usecase := &fakeUsecase{
 				listResult: recorddomain.ListResult{
-					Records:    []*recorddomain.Record{&r},
-					TotalCount: recorddomain.TotalCount(1),
+					Records:       []*recorddomain.Record{&r},
+					FilteredCount: recorddomain.FilteredCount(1),
+					TotalCount:    recorddomain.TotalCount(5),
 				},
 			}
 			recordHandler := NewRecordHandler(usecase)
@@ -446,7 +447,7 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			want := `{"records":[` + wantBody + `],"total_count":1}`
+			want := `{"filtered_count":1,"records":[` + wantBody + `],"total_count":5}`
 			if rec.Body.String() != want {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want %v",
@@ -578,7 +579,7 @@ func TestListByUserID(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			want := `{"records":[],"total_count":0}`
+			want := `{"filtered_count":0,"records":[],"total_count":0}`
 			if rec.Body.String() != want {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want %v",

@@ -436,8 +436,9 @@ func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"records":     records,
-		"total_count": uint(listResult.TotalCount),
+		"records":        records,
+		"filtered_count": uint(listResult.FilteredCount),
+		"total_count":    uint(listResult.TotalCount),
 	})
 }
 
