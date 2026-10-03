@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
@@ -205,6 +206,39 @@ func TestUpdate(t *testing.T) {
 					"Update(ctx, %v, %v, %v) updates ID = %v, UserID = %v, want %v, %v",
 					userID, recordID, rec,
 					repo.updated.ID, repo.updated.UserID, recordID, userID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"keeps the created at of the current record",
+		func(t *testing.T) {
+			createdAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			repo := &fakeRepository{
+				record: &record.Record{
+					ID:        recordID,
+					UserID:    userID,
+					CreatedAt: createdAt,
+				},
+			}
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
+
+			ctx := context.Background()
+			rec := record.Record{}
+
+			got, err := ru.Update(ctx, userID, recordID, rec)
+			if err != nil {
+				t.Fatalf(
+					"Update(ctx, %v, %v, %v) (*record.Record, error) = %v, %v",
+					userID, recordID, rec, got, err,
+				)
+			}
+			if !got.CreatedAt.Equal(createdAt) {
+				t.Errorf(
+					"Update(ctx, %v, %v, %v) CreatedAt = %v, want %v",
+					userID, recordID, rec, got.CreatedAt, createdAt,
 				)
 			}
 		},

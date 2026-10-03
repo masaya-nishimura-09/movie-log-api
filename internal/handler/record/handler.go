@@ -166,6 +166,8 @@ func toResponse(r *recorddomain.Record) gin.H {
 		"score":        uint(r.Score),
 		"mood_tags":    moodTags,
 		"memo":         string(r.Memo),
+		"created_at":   r.CreatedAt.UTC(),
+		"updated_at":   r.UpdatedAt.UTC(),
 	}
 }
 

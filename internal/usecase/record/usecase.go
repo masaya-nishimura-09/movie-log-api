@@ -112,6 +112,7 @@ func (ru *RecordUsecase) Update(
 
 	r.ID = recordID
 	r.UserID = userID
+	r.CreatedAt = current.CreatedAt
 
 	if err := ru.recordRepo.Update(ctx, &r); err != nil {
 		return nil, fmt.Errorf("update record: %w", err)
