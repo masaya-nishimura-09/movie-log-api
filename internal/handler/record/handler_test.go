@@ -99,12 +99,12 @@ const validBody = `{
 	"memo":"test memo"
 }`
 
-const wantBody = `{"countries":["US"],` +
+const wantBody = `{"countries":["US"],"created_at":"2026-01-02T00:00:00Z",` +
 	`"credits":[{"credit_role":"director","person_name":"Test Director"}],` +
 	`"genres":["drama"],"language":"en","memo":"test memo","mood_tags":["moving"],` +
 	`"platform":"netflix","poster_url":"https://example.com/poster.jpg",` +
 	`"record_id":"10","release_year":2020,"runtime":120,"score":4,` +
-	`"title":"Test Movie","watched_at":"2026-01-01T00:00:00Z"}`
+	`"title":"Test Movie","updated_at":"2026-01-03T00:00:00Z","watched_at":"2026-01-01T00:00:00Z"}`
 
 func newTestRecord() recorddomain.Record {
 	return recorddomain.Record{
@@ -128,6 +128,8 @@ func newTestRecord() recorddomain.Record {
 		Score:     recorddomain.Score(4),
 		MoodTags:  []recorddomain.MoodTag{recorddomain.MoodTagMoving},
 		Memo:      recorddomain.Memo("test memo"),
+		CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC),
 	}
 }
 
