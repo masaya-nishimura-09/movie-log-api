@@ -75,6 +75,7 @@ scripts/              # Database schemas and seeds
 | Method | Endpoint        | Description      | Auth |
 |--------|-----------------|------------------|------|
 | POST   | /users/register | Register         | No   |
+| GET    | /users/         | Get user         | Yes  |
 | PUT    | /users/         | Update user      | Yes  |
 | DELETE | /users/         | Delete user      | Yes  |
 
