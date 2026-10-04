@@ -117,7 +117,3 @@ go test ./...
 - Look back on watched movies
 - Support for old movies
 - Free-form mood tags converted by an LLM
-
-## License
-
-MIT
