@@ -4,9 +4,9 @@
 
 [English](README.md) | **日本語**
 
-観た映画を記録するアプリ Cinelog の REST API です。記録を保存し、TMDB で映画を調べ、ポスター画像を保管します。
+映画鑑賞記録アプリ「Cinelog」のバックエンドを担う REST API です。<br/>鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
 
-![Go](https://img.shields.io/badge/Go-1.25-0a2947?logo=go&logoColor=f3e4c9)
+![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
 ![Gin](https://img.shields.io/badge/Gin-1.12-0a2947?logo=gin&logoColor=f3e4c9)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-0a2947?logo=postgresql&logoColor=f3e4c9)
 ![GORM](https://img.shields.io/badge/GORM-1.31-0a2947?logo=go&logoColor=f3e4c9)
@@ -14,60 +14,64 @@
 
 </div>
 
-このリポジトリはバックエンドです。[Web アプリ](https://github.com/masaya-nishimura-09/movie-log)と[モバイルアプリ](https://github.com/masaya-nishimura-09/movie-log-mobile)から使われます。
+本リポジトリでは、[Web アプリ](https://github.com/masaya-nishimura-09/movie-log)および[モバイルアプリ](https://github.com/masaya-nishimura-09/movie-log-mobile)が利用する API サーバーを管理しています。
 
-## 構成
+## アーキテクチャ
+
+### システム構成
 
 ```mermaid
 flowchart LR
     web["Web アプリ<br/>(Next.js)"] --> api
     mobile["モバイルアプリ<br/>(Expo)"] --> api
     api["Cinelog API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
-    api --> storage[("S3 / MinIO<br/>ポスター")]
+    api --> storage[("S3 / MinIO<br/>ポスター画像")]
     api --> tmdb["TMDB API"]
 ```
 
-コードはドメイン駆動設計とクリーンアーキテクチャで組んでいます。依存はすべて内側の domain に向かいます。infrastructure 層は、domain が定義したインターフェースを実装します。
+### レイヤー構成
+
+ドメイン駆動設計（DDD）とクリーンアーキテクチャに基づいて設計しています。各層の依存は常に内側の domain 層へ向かい、infrastructure 層は domain 層で定義されたインターフェースを実装します。
 
 ```mermaid
 flowchart LR
-    handler["handler<br/>HTTP"] --> usecase["usecase<br/>アプリケーションの処理"]
-    usecase --> domain["domain<br/>モデルとルール"]
+    handler["handler<br/>HTTP"] --> usecase["usecase<br/>アプリケーションロジック"]
+    usecase --> domain["domain<br/>モデルとビジネスルール"]
     infrastructure["infrastructure<br/>PostgreSQL, S3, TMDB"] --> domain
 ```
 
-## 機能
+## 主な機能
 
-**記録**
+**鑑賞記録**
 
-- 観た映画の記録を作成、表示、編集、削除する
-- タイトルで検索し、スコア、プラットフォーム、気分、ジャンルで絞り込み、並べ替えとページ送りをする
-- 記録ごとにジャンル、制作国、クレジット、気分、メモを残す
+- 鑑賞記録の作成・取得・更新・削除
+- タイトル検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
+- ジャンル、制作国、クレジット、気分、メモの記録
 
-**映画**
+**映画情報**
 
-- TMDB でタイトルから映画を検索し、指定した言語で詳細を取得する
+- TMDB を利用したタイトル検索と、指定した言語での詳細情報の取得
 
 **メディア**
 
-- ポスター画像（JPEG、PNG、WebP、5 MB まで）を S3 互換ストレージにアップロードする
-- アカウントを削除すると、そのユーザーのポスターも削除する
+- S3 互換ストレージへのポスター画像のアップロード（JPEG・PNG・WebP、最大 5 MB）
+- アカウント削除時における、該当ユーザーのポスター画像の削除
 
 **アカウント**
 
-- 登録、ログイン、ログアウト
-- 有効期限の短い JWT アクセストークンと、更新のたびに入れ替わるリフレッシュトークン
-- リフレッシュトークンは SHA-256、パスワードは bcrypt でハッシュ化して保存する
+- ユーザー登録、ログイン、ログアウト
+- 有効期間の短い JWT アクセストークンと、更新のたびにローテーションされるリフレッシュトークンによる認証
+- リフレッシュトークンは SHA-256、パスワードは bcrypt でハッシュ化して保存
 
-**保護**
+**セキュリティ**
 
-- ログイン、登録、トークン更新はクライアントの IP ごと、映画の検索と取得、アップロードはユーザーごとに回数を制限する
-- JSON のリクエストボディは 1 MB まで
-- クライアントの IP は、信頼済みのプロキシか、共有の内部シークレットを送ってきた Web アプリからだけ受け取る
+- レート制限（ログイン・ユーザー登録・トークン更新はクライアント IP 単位、映画情報の取得とポスター画像のアップロードはユーザー単位）
+- JSON リクエストボディのサイズ制限（最大 1 MB）
+- クライアント IP の取得元を、信頼済みプロキシと内部シークレットで認証された Web アプリに限定
 
 ## 技術スタック
 
-| 分野           | ツール                                  |
+| 分類           | 使用技術                                |
 |----------------|-----------------------------------------|
 | 言語           | Go                                      |
 | フレームワーク | Gin                                     |
@@ -76,13 +80,13 @@ flowchart LR
 | 認証           | golang-jwt、bcrypt                      |
 | その他         | ulule/limiter、godotenv、Docker Compose |
 
-## はじめかた
+## セットアップ
 
-### 必要なもの
+### 前提条件
 
 - Go 1.26 以上
-- Docker と Docker Compose
-- [TMDB](https://www.themoviedb.org/) の API 読み取りアクセストークン
+- Docker および Docker Compose
+- [TMDB](https://www.themoviedb.org/) API の読み取りアクセストークン
 
 ### インストール
 
@@ -90,43 +94,45 @@ flowchart LR
 git clone https://github.com/masaya-nishimura-09/movie-log-api.git
 cd movie-log-api
 cp .env.example .env
-# .env を編集して設定する
+# .env を編集し、各環境変数を設定する
 docker compose up -d postgres minio createbuckets
 go run ./cmd/movie-log-api
 ```
 
-API は `http://localhost:8080` で起動します。初回の起動時に、`scripts/create_tables.sql` でテーブルが作られ、`scripts/seed.sql` でデータが入ります。
+API は `http://localhost:8080` で起動します。データベースの初回起動時に、`scripts/create_tables.sql` によってテーブルが作成され、`scripts/seed.sql` によって初期データが投入されます。
 
-### シードユーザー
+### 初期ユーザー
+
+初期データには、次のテスト用ユーザーが含まれています。
 
 | メールアドレス      | パスワード  |
 |---------------------|-------------|
 | `test@example.com`  | `Password1` |
 | `test2@example.com` | `Password1` |
 
-### 設定
+### 環境変数
 
-`.env` に次の値を設定します。
+`.env` に次の環境変数を設定してください。
 
-| 変数                      | 必須   | 説明                                                                 |
-|---------------------------|--------|----------------------------------------------------------------------|
-| `GIN_MODE`                | いいえ | `debug`、`release`、`test` のいずれか                                |
-| `POSTGRES_DSN`            | はい   | API が使う PostgreSQL の接続文字列                                   |
-| `POSTGRES_*`              | はい   | Docker Compose が使うデータベースの設定                              |
-| `JWT_SECRET`              | はい   | アクセストークンの署名に使う秘密鍵（32 バイト以上）                  |
-| `ACCESS_TOKEN_TTL_HOURS`  | いいえ | アクセストークンの有効期限（時間、初期値 `1`）                       |
-| `REFRESH_TOKEN_TTL_HOURS` | いいえ | リフレッシュトークンの有効期限（時間、初期値 `720`）                 |
-| `AWS_REGION`              | はい   | ストレージのリージョン                                               |
-| `AWS_ACCESS_KEY_ID`       | はい   | ストレージのアクセスキー                                             |
-| `AWS_SECRET_ACCESS_KEY`   | はい   | ストレージのシークレットキー                                         |
-| `S3_ENDPOINT`             | いいえ | MinIO など S3 互換ストレージのエンドポイント                         |
-| `S3_BUCKET`               | はい   | ポスターを保存するバケット                                           |
-| `S3_PUBLIC_BASE_URL`      | はい   | ポスターを公開する URL の先頭部分                                    |
-| `TMDB_ACCESS_TOKEN`       | はい   | TMDB API の読み取りアクセストークン                                  |
-| `TMDB_ENDPOINT`           | はい   | TMDB API のベース URL                                                |
-| `TMDB_POSTER_BASE_URL`    | はい   | TMDB のポスター画像のベース URL                                      |
-| `TRUSTED_PROXIES`         | いいえ | クライアントの IP を信用するプロキシの IP または CIDR（カンマ区切り） |
-| `INTERNAL_API_SECRET`     | いいえ | Web アプリと共有する秘密値。一致すると、Web アプリが送る `X-Real-IP` で回数を制限する（Web アプリと同じ値） |
+| 変数                      | 必須/任意 | 説明                                                                 |
+|---------------------------|-----------|----------------------------------------------------------------------|
+| `GIN_MODE`                | 任意      | Gin の動作モード（`debug`、`release`、`test`）                       |
+| `POSTGRES_DSN`            | 必須      | API が使用する PostgreSQL の接続文字列                               |
+| `POSTGRES_*`              | 必須      | Docker Compose が使用するデータベースの設定                          |
+| `JWT_SECRET`              | 必須      | アクセストークンの署名鍵（32 バイト以上）                            |
+| `ACCESS_TOKEN_TTL_HOURS`  | 任意      | アクセストークンの有効期間（時間単位、既定値 `1`）                   |
+| `REFRESH_TOKEN_TTL_HOURS` | 任意      | リフレッシュトークンの有効期間（時間単位、既定値 `720`）             |
+| `AWS_REGION`              | 必須      | ストレージのリージョン                                               |
+| `AWS_ACCESS_KEY_ID`       | 必須      | ストレージのアクセスキー ID                                          |
+| `AWS_SECRET_ACCESS_KEY`   | 必須      | ストレージのシークレットアクセスキー                                 |
+| `S3_ENDPOINT`             | 任意      | S3 互換ストレージ（MinIO など）のエンドポイント                      |
+| `S3_BUCKET`               | 必須      | ポスター画像を保存するバケット名                                     |
+| `S3_PUBLIC_BASE_URL`      | 必須      | ポスター画像を公開するベース URL                                     |
+| `TMDB_ACCESS_TOKEN`       | 必須      | TMDB API の読み取りアクセストークン                                  |
+| `TMDB_ENDPOINT`           | 必須      | TMDB API のベース URL                                                |
+| `TMDB_POSTER_BASE_URL`    | 必須      | TMDB のポスター画像のベース URL                                      |
+| `TRUSTED_PROXIES`         | 任意      | 信頼するプロキシの IP アドレスまたは CIDR（カンマ区切り）            |
+| `INTERNAL_API_SECRET`     | 任意      | Web アプリとの共有シークレット。一致した場合、Web アプリから送られる `X-Real-IP` をレート制限に使用（Web アプリと同じ値を設定） |
 
 ## テスト
 
@@ -135,26 +141,26 @@ docker compose up -d postgres-test minio-test createbuckets
 go test ./...
 ```
 
-テストは `.env.test` を読み込み、テスト用のコンテナ（PostgreSQL はポート 5433、MinIO はポート 9002）を使います。
+テストは `.env.test` を読み込み、テスト用コンテナ（PostgreSQL：ポート 5433、MinIO：ポート 9002）に接続して実行されます。
 
 ## ディレクトリ構成
 
 ```
-cmd/movie-log-api/    # エントリーポイントと依存の組み立て
+cmd/movie-log-api/    # エントリーポイント、依存関係の組み立て
 internal/
   domain/             # モデル、値オブジェクト、リポジトリのインターフェース
-  usecase/            # アプリケーションの処理
-  handler/            # HTTP ハンドラーとエラーレスポンス
-  infrastructure/     # PostgreSQL、S3、TMDB の実装
-  middleware/         # JWT 認証、ボディサイズの制限、回数制限のキー
-  config/             # 環境変数
-  testutil/           # テスト用コンテナを使うテストのヘルパー
-scripts/              # テーブル定義とシードデータ
+  usecase/            # アプリケーションロジック
+  handler/            # HTTP ハンドラー、エラーレスポンス
+  infrastructure/     # PostgreSQL・S3・TMDB との連携の実装
+  middleware/         # JWT 認証、リクエストボディのサイズ制限、レート制限のキー生成
+  config/             # 環境変数の読み込み
+  testutil/           # テスト用コンテナを利用するテストのヘルパー
+scripts/              # テーブル定義、初期データ
 ```
 
 ## API
 
-「認証」が「はい」のエンドポイントには、アクセストークンを `Authorization: Bearer <token>` で送ります。エラーはすべて同じ形で返ります。
+認証が必要なエンドポイントでは、`Authorization: Bearer <token>` ヘッダーにアクセストークンを指定してください。エラーレスポンスは、すべて次の形式で返されます。
 
 ```json
 { "code": "INVALID_INPUT", "message": "per page must be between 1 and 100" }
@@ -162,59 +168,59 @@ scripts/              # テーブル定義とシードデータ
 
 ### 認証
 
-| メソッド | エンドポイント | 説明                                         | 回数制限 |
-|----------|----------------|----------------------------------------------|----------|
-| POST     | /auth/login    | ログインして両方のトークンを受け取る         | 5 回/分  |
-| POST     | /auth/logout   | リフレッシュトークンを無効にする             |          |
-| POST     | /auth/refresh  | リフレッシュトークンを新しいトークンに交換する | 30 回/分 |
+| メソッド | エンドポイント | 説明                                               | レート制限 |
+|----------|----------------|----------------------------------------------------|------------|
+| POST     | /auth/login    | ログイン（アクセストークンとリフレッシュトークンを発行） | 5 回/分    |
+| POST     | /auth/logout   | ログアウト（リフレッシュトークンを無効化）         |            |
+| POST     | /auth/refresh  | リフレッシュトークンによるトークンの再発行         | 30 回/分   |
 
 ### ユーザー
 
-| メソッド | エンドポイント  | 説明                   | 認証   | 回数制限    |
-|----------|-----------------|------------------------|--------|-------------|
-| POST     | /users/register | 登録                   | いいえ | 10 回/時間  |
-| GET      | /users/         | ログイン中のユーザーを取得 | はい |             |
-| PUT      | /users/         | ログイン中のユーザーを更新 | はい |             |
-| DELETE   | /users/         | ログイン中のユーザーを削除 | はい |             |
+| メソッド | エンドポイント  | 説明                         | 認証 | レート制限  |
+|----------|-----------------|------------------------------|------|-------------|
+| POST     | /users/register | ユーザー登録                 | 不要 | 10 回/時間  |
+| GET      | /users/         | ログイン中のユーザー情報の取得 | 必要 |             |
+| PUT      | /users/         | ログイン中のユーザー情報の更新 | 必要 |             |
+| DELETE   | /users/         | ログイン中のユーザーの削除   | 必要 |             |
 
-### 記録
+### 鑑賞記録
 
-| メソッド | エンドポイント | 説明             | 認証 |
-|----------|----------------|------------------|------|
-| POST     | /records/      | 記録を作成       | はい |
-| GET      | /records/      | 自分の記録の一覧 | はい |
-| GET      | /records/:id   | 記録を取得       | はい |
-| PUT      | /records/:id   | 記録を更新       | はい |
-| DELETE   | /records/:id   | 記録を削除       | はい |
+| メソッド | エンドポイント | 説明                 | 認証 |
+|----------|----------------|----------------------|------|
+| POST     | /records/      | 鑑賞記録の作成       | 必要 |
+| GET      | /records/      | 鑑賞記録の一覧取得   | 必要 |
+| GET      | /records/:id   | 鑑賞記録の取得       | 必要 |
+| PUT      | /records/:id   | 鑑賞記録の更新       | 必要 |
+| DELETE   | /records/:id   | 鑑賞記録の削除       | 必要 |
 
-`GET /records/` では次のクエリパラメータを使えます。すべて省略できます。
+`GET /records/` では、次のクエリパラメータを指定できます（いずれも任意）。
 
-| パラメータ   | 説明                                                   | 初期値       |
-|--------------|--------------------------------------------------------|--------------|
-| `title`      | タイトルの一部                                         |              |
-| `score`      | スコア（1〜5）                                         |              |
-| `platform`   | プラットフォーム（`netflix`、`theater` など）          |              |
-| `mood_tags`  | 気分。複数指定でき、すべてを持つ記録だけを返す         |              |
-| `genres`     | ジャンル。複数指定でき、すべてを持つ記録だけを返す     |              |
-| `sort_field` | `watched_at`、`release_year`、`score`、`title` のいずれか | `watched_at` |
-| `sort_order` | `asc` または `desc`                                    | `desc`       |
-| `page`       | ページ番号                                             | `1`          |
-| `per_page`   | 1ページの件数（1〜100）                                | `20`         |
+| パラメータ   | 説明                                                         | 既定値       |
+|--------------|--------------------------------------------------------------|--------------|
+| `title`      | タイトル（部分一致）                                         |              |
+| `score`      | スコア（1〜5）                                               |              |
+| `platform`   | プラットフォーム（`netflix`、`theater` など）                |              |
+| `mood_tags`  | 気分（複数指定可。指定したすべての気分を含む記録のみを返す） |              |
+| `genres`     | ジャンル（複数指定可。指定したすべてのジャンルを含む記録のみを返す） |  |
+| `sort_field` | 並べ替えの基準（`watched_at`、`release_year`、`score`、`title`） | `watched_at` |
+| `sort_order` | 並び順（`asc`、`desc`）                                      | `desc`       |
+| `page`       | ページ番号                                                   | `1`          |
+| `per_page`   | 1 ページあたりの件数（1〜100）                               | `20`         |
 
-### 映画
+### 映画情報
 
-| メソッド | エンドポイント | 説明                         | 認証 | 回数制限               |
-|----------|----------------|------------------------------|------|------------------------|
-| GET      | /movies/search | TMDB でタイトルから検索      | はい | 60 回/分（ユーザーごと） |
-| GET      | /movies/:id    | TMDB から映画の詳細を取得    | はい | 60 回/分（ユーザーごと） |
+| メソッド | エンドポイント | 説明                       | 認証 | レート制限                 |
+|----------|----------------|----------------------------|------|----------------------------|
+| GET      | /movies/search | TMDB での映画の検索        | 必要 | 60 回/分（ユーザー単位）   |
+| GET      | /movies/:id    | TMDB からの映画詳細の取得  | 必要 | 60 回/分（ユーザー単位）   |
 
-どちらも `language`（初期値 `en`）を指定できます。検索ではさらに `title` と `page` を指定します。回数は2つのエンドポイントで合計して数えます。
+いずれのエンドポイントでも `language`（既定値 `en`）を指定できます。検索時には、あわせて `title` と `page` を指定します。レート制限の回数は、2 つのエンドポイントの合計で計算されます。
 
 ### メディア
 
-| メソッド | エンドポイント | 説明                     | 認証 | 回数制限               |
-|----------|----------------|--------------------------|------|------------------------|
-| POST     | /media/        | ポスターをアップロード   | はい | 30 回/時間（ユーザーごと） |
+| メソッド | エンドポイント | 説明                       | 認証 | レート制限                 |
+|----------|----------------|----------------------------|------|----------------------------|
+| POST     | /media/        | ポスター画像のアップロード | 必要 | 30 回/時間（ユーザー単位） |
 
 ## データモデル
 
@@ -275,13 +281,13 @@ erDiagram
 
 ## ロードマップ
 
-- 検索に Elasticsearch を使う
-- 今日観る映画をおすすめする
-- 他の人に映画をおすすめする
-- 観た映画を振り返る
-- 古い映画に対応する
-- 自由入力の気分タグを LLM で変換する
+- Elasticsearch による検索機能の強化
+- その日に観る映画のレコメンド
+- 他のユーザーへの映画のおすすめ
+- 鑑賞履歴の振り返り
+- 旧作映画への対応
+- LLM による自由入力の気分タグの変換
 
 ## クレジット
 
-このアプリケーションは TMDB と TMDB の API を使用していますが、TMDB による承認、認定、その他の許可を受けたものではありません。
+本アプリケーションは TMDB および TMDB API を使用していますが、TMDB による推奨、認定、その他の承認を受けたものではありません。
