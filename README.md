@@ -123,7 +123,7 @@ Set these in `.env`:
 | `GIN_MODE`                | No       | `debug`, `release` or `test`                                         |
 | `POSTGRES_DSN`            | Yes      | PostgreSQL connection string used by the API                         |
 | `POSTGRES_*`              | Yes      | Database settings used by Docker Compose                             |
-| `JWT_SECRET`              | Yes      | Secret key for signing access tokens                                 |
+| `JWT_SECRET`              | Yes      | Secret key for signing access tokens (at least 32 bytes)             |
 | `ACCESS_TOKEN_TTL_HOURS`  | No       | Access token lifetime in hours (default `1`)                         |
 | `REFRESH_TOKEN_TTL_HOURS` | No       | Refresh token lifetime in hours (default `720`)                      |
 | `AWS_REGION`              | Yes      | Region of the storage                                                |

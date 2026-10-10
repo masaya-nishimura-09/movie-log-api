@@ -113,7 +113,7 @@ API は `http://localhost:8080` で起動します。初回の起動時に、`sc
 | `GIN_MODE`                | いいえ | `debug`、`release`、`test` のいずれか                                |
 | `POSTGRES_DSN`            | はい   | API が使う PostgreSQL の接続文字列                                   |
 | `POSTGRES_*`              | はい   | Docker Compose が使うデータベースの設定                              |
-| `JWT_SECRET`              | はい   | アクセストークンの署名に使う秘密鍵                                   |
+| `JWT_SECRET`              | はい   | アクセストークンの署名に使う秘密鍵（32 バイト以上）                  |
 | `ACCESS_TOKEN_TTL_HOURS`  | いいえ | アクセストークンの有効期限（時間、初期値 `1`）                       |
 | `REFRESH_TOKEN_TTL_HOURS` | いいえ | リフレッシュトークンの有効期限（時間、初期値 `720`）                 |
 | `AWS_REGION`              | はい   | ストレージのリージョン                                               |
