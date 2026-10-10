@@ -99,6 +99,8 @@ func main() {
 
 	tmdbClient := movieinfra.NewTMDBClient(tmdbEndpoint, tmdbAccessToken)
 
+	clientKey := middleware.ClientKey(config.InternalAPISecret())
+
 	loginRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  5,
@@ -106,6 +108,29 @@ func main() {
 	loginStore := memory.NewStore()
 	loginLimiter := ginlimiter.NewMiddleware(
 		limiter.New(loginStore, loginRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+	)
+
+	registerRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	registerStore := memory.NewStore()
+	registerLimiter := ginlimiter.NewMiddleware(
+		limiter.New(registerStore, registerRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+	)
+
+	refreshRate := limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  30,
+	}
+	refreshStore := memory.NewStore()
+	refreshLimiter := ginlimiter.NewMiddleware(
+		limiter.New(refreshStore, refreshRate),
+		ginlimiter.WithKeyGetter(clientKey),
 		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
 	)
 
@@ -175,19 +200,20 @@ func main() {
 	if err := router.SetTrustedProxies(trustedProxies); err != nil {
 		log.Fatal(err)
 	}
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
 
 	auth := router.Group("/auth")
 	auth.Use(bodyLimit)
 	{
 		auth.POST("/login", loginLimiter, authHandler.Login)
 		auth.POST("/logout", authHandler.Logout)
-		auth.POST("/refresh", loginLimiter, authHandler.Refresh)
+		auth.POST("/refresh", refreshLimiter, authHandler.Refresh)
 	}
 
 	users := router.Group("/users")
 	users.Use(bodyLimit)
 	{
-		users.POST("/register", loginLimiter, userHandler.Create)
+		users.POST("/register", registerLimiter, userHandler.Create)
 	}
 
 	authUsers := router.Group("/users")

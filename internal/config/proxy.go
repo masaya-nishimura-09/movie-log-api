@@ -23,3 +23,7 @@ func TrustedProxies() ([]string, error) {
 	}
 	return proxies, nil
 }
+
+func InternalAPISecret() string {
+	return os.Getenv("INTERNAL_API_SECRET")
+}
