@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
@@ -133,7 +133,7 @@ func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
 	}
 
 	if err := uu.mediaService.DeleteAllForUser(ctx, userID); err != nil {
-		log.Printf("delete media: %v", err)
+		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
 	}
 
 	return nil

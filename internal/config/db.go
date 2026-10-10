@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func NewDB() (*gorm.DB, error) {
@@ -14,7 +15,10 @@ func NewDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("environment variable POSTGRES_DSN is required")
 	}
 
-	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn}), &gorm.Config{TranslateError: true})
+	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn}), &gorm.Config{
+		TranslateError: true,
+		Logger:         logger.Discard,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect DB: %w", err)
 	}

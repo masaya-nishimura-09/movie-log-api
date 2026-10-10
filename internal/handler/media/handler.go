@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +11,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	mediausecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/media"
 )
 
@@ -27,7 +27,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	v, exists := c.Get("userID")
 	id, ok := v.(userdomain.ID)
 	if !exists || !ok {
-		log.Println("userID in context is missing or not of type user.ID")
+		logging.Error(c, "request_failed", errors.New("userID in context is missing or not of type user.ID"))
 		response.InternalServerError(c)
 		return 0, false
 	}
@@ -69,7 +69,7 @@ func (mh *MediaHandler) Upload(c *gin.Context) {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -77,7 +77,7 @@ func (mh *MediaHandler) Upload(c *gin.Context) {
 
 	data, err := io.ReadAll(io.LimitReader(file, media.MaxBytes+1))
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -88,14 +88,14 @@ func (mh *MediaHandler) Upload(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
 
 	url, err := mh.mediaUsecase.Upload(ctx, authUserID, m)
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}

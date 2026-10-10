@@ -3,7 +3,6 @@ package movie
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	moviedomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/movie"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	movieusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/movie"
 )
 
@@ -181,7 +181,7 @@ func (mh *MovieHandler) GetByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -211,7 +211,7 @@ func (mh *MovieHandler) SearchByTitle(c *gin.Context) {
 		ctx, title, page, displayLanguage,
 	)
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}

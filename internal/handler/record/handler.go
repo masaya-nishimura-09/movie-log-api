@@ -3,7 +3,6 @@ package record
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +12,7 @@ import (
 	recorddomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/record"
 	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	recordusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/record"
 )
 
@@ -183,7 +183,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	v, exists := c.Get("userID")
 	id, ok := v.(userdomain.ID)
 	if !exists || !ok {
-		log.Println("userID in context is missing or not of type user.ID")
+		logging.Error(c, "request_failed", errors.New("userID in context is missing or not of type user.ID"))
 		response.InternalServerError(c)
 		return 0, false
 	}
@@ -405,7 +405,7 @@ func (rh *RecordHandler) GetByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -428,7 +428,7 @@ func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 
 	listResult, err := rh.recordUsecase.ListByUserID(ctx, authUserID, query)
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -465,14 +465,14 @@ func (rh *RecordHandler) Create(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
 
 	createdRecord, err := rh.recordUsecase.Create(ctx, authUserID, r)
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -505,7 +505,7 @@ func (rh *RecordHandler) Update(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -516,7 +516,7 @@ func (rh *RecordHandler) Update(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -543,7 +543,7 @@ func (rh *RecordHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}

@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 )
 
@@ -52,7 +52,7 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	v, exists := c.Get("userID")
 	id, ok := v.(userdomain.ID)
 	if !exists || !ok {
-		log.Println("userID in context is missing or not of type user.ID")
+		logging.Error(c, "request_failed", errors.New("userID in context is missing or not of type user.ID"))
 		response.InternalServerError(c)
 		return 0, false
 	}
@@ -73,7 +73,7 @@ func (uh *UserHandler) GetByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -100,7 +100,7 @@ func (uh *UserHandler) Create(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -111,7 +111,7 @@ func (uh *UserHandler) Create(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -143,7 +143,7 @@ func (uh *UserHandler) Update(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -164,7 +164,7 @@ func (uh *UserHandler) Update(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -190,7 +190,7 @@ func (uh *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}

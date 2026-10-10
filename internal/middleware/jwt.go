@@ -2,13 +2,13 @@ package middleware
 
 import (
 	"errors"
-	"log"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	authdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 	userusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/user"
 )
@@ -46,7 +46,7 @@ func JWTAuth(
 		}
 
 		if err != nil {
-			log.Println(err)
+			logging.Error(c, "request_failed", err)
 			response.InternalServerError(c)
 			c.Abort()
 			return

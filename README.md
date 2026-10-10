@@ -139,6 +139,7 @@ Set the following environment variables in `.env`.
 | `TMDB_ENDPOINT`           | Required | Base URL of the TMDB API                                             |
 | `TMDB_POSTER_BASE_URL`    | Required | Base URL of TMDB poster images                                       |
 | `TRUSTED_PROXIES`         | Optional | Comma-separated IP addresses or CIDRs of trusted proxies             |
+| `APP_VERSION`             | Optional | Version written to logs, such as the Git commit hash                 |
 | `INTERNAL_API_SECRET`     | Optional | Secret shared with the web app. When it matches, the `X-Real-IP` header sent by the web app is used for rate limiting (must match the web app's value) |
 
 ## Testing
@@ -161,6 +162,7 @@ internal/
   handler/            # HTTP handlers and error responses
   infrastructure/     # Integrations with PostgreSQL, S3, and TMDB
   middleware/         # JWT authentication, request body size limit, and rate limit keys
+  logging/            # Structured JSON logs for errors and warnings
   config/             # Environment variable loading
   testutil/           # Helpers for tests that use the test containers
 scripts/              # Table definitions and initial data
