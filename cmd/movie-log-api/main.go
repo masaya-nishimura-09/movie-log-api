@@ -100,6 +100,9 @@ func main() {
 	tmdbClient := movieinfra.NewTMDBClient(tmdbEndpoint, tmdbAccessToken)
 
 	clientKey := middleware.ClientKey(config.InternalAPISecret())
+	userKey := func(c *gin.Context) string {
+		return fmt.Sprint(c.MustGet("userID"))
+	}
 
 	loginRate := limiter.Rate{
 		Period: 1 * time.Minute,
@@ -141,9 +144,18 @@ func main() {
 	mediaStore := memory.NewStore()
 	mediaLimiter := ginlimiter.NewMiddleware(
 		limiter.New(mediaStore, mediaRate),
-		ginlimiter.WithKeyGetter(func(c *gin.Context) string {
-			return fmt.Sprint(c.MustGet("userID"))
-		}),
+		ginlimiter.WithKeyGetter(userKey),
+		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+	)
+
+	movieRate := limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  60,
+	}
+	movieStore := memory.NewStore()
+	movieLimiter := ginlimiter.NewMiddleware(
+		limiter.New(movieStore, movieRate),
+		ginlimiter.WithKeyGetter(userKey),
 		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
 	)
 
@@ -239,8 +251,8 @@ func main() {
 	movies := router.Group("/movies")
 	movies.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
-		movies.GET("/:id", movieHandler.GetByID)
-		movies.GET("/search", movieHandler.SearchByTitle)
+		movies.GET("/:id", movieLimiter, movieHandler.GetByID)
+		movies.GET("/search", movieLimiter, movieHandler.SearchByTitle)
 	}
 
 	media := router.Group("/media")
