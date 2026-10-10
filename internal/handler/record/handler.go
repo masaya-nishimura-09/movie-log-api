@@ -190,33 +190,34 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	return id, true
 }
 
-func getScores(c *gin.Context) ([]recorddomain.Score, bool) {
-	s := c.QueryArray("scores")
-	values := make([]uint, 0, len(s))
-
-	for _, v := range s {
-		value, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			response.InvalidInput(c, fmt.Errorf("%w: score must be a number", exception.ErrInvalid))
-			return nil, false
-		}
-		values = append(values, uint(value))
+func getScore(c *gin.Context) (recorddomain.Score, bool) {
+	s := c.Query("score")
+	if s == "" {
+		return 0, true
+	}
+	score, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		response.InvalidInput(c, fmt.Errorf("%w: score must be a number", exception.ErrInvalid))
+		return 0, false
 	}
 
-	ds, err := recorddomain.NewScores(values)
+	ds, err := recorddomain.NewScore(uint(score))
 	if err != nil {
 		response.InvalidInput(c, err)
-		return nil, false
+		return 0, false
 	}
 	return ds, true
 }
 
-func getPlatforms(c *gin.Context) ([]recorddomain.Platform, bool) {
-	p := c.QueryArray("platforms")
-	dp, err := recorddomain.NewPlatforms(p)
+func getPlatform(c *gin.Context) (recorddomain.Platform, bool) {
+	p := c.Query("platform")
+	if p == "" {
+		return "", true
+	}
+	dp, err := recorddomain.NewPlatform(p)
 	if err != nil {
 		response.InvalidInput(c, err)
-		return nil, false
+		return "", false
 	}
 	return dp, true
 }
@@ -316,12 +317,12 @@ func getPerPage(c *gin.Context) (recorddomain.PerPage, bool) {
 }
 
 func getQuery(c *gin.Context) (recorddomain.Query, bool) {
-	scores, ok := getScores(c)
+	score, ok := getScore(c)
 	if !ok {
 		return recorddomain.Query{}, false
 	}
 
-	platforms, ok := getPlatforms(c)
+	platform, ok := getPlatform(c)
 	if !ok {
 		return recorddomain.Query{}, false
 	}
@@ -362,8 +363,8 @@ func getQuery(c *gin.Context) (recorddomain.Query, bool) {
 	}
 
 	query := recorddomain.NewQuery(
-		scores,
-		platforms,
+		score,
+		platform,
 		moodTags,
 		genres,
 		titleKeyword,

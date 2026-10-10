@@ -437,7 +437,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?scores=4&scores=5&platforms=netflix&mood_tags=moving&genres=drama"+
+				"/?score=5&platform=netflix&mood_tags=moving&genres=drama"+
 					"&title=test+movie&sort_field=title&sort_order=asc&page=2&per_page=10",
 				nil,
 			)
@@ -457,18 +457,16 @@ func TestListByUserID(t *testing.T) {
 				)
 			}
 
-			wantScores := []recorddomain.Score{4, 5}
-			if !slices.Equal(usecase.listedQuery.Scores, wantScores) {
+			if usecase.listedQuery.Score != 5 {
 				t.Errorf(
-					"ListByUserID(c) scores = %v, want %v",
-					usecase.listedQuery.Scores, wantScores,
+					"ListByUserID(c) score = %v, want %v",
+					usecase.listedQuery.Score, 5,
 				)
 			}
-			wantPlatforms := []recorddomain.Platform{recorddomain.PlatformNetflix}
-			if !slices.Equal(usecase.listedQuery.Platforms, wantPlatforms) {
+			if usecase.listedQuery.Platform != recorddomain.PlatformNetflix {
 				t.Errorf(
-					"ListByUserID(c) platforms = %v, want %v",
-					usecase.listedQuery.Platforms, wantPlatforms,
+					"ListByUserID(c) platform = %v, want %v",
+					usecase.listedQuery.Platform, recorddomain.PlatformNetflix,
 				)
 			}
 			wantMoodTags := []recorddomain.MoodTag{recorddomain.MoodTagMoving}
@@ -534,6 +532,18 @@ func TestListByUserID(t *testing.T) {
 				t.Errorf(
 					"ListByUserID(c) code = %v, want %v",
 					rec.Code, http.StatusOK,
+				)
+			}
+			if usecase.listedQuery.Score != 0 {
+				t.Errorf(
+					"ListByUserID(c) score = %v, want %v",
+					usecase.listedQuery.Score, 0,
+				)
+			}
+			if usecase.listedQuery.Platform != "" {
+				t.Errorf(
+					"ListByUserID(c) platform = %v, want %v",
+					usecase.listedQuery.Platform, "",
 				)
 			}
 			if usecase.listedQuery.SortField != recorddomain.SortFieldWatchedAt {
@@ -602,7 +612,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?scores=invalid",
+				"/?score=invalid",
 				nil,
 			)
 
@@ -634,7 +644,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?platforms=invalid",
+				"/?platform=invalid",
 				nil,
 			)
 
