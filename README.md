@@ -45,6 +45,7 @@ Create a `.env` file based on `.env.example`:
 - `AWS_*` / `S3_*` - S3/MinIO configuration
 - `TMDB_*` - TMDb API settings
 - `TRUSTED_PROXIES` - Trusted proxy IPs
+- `INTERNAL_API_SECRET` - Shared secret the frontend sends so its X-Real-IP header is used for rate limiting (same value as the frontend)
 
 ## Project Structure
 
