@@ -7,10 +7,15 @@ import (
 	"time"
 )
 
+const minSecretBytes = 32
+
 func Secret() ([]byte, error) {
 	s := os.Getenv("JWT_SECRET")
 	if s == "" {
 		return nil, fmt.Errorf("environment variable JWT_SECRET is required")
+	}
+	if len(s) < minSecretBytes {
+		return nil, fmt.Errorf("environment variable JWT_SECRET must be at least %d bytes", minSecretBytes)
 	}
 	return []byte(s), nil
 }
