@@ -213,17 +213,23 @@ func (r *repository) ListByUserID(
 		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(string(query.TitleKeyword))
 		db = db.Where("title ILIKE ?", "%"+escaped+"%")
 	}
-	if len(query.Scores) > 0 {
-		db = db.Where("score IN ?", query.Scores)
+	if query.Score != 0 {
+		db = db.Where("score = ?", query.Score)
 	}
-	if len(query.Platforms) > 0 {
-		db = db.Where("platform IN ?", query.Platforms)
+	if query.Platform != "" {
+		db = db.Where("platform = ?", query.Platform)
 	}
 	if len(query.MoodTags) > 0 {
-		db = db.Where("id IN (SELECT record_id FROM record_mood_tags WHERE value IN ?)", query.MoodTags)
+		db = db.Where(
+			"id IN (SELECT record_id FROM record_mood_tags WHERE value IN ? GROUP BY record_id HAVING COUNT(*) = ?)",
+			query.MoodTags, len(query.MoodTags),
+		)
 	}
 	if len(query.Genres) > 0 {
-		db = db.Where("id IN (SELECT record_id FROM record_genres WHERE value IN ?)", query.Genres)
+		db = db.Where(
+			"id IN (SELECT record_id FROM record_genres WHERE value IN ? GROUP BY record_id HAVING COUNT(*) = ?)",
+			query.Genres, len(query.Genres),
+		)
 	}
 
 	var filtered int64

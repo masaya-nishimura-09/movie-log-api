@@ -8,8 +8,8 @@ import (
 )
 
 type Query struct {
-	Scores       []Score
-	Platforms    []Platform
+	Score        Score
+	Platform     Platform
 	MoodTags     []MoodTag
 	Genres       []Genre
 	TitleKeyword TitleKeyword
@@ -20,8 +20,8 @@ type Query struct {
 }
 
 func NewQuery(
-	scores []Score,
-	platforms []Platform,
+	score Score,
+	platform Platform,
 	moodTags []MoodTag,
 	genres []Genre,
 	titleKeyword TitleKeyword,
@@ -31,8 +31,8 @@ func NewQuery(
 	perPage PerPage,
 ) Query {
 	return Query{
-		Scores:       scores,
-		Platforms:    platforms,
+		Score:        score,
+		Platform:     platform,
 		MoodTags:     moodTags,
 		Genres:       genres,
 		TitleKeyword: titleKeyword,

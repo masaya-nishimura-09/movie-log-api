@@ -260,8 +260,8 @@ func TestGetByID(t *testing.T) {
 
 func newEmptyQuery() record.Query {
 	return record.NewQuery(
-		nil,
-		nil,
+		0,
+		"",
 		nil,
 		nil,
 		"",
@@ -409,8 +409,8 @@ func TestListByUserID(t *testing.T) {
 			}
 
 			query := record.NewQuery(
-				[]record.Score{record.Score(5)},
-				[]record.Platform{record.PlatformNetflix},
+				record.Score(5),
+				record.PlatformNetflix,
 				[]record.MoodTag{record.MoodTagTense},
 				[]record.Genre{record.GenreDrama},
 				record.TitleKeyword("Matrix"),
@@ -509,8 +509,8 @@ func TestListByUserID(t *testing.T) {
 			}
 
 			query := record.NewQuery(
-				nil,
-				nil,
+				0,
+				"",
 				nil,
 				nil,
 				"",
@@ -561,8 +561,8 @@ func TestListByUserID(t *testing.T) {
 			}
 
 			query := record.NewQuery(
-				nil,
-				nil,
+				0,
+				"",
 				nil,
 				nil,
 				record.TitleKeyword("100%"),
@@ -575,6 +575,58 @@ func TestListByUserID(t *testing.T) {
 			got, err := r.ListByUserID(ctx, userID, query)
 			if err != nil {
 				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if got.Records[0].ID != matching.ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, matching.ID)
+			}
+		},
+	)
+
+	t.Run(
+		"returns only records that have all of the given mood tags and genres",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			matching := newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
+			if err := r.Create(ctx, &matching); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", matching, err)
+			}
+			moodTagMiss := newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC))
+			moodTagMiss.MoodTags = []record.MoodTag{record.MoodTagMoving}
+			if err := r.Create(ctx, &moodTagMiss); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", moodTagMiss, err)
+			}
+			genreMiss := newTestRecord(userID, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC))
+			genreMiss.Genres = []record.Genre{record.GenreDrama}
+			if err := r.Create(ctx, &genreMiss); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", genreMiss, err)
+			}
+
+			query := record.NewQuery(
+				0,
+				"",
+				[]record.MoodTag{record.MoodTagMoving, record.MoodTagTense},
+				[]record.Genre{record.GenreDrama, record.GenreThriller},
+				"",
+				record.SortFieldWatchedAt,
+				record.SortOrderDesc,
+				record.Page(1),
+				record.PerPage(20),
+			)
+
+			got, err := r.ListByUserID(ctx, userID, query)
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if got.FilteredCount != 1 {
+				t.Errorf("ListByUserID FilteredCount = %d, want 1", got.FilteredCount)
 			}
 			if len(got.Records) != 1 {
 				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
