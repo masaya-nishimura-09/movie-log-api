@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +23,7 @@ import (
 	movieinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/movie"
 	recordinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/record"
 	userinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/user"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 	mediausecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/media"
@@ -35,6 +39,8 @@ func main() {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Println(".env file not found, using environment variables")
 	}
+
+	slog.SetDefault(logging.New(os.Stdout, config.AppVersion()))
 
 	ginMode, err := config.GinMode()
 	if err != nil {
@@ -103,6 +109,10 @@ func main() {
 	userKey := func(c *gin.Context) string {
 		return fmt.Sprint(c.MustGet("userID"))
 	}
+	limitReached := func(c *gin.Context) {
+		logging.Warn(c, "rate_limited", nil)
+		response.TooManyRequests(c)
+	}
 
 	loginRate := limiter.Rate{
 		Period: 1 * time.Minute,
@@ -112,7 +122,7 @@ func main() {
 	loginLimiter := ginlimiter.NewMiddleware(
 		limiter.New(loginStore, loginRate),
 		ginlimiter.WithKeyGetter(clientKey),
-		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
 	registerRate := limiter.Rate{
@@ -123,7 +133,7 @@ func main() {
 	registerLimiter := ginlimiter.NewMiddleware(
 		limiter.New(registerStore, registerRate),
 		ginlimiter.WithKeyGetter(clientKey),
-		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
 	refreshRate := limiter.Rate{
@@ -134,7 +144,7 @@ func main() {
 	refreshLimiter := ginlimiter.NewMiddleware(
 		limiter.New(refreshStore, refreshRate),
 		ginlimiter.WithKeyGetter(clientKey),
-		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
 	mediaRate := limiter.Rate{
@@ -145,7 +155,7 @@ func main() {
 	mediaLimiter := ginlimiter.NewMiddleware(
 		limiter.New(mediaStore, mediaRate),
 		ginlimiter.WithKeyGetter(userKey),
-		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
 	movieRate := limiter.Rate{
@@ -156,7 +166,7 @@ func main() {
 	movieLimiter := ginlimiter.NewMiddleware(
 		limiter.New(movieStore, movieRate),
 		ginlimiter.WithKeyGetter(userKey),
-		ginlimiter.WithLimitReachedHandler(response.TooManyRequests),
+		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
 	bodyLimit := middleware.BodyLimit(1024 * 1024)
@@ -204,7 +214,8 @@ func main() {
 	// routing
 	router := gin.New()
 	router.Use(gin.Logger())
-	router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+	router.Use(gin.CustomRecoveryWithWriter(nil, func(c *gin.Context, err any) {
+		logging.Error(c, "panic_recovered", fmt.Errorf("%v", err), "stack", string(debug.Stack()))
 		response.InternalServerError(c)
 		c.Abort()
 	}))

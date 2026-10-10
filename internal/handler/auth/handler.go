@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +9,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
 )
 
@@ -64,7 +64,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -75,7 +75,7 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -100,7 +100,7 @@ func (ah *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}
@@ -125,7 +125,7 @@ func (ah *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Println(err)
+		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)
 		return
 	}

@@ -132,6 +132,7 @@ API は `http://localhost:8080` で起動します。データベースの初回
 | `TMDB_ENDPOINT`           | 必須      | TMDB API のベース URL                                                |
 | `TMDB_POSTER_BASE_URL`    | 必須      | TMDB のポスター画像のベース URL                                      |
 | `TRUSTED_PROXIES`         | 任意      | 信頼するプロキシの IP アドレスまたは CIDR（カンマ区切り）            |
+| `APP_VERSION`             | 任意      | ログに記録するバージョン（Git のコミット ID など）                   |
 | `INTERNAL_API_SECRET`     | 任意      | Web アプリとの共有シークレット。一致した場合、Web アプリから送られる `X-Real-IP` をレート制限に使用（Web アプリと同じ値を設定） |
 
 ## テスト
@@ -153,6 +154,7 @@ internal/
   handler/            # HTTP ハンドラー、エラーレスポンス
   infrastructure/     # PostgreSQL・S3・TMDB との連携の実装
   middleware/         # JWT 認証、リクエストボディのサイズ制限、レート制限のキー生成
+  logging/            # エラー・警告の構造化ログ（JSON）
   config/             # 環境変数の読み込み
   testutil/           # テスト用コンテナを利用するテストのヘルパー
 scripts/              # テーブル定義、初期データ
