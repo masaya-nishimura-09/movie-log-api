@@ -88,7 +88,7 @@ flowchart LR
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - Docker and Docker Compose
 - A [TMDB](https://www.themoviedb.org/) API read access token
 
