@@ -80,7 +80,7 @@ flowchart LR
 
 ### 必要なもの
 
-- Go 1.25 以上
+- Go 1.26 以上
 - Docker と Docker Compose
 - [TMDB](https://www.themoviedb.org/) の API 読み取りアクセストークン
 
