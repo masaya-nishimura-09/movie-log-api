@@ -265,6 +265,9 @@ func main() {
 		Addr:              "0.0.0.0:8080",
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
