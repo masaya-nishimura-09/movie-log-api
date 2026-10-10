@@ -68,7 +68,7 @@ flowchart LR
 **Protection**
 
 - Rate limits per client IP on login, registration and token refresh,
-  and per user on uploads
+  and per user on movie lookups and uploads
 - A 1 MB limit on JSON request bodies
 - Client IPs taken only from trusted proxies,
   or from the web app when it sends the shared internal secret
@@ -215,12 +215,13 @@ Errors share one shape:
 
 ### Movies
 
-| Method | Endpoint       | Description              | Auth |
-|--------|----------------|--------------------------|------|
-| GET    | /movies/search | Search TMDB by title     | Yes  |
-| GET    | /movies/:id    | Get a film from TMDB     | Yes  |
+| Method | Endpoint       | Description              | Auth | Rate limit      |
+|--------|----------------|--------------------------|------|-----------------|
+| GET    | /movies/search | Search TMDB by title     | Yes  | 60 / min / user |
+| GET    | /movies/:id    | Get a film from TMDB     | Yes  | 60 / min / user |
 
 Both take `language` (default `en`); search also takes `title` and `page`.
+The two endpoints share one rate limit.
 
 ### Media
 
