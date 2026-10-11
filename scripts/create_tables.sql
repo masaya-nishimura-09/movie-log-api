@@ -20,6 +20,8 @@ CREATE TABLE refresh_tokens (
 
 CREATE UNIQUE INDEX refresh_tokens_hash_idx ON refresh_tokens (hash);
 
+CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens (user_id);
+
 CREATE TABLE records (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
