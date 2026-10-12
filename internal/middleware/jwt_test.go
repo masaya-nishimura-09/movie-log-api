@@ -48,6 +48,12 @@ func (u *fakeAuthUsecase) Refresh(
 	return nil, nil, nil
 }
 
+func (u *fakeAuthUsecase) DeleteExpiredRefreshTokens(
+	ctx context.Context,
+) error {
+	return nil
+}
+
 type fakeUserUsecase struct {
 	err error
 }

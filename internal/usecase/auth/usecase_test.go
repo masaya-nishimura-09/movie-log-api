@@ -95,6 +95,12 @@ func (r *fakeRefreshTokenRepo) RevokeAllForUser(
 	return nil
 }
 
+func (r *fakeRefreshTokenRepo) DeleteExpired(
+	ctx context.Context,
+) error {
+	return nil
+}
+
 func TestLogin(t *testing.T) {
 	t.Run(
 		"builds the principal from the user when the credentials are valid",
