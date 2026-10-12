@@ -1,10 +1,10 @@
 <div align="center">
 
-# Cinelog API
+# Cinestamp API
 
 [English](README.md) | **日本語**
 
-映画鑑賞記録アプリ「Cinelog」のバックエンドを担う REST API です。<br/>鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
+映画鑑賞記録アプリ「Cinestamp」のバックエンドを担う REST API です。<br/>鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
 
 ![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
 ![Gin](https://img.shields.io/badge/Gin-1.12-0a2947?logo=gin&logoColor=f3e4c9)
@@ -24,7 +24,7 @@
 flowchart LR
     web["Web アプリ<br/>(Next.js)"] --> api
     mobile["モバイルアプリ<br/>(Expo)"] --> api
-    api["Cinelog API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
+    api["Cinestamp API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
     api --> storage[("S3 / MinIO<br/>ポスター画像")]
     api --> tmdb["TMDB API"]
 ```

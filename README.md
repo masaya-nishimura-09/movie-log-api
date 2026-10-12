@@ -1,10 +1,10 @@
 <div align="center">
 
-# Cinelog API
+# Cinestamp API
 
 **English** | [日本語](README.ja.md)
 
-The REST API that powers Cinelog, an app for keeping a record of the films you watch.<br/>It manages viewing records, searches film information through TMDB, and stores poster images.
+The REST API that powers Cinestamp, an app for keeping a record of the films you watch.<br/>It manages viewing records, searches film information through TMDB, and stores poster images.
 
 ![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
 ![Gin](https://img.shields.io/badge/Gin-1.12-0a2947?logo=gin&logoColor=f3e4c9)
@@ -26,7 +26,7 @@ This repository contains the API server used by the
 flowchart LR
     web["Web app<br/>(Next.js)"] --> api
     mobile["Mobile app<br/>(Expo)"] --> api
-    api["Cinelog API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
+    api["Cinestamp API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
     api --> storage[("S3 / MinIO<br/>poster images")]
     api --> tmdb["TMDB API"]
 ```
