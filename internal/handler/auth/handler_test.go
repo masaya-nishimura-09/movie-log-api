@@ -57,6 +57,12 @@ func (u *fakeUsecase) Refresh(
 	return u.accessToken, u.refreshToken, u.err
 }
 
+func (u *fakeUsecase) DeleteExpiredRefreshTokens(
+	ctx context.Context,
+) error {
+	return nil
+}
+
 func TestLogin(t *testing.T) {
 	t.Run(
 		"passes the converted values to the usecase and returns 200 when the request is valid",

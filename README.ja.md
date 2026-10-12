@@ -122,6 +122,8 @@ API は `http://localhost:8080` で起動します。データベースの初回
 | `JWT_SECRET`              | 必須      | アクセストークンの署名鍵（32 バイト以上）                            |
 | `ACCESS_TOKEN_TTL_HOURS`  | 任意      | アクセストークンの有効期間（時間単位、既定値 `1`）                   |
 | `REFRESH_TOKEN_TTL_HOURS` | 任意      | リフレッシュトークンの有効期間（時間単位、既定値 `720`）             |
+| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンを定期的に掃除するか（`true` または `false`） |
+| `CLEANUP_INTERVAL_SECOND` | 必須      | 掃除の間隔（秒単位、1 以上）                                         |
 | `AWS_REGION`              | 必須      | ストレージのリージョン                                               |
 | `AWS_ACCESS_KEY_ID`       | 必須      | ストレージのアクセスキー ID                                          |
 | `AWS_SECRET_ACCESS_KEY`   | 必須      | ストレージのシークレットアクセスキー                                 |

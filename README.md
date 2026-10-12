@@ -129,6 +129,8 @@ Set the following environment variables in `.env`.
 | `JWT_SECRET`              | Required | Signing key for access tokens (at least 32 bytes)                    |
 | `ACCESS_TOKEN_TTL_HOURS`  | Optional | Access token lifetime in hours (default: `1`)                        |
 | `REFRESH_TOKEN_TTL_HOURS` | Optional | Refresh token lifetime in hours (default: `720`)                     |
+| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens (`true` or `false`) |
+| `CLEANUP_INTERVAL_SECOND` | Required | Interval in seconds between cleanups (at least `1`)                  |
 | `AWS_REGION`              | Required | Storage region                                                       |
 | `AWS_ACCESS_KEY_ID`       | Required | Storage access key ID                                                |
 | `AWS_SECRET_ACCESS_KEY`   | Required | Storage secret access key                                            |

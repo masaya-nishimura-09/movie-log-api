@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
+	schedulerhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/scheduler"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
 	mediainfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/media"
@@ -99,6 +101,16 @@ func main() {
 	}
 
 	trustedProxies, err := config.TrustedProxies()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cleanupEnable, err := config.CleanupEnable()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cleanupInterval, err := config.CleanupInterval()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -210,6 +222,7 @@ func main() {
 	recordHandler := recordhandler.NewRecordHandler(recordUsecase)
 	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
+	scheduler := schedulerhandler.NewScheduler(authUsecase, cleanupInterval)
 
 	// routing
 	router := gin.New()
@@ -270,6 +283,11 @@ func main() {
 	media.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		media.POST("/", mediaLimiter, mediaHandler.Upload)
+	}
+
+	if cleanupEnable {
+		ctx := context.Background()
+		go scheduler.Run(ctx)
 	}
 
 	server := &http.Server{

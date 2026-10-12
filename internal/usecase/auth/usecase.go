@@ -29,6 +29,9 @@ type Usecase interface {
 		ctx context.Context,
 		refreshTokenValue auth.RefreshTokenValue,
 	) (*auth.AccessToken, *auth.RefreshToken, error)
+	DeleteExpiredRefreshTokens(
+		ctx context.Context,
+	) error
 }
 
 type AuthUsecase struct {
@@ -167,4 +170,14 @@ func (au *AuthUsecase) Refresh(
 	}
 
 	return accessToken, newRefreshToken, nil
+}
+
+func (au *AuthUsecase) DeleteExpiredRefreshTokens(
+	ctx context.Context,
+) error {
+	if err := au.refreshTokenRepo.DeleteExpired(ctx); err != nil {
+		return fmt.Errorf("delete expired refresh tokens: %w", err)
+	}
+
+	return nil
 }

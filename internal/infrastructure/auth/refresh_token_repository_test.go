@@ -516,3 +516,95 @@ func TestRevokeAllForUser(t *testing.T) {
 		},
 	)
 }
+
+func TestDeleteExpired(t *testing.T) {
+	t.Run(
+		"deletes the expired refresh tokens and keeps the valid one",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			expiredRtr := NewRefreshTokenRepository(tx, -time.Hour)
+
+			ctx := context.Background()
+			u := newTestUser(t, tx, "test@example.com")
+
+			principal := auth.Principal{
+				UserID: u.ID,
+				Role:   u.Role,
+			}
+
+			rt, err := rtr.Create(ctx, &principal)
+			if err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					principal, rt, err,
+				)
+			}
+
+			expiredRt, err := expiredRtr.Create(ctx, &principal)
+			if err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					principal, expiredRt, err,
+				)
+			}
+
+			if err := rtr.DeleteExpired(ctx); err != nil {
+				t.Fatalf(
+					"DeleteExpired(ctx) error = %v", err,
+				)
+			}
+
+			var count int64
+			if err := tx.Model(&refreshTokenDTO{}).
+				Where("id = ?", rt.ID).
+				Count(&count).Error; err != nil {
+				t.Fatalf(
+					"Count() error = %v",
+					err,
+				)
+			}
+			if count != 1 {
+				t.Fatalf(
+					"DeleteExpired(ctx) leaves %d valid refresh token rows, want 1",
+					count,
+				)
+			}
+
+			var expiredCount int64
+			if err := tx.Model(&refreshTokenDTO{}).
+				Where("id = ?", expiredRt.ID).
+				Count(&expiredCount).Error; err != nil {
+				t.Fatalf(
+					"Count() error = %v",
+					err,
+				)
+			}
+			if expiredCount != 0 {
+				t.Fatalf(
+					"DeleteExpired(ctx) leaves %d expired refresh token rows, want 0",
+					expiredCount,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			err := rtr.DeleteExpired(ctx)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"DeleteExpired(ctx) error = %v, want %v",
+					err, context.Canceled,
+				)
+			}
+		},
+	)
+}

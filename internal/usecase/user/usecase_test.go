@@ -74,6 +74,12 @@ func (r *fakeRefreshTokenRepo) RevokeAllForUser(
 	return nil
 }
 
+func (r *fakeRefreshTokenRepo) DeleteExpired(
+	ctx context.Context,
+) error {
+	return nil
+}
+
 type fakeMediaService struct {
 	deletedAllUserID user.ID
 	err              error

@@ -14,4 +14,5 @@ type RefreshTokenRepository interface {
 	) (*RefreshToken, error)
 	Revoke(ctx context.Context, id RefreshTokenID) error
 	RevokeAllForUser(ctx context.Context, userID user.ID) error
+	DeleteExpired(ctx context.Context) error
 }
