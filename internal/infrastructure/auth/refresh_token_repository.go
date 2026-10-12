@@ -149,3 +149,15 @@ func (rtr *refreshTokenRepository) RevokeAllForUser(
 	}
 	return nil
 }
+
+func (rtr *refreshTokenRepository) DeleteExpired(
+	ctx context.Context,
+) error {
+	result := rtr.db.WithContext(ctx).
+		Where("expires_at <= ?", time.Now()).
+		Delete(&refreshTokenDTO{})
+	if result.Error != nil {
+		return fmt.Errorf("delete expired refresh tokens: %w", result.Error)
+	}
+	return nil
+}
