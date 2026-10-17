@@ -41,6 +41,13 @@ func InvalidCredentials(c *gin.Context) {
 	})
 }
 
+func InvalidCurrentPassword(c *gin.Context) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"code":    "INVALID_CURRENT_PASSWORD",
+		"message": "current password is incorrect",
+	})
+}
+
 func Unauthenticated(c *gin.Context) {
 	c.JSON(http.StatusUnauthorized, gin.H{
 		"code":    "UNAUTHENTICATED",

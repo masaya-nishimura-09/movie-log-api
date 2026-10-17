@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
@@ -19,12 +20,22 @@ type Usecase interface {
 		email user.Email,
 		password user.Password,
 	) (*user.User, error)
-	Update(
+	UpdateUsername(
 		ctx context.Context,
 		userID user.ID,
 		username user.Username,
+	) (*user.User, error)
+	UpdateEmail(
+		ctx context.Context,
+		userID user.ID,
 		email user.Email,
 		password user.Password,
+	) (*user.User, error)
+	UpdatePassword(
+		ctx context.Context,
+		userID user.ID,
+		oldPassword user.Password,
+		newPassword user.Password,
 	) (*user.User, error)
 	Delete(ctx context.Context, userID user.ID) error
 }
@@ -84,11 +95,35 @@ func (uu *UserUsecase) Create(
 	return &u, nil
 }
 
-func (uu *UserUsecase) Update(
+func (uu *UserUsecase) UpdateUsername(
 	ctx context.Context,
 	userID user.ID,
-	username user.Username,
-	email user.Email,
+	newUsername user.Username,
+) (*user.User, error) {
+	existingUser, err := uu.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	u := user.NewUser(
+		newUsername,
+		existingUser.Email,
+		existingUser.HashedPassword,
+		existingUser.Role,
+	)
+	u.ID = userID
+
+	if err := uu.userRepo.UpdateUsername(ctx, &u); err != nil {
+		return nil, fmt.Errorf("update username: %w", err)
+	}
+
+	return &u, nil
+}
+
+func (uu *UserUsecase) UpdateEmail(
+	ctx context.Context,
+	userID user.ID,
+	newEmail user.Email,
 	password user.Password,
 ) (*user.User, error) {
 	existingUser, err := uu.userRepo.GetByID(ctx, userID)
@@ -96,32 +131,65 @@ func (uu *UserUsecase) Update(
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
-	passwordChanged := bcrypt.CompareHashAndPassword(
+	if err := bcrypt.CompareHashAndPassword(
 		[]byte(existingUser.HashedPassword),
 		[]byte(password),
-	) != nil
+	); err != nil {
+		return nil, fmt.Errorf("login: %w", exception.ErrInvalid)
+	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	u := user.NewUser(
+		existingUser.Username,
+		newEmail,
+		existingUser.HashedPassword,
+		existingUser.Role,
+	)
+	u.ID = userID
+
+	if err := uu.userRepo.UpdateEmail(ctx, &u); err != nil {
+		return nil, fmt.Errorf("update email: %w", err)
+	}
+
+	return &u, nil
+}
+
+func (uu *UserUsecase) UpdatePassword(
+	ctx context.Context,
+	userID user.ID,
+	oldPassword user.Password,
+	newPassword user.Password,
+) (*user.User, error) {
+	existingUser, err := uu.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(existingUser.HashedPassword),
+		[]byte(oldPassword),
+	); err != nil {
+		return nil, fmt.Errorf("login: %w", exception.ErrInvalid)
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
 	u := user.NewUser(
-		username,
-		email,
+		existingUser.Username,
+		existingUser.Email,
 		user.HashedPassword(hashed),
 		existingUser.Role,
 	)
 	u.ID = userID
 
-	if err := uu.userRepo.Update(ctx, &u); err != nil {
-		return nil, fmt.Errorf("update user: %w", err)
+	if err := uu.userRepo.UpdatePassword(ctx, &u); err != nil {
+		return nil, fmt.Errorf("update password: %w", err)
 	}
 
-	if passwordChanged {
-		if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, userID); err != nil {
-			return nil, fmt.Errorf("revoke refresh tokens: %w", err)
-		}
+	if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, userID); err != nil {
+		return nil, fmt.Errorf("revoke refresh tokens: %w", err)
 	}
 
 	return &u, nil

@@ -34,7 +34,15 @@ func (r *fakeUserRepo) Create(ctx context.Context, u *user.User) error {
 	return nil
 }
 
-func (r *fakeUserRepo) Update(ctx context.Context, u *user.User) error {
+func (r *fakeUserRepo) UpdateUsername(ctx context.Context, u *user.User) error {
+	return nil
+}
+
+func (r *fakeUserRepo) UpdateEmail(ctx context.Context, u *user.User) error {
+	return nil
+}
+
+func (r *fakeUserRepo) UpdatePassword(ctx context.Context, u *user.User) error {
 	return nil
 }
 

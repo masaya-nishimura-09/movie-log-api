@@ -70,7 +70,7 @@ flowchart LR
 **Security**
 
 - Rate limiting: per client IP for login, registration, and token refresh;
-  per user for film information and poster image uploads
+  per user for film information, poster image uploads, and email and password changes
 - A size limit on JSON request bodies (up to 1 MB)
 - Client IPs accepted only from trusted proxies and from the web app authenticated with an internal secret
 
@@ -189,12 +189,17 @@ For endpoints that require authentication, send the access token in the
 
 ### Users
 
-| Method | Endpoint        | Description                    | Auth     | Rate limit |
-|--------|-----------------|--------------------------------|----------|------------|
-| POST   | /users/register | Register a user                | Not required | 10 / hour |
-| GET    | /users/         | Get the authenticated user     | Required |            |
-| PUT    | /users/         | Update the authenticated user  | Required |            |
-| DELETE | /users/         | Delete the authenticated user  | Required |            |
+| Method | Endpoint        | Description                            | Auth     | Rate limit        |
+|--------|-----------------|----------------------------------------|----------|-------------------|
+| POST   | /users/register | Register a user                        | Not required | 10 / hour     |
+| GET    | /users/         | Get the authenticated user             | Required |                   |
+| PUT    | /users/username | Update the authenticated user's name   | Required |                   |
+| PUT    | /users/email    | Update the authenticated user's email  | Required | 5 / min per user  |
+| PUT    | /users/password | Update the authenticated user's password | Required | 5 / min per user |
+| DELETE | /users/         | Delete the authenticated user          | Required |                   |
+
+`PUT /users/email` and `PUT /users/password` require the current password.
+The rate limit is counted across both endpoints combined.
 
 ### Viewing Records
 
