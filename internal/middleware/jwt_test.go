@@ -74,12 +74,28 @@ func (u *fakeUserUsecase) Create(
 	return nil, nil
 }
 
-func (u *fakeUserUsecase) Update(
+func (u *fakeUserUsecase) UpdateUsername(
 	ctx context.Context,
 	userID user.ID,
 	username user.Username,
+) (*user.User, error) {
+	return nil, nil
+}
+
+func (u *fakeUserUsecase) UpdateEmail(
+	ctx context.Context,
+	userID user.ID,
 	email user.Email,
 	password user.Password,
+) (*user.User, error) {
+	return nil, nil
+}
+
+func (u *fakeUserUsecase) UpdatePassword(
+	ctx context.Context,
+	userID user.ID,
+	oldPassword user.Password,
+	newPassword user.Password,
 ) (*user.User, error) {
 	return nil, nil
 }

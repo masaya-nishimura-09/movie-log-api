@@ -6,20 +6,23 @@ import (
 	"testing"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type fakeRepository struct {
-	user *user.User
+	user    *user.User
+	getErr  error
+	updated *user.User
 }
 
 func (r *fakeRepository) GetByID(
 	ctx context.Context,
 	userID user.ID,
 ) (*user.User, error) {
-	return r.user, nil
+	return r.user, r.getErr
 }
 
 func (r *fakeRepository) GetByEmail(
@@ -33,7 +36,18 @@ func (r *fakeRepository) Create(ctx context.Context, u *user.User) error {
 	return nil
 }
 
-func (r *fakeRepository) Update(ctx context.Context, u *user.User) error {
+func (r *fakeRepository) UpdateUsername(ctx context.Context, u *user.User) error {
+	r.updated = u
+	return nil
+}
+
+func (r *fakeRepository) UpdateEmail(ctx context.Context, u *user.User) error {
+	r.updated = u
+	return nil
+}
+
+func (r *fakeRepository) UpdatePassword(ctx context.Context, u *user.User) error {
+	r.updated = u
 	return nil
 }
 
@@ -164,15 +178,115 @@ func TestCreate(t *testing.T) {
 	)
 }
 
-func TestUpdate(t *testing.T) {
+func TestUpdateUsername(t *testing.T) {
 	userID := user.ID(1)
-	username := user.Username("Test")
-	email := user.Email("test@example.com")
+	newUsername := user.Username("NewName")
 
 	t.Run(
-		"hashes the password",
+		"returns the user with the new username and keeps the other fields",
 		func(t *testing.T) {
-			password := user.Password("testpassword")
+			existing := &user.User{
+				ID:             userID,
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: hashPassword(t, user.Password("testpassword")),
+				Role:           user.RoleAdmin,
+			}
+			repo := &fakeRepository{user: existing}
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdateUsername(ctx, userID, newUsername)
+			if err != nil {
+				t.Fatalf(
+					"UpdateUsername(ctx, %v, %v) (*user.User, error) = %v, %v",
+					userID, newUsername, got, err,
+				)
+			}
+
+			if got.ID != userID ||
+				got.Username != newUsername ||
+				got.Email != existing.Email ||
+				got.HashedPassword != existing.HashedPassword ||
+				got.Role != existing.Role {
+				t.Errorf(
+					"UpdateUsername(ctx, %v, %v) (*user.User, error) = %v, want Username %v and the other fields of %v",
+					userID, newUsername, got, newUsername, existing,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			repo := &fakeRepository{getErr: exception.ErrNotFound}
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdateUsername(ctx, userID, newUsername)
+			if !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdateUsername(ctx, %v, %v) (*user.User, error) = %v, %v, want %v",
+					userID, newUsername, got, err, exception.ErrNotFound,
+				)
+			}
+			if got != nil || repo.updated != nil {
+				t.Errorf(
+					"UpdateUsername(ctx, %v, %v) returned %v and updated %v, want nil for both",
+					userID, newUsername, got, repo.updated,
+				)
+			}
+		},
+	)
+}
+
+func TestUpdateEmail(t *testing.T) {
+	userID := user.ID(1)
+	password := user.Password("testpassword")
+	newEmail := user.Email("new@example.com")
+
+	t.Run(
+		"returns the user with the new email and keeps the other fields",
+		func(t *testing.T) {
+			existing := &user.User{
+				ID:             userID,
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: hashPassword(t, password),
+				Role:           user.RoleAdmin,
+			}
+			repo := &fakeRepository{user: existing}
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdateEmail(ctx, userID, newEmail, password)
+			if err != nil {
+				t.Fatalf(
+					"UpdateEmail(ctx, %v, %v, %v) (*user.User, error) = %v, %v",
+					userID, newEmail, password, got, err,
+				)
+			}
+
+			if got.ID != userID ||
+				got.Username != existing.Username ||
+				got.Email != newEmail ||
+				got.HashedPassword != existing.HashedPassword ||
+				got.Role != existing.Role {
+				t.Errorf(
+					"UpdateEmail(ctx, %v, %v, %v) (*user.User, error) = %v, want Email %v and the other fields of %v",
+					userID, newEmail, password, got, newEmail, existing,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid and does not update when the password is incorrect",
+		func(t *testing.T) {
 			repo := &fakeRepository{
 				user: &user.User{
 					ID:             userID,
@@ -182,35 +296,105 @@ func TestUpdate(t *testing.T) {
 			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
 
 			ctx := context.Background()
+			wrongPassword := user.Password("wrongpassword")
 
-			got, err := uu.Update(ctx, userID, username, email, password)
-			if err != nil {
+			got, err := uu.UpdateEmail(ctx, userID, newEmail, wrongPassword)
+			if !errors.Is(err, exception.ErrInvalid) {
 				t.Fatalf(
-					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
-					userID, username, email, password, got, err,
+					"UpdateEmail(ctx, %v, %v, %v) (*user.User, error) = %v, %v, want %v",
+					userID, newEmail, wrongPassword, got, err, exception.ErrInvalid,
 				)
 			}
-
-			if err := bcrypt.CompareHashAndPassword(
-				[]byte(got.HashedPassword),
-				[]byte(password),
-			); err != nil {
+			if got != nil || repo.updated != nil {
 				t.Errorf(
-					"Update(ctx, %v, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
-					userID, username, email, password, got.HashedPassword, password,
+					"UpdateEmail(ctx, %v, %v, %v) returned %v and updated %v, want nil for both",
+					userID, newEmail, wrongPassword, got, repo.updated,
 				)
 			}
 		},
 	)
 
 	t.Run(
-		"revokes all refresh tokens when the password changes",
+		"returns ErrNotFound when the user does not exist",
 		func(t *testing.T) {
-			password := user.Password("newpassword")
+			repo := &fakeRepository{getErr: exception.ErrNotFound}
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdateEmail(ctx, userID, newEmail, password)
+			if !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdateEmail(ctx, %v, %v, %v) (*user.User, error) = %v, %v, want %v",
+					userID, newEmail, password, got, err, exception.ErrNotFound,
+				)
+			}
+			if got != nil || repo.updated != nil {
+				t.Errorf(
+					"UpdateEmail(ctx, %v, %v, %v) returned %v and updated %v, want nil for both",
+					userID, newEmail, password, got, repo.updated,
+				)
+			}
+		},
+	)
+}
+
+func TestUpdatePassword(t *testing.T) {
+	userID := user.ID(1)
+	oldPassword := user.Password("oldpassword")
+	newPassword := user.Password("newpassword")
+
+	t.Run(
+		"hashes the new password and keeps the other fields",
+		func(t *testing.T) {
+			existing := &user.User{
+				ID:             userID,
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: hashPassword(t, oldPassword),
+				Role:           user.RoleAdmin,
+			}
+			repo := &fakeRepository{user: existing}
+			uu := NewUserUsecase(repo, &fakeRefreshTokenRepo{}, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdatePassword(ctx, userID, oldPassword, newPassword)
+			if err != nil {
+				t.Fatalf(
+					"UpdatePassword(ctx, %v, %v, %v) (*user.User, error) = %v, %v",
+					userID, oldPassword, newPassword, got, err,
+				)
+			}
+
+			if err := bcrypt.CompareHashAndPassword(
+				[]byte(got.HashedPassword),
+				[]byte(newPassword),
+			); err != nil {
+				t.Errorf(
+					"UpdatePassword(ctx, %v, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
+					userID, oldPassword, newPassword, got.HashedPassword, newPassword,
+				)
+			}
+			if got.ID != userID ||
+				got.Username != existing.Username ||
+				got.Email != existing.Email ||
+				got.Role != existing.Role {
+				t.Errorf(
+					"UpdatePassword(ctx, %v, %v, %v) (*user.User, error) = %v, want the other fields of %v",
+					userID, oldPassword, newPassword, got, existing,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"revokes all refresh tokens of the user",
+		func(t *testing.T) {
 			repo := &fakeRepository{
 				user: &user.User{
 					ID:             userID,
-					HashedPassword: hashPassword(t, user.Password("oldpassword")),
+					HashedPassword: hashPassword(t, oldPassword),
 				},
 			}
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
@@ -218,18 +402,18 @@ func TestUpdate(t *testing.T) {
 
 			ctx := context.Background()
 
-			got, err := uu.Update(ctx, userID, username, email, password)
+			got, err := uu.UpdatePassword(ctx, userID, oldPassword, newPassword)
 			if err != nil {
 				t.Fatalf(
-					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
-					userID, username, email, password, got, err,
+					"UpdatePassword(ctx, %v, %v, %v) (*user.User, error) = %v, %v",
+					userID, oldPassword, newPassword, got, err,
 				)
 			}
 
 			if refreshTokenRepo.revokedUserID != userID {
 				t.Errorf(
-					"Update(ctx, %v, %v, %v, %v) revoked user id = %v, want %v",
-					userID, username, email, password,
+					"UpdatePassword(ctx, %v, %v, %v) revoked user id = %v, want %v",
+					userID, oldPassword, newPassword,
 					refreshTokenRepo.revokedUserID, userID,
 				)
 			}
@@ -237,33 +421,62 @@ func TestUpdate(t *testing.T) {
 	)
 
 	t.Run(
-		"keeps refresh tokens when the password is unchanged",
+		"returns ErrInvalid and neither updates nor revokes when the old password is incorrect",
 		func(t *testing.T) {
-			password := user.Password("testpassword")
 			repo := &fakeRepository{
 				user: &user.User{
 					ID:             userID,
-					HashedPassword: hashPassword(t, password),
+					HashedPassword: hashPassword(t, oldPassword),
 				},
 			}
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
 			uu := NewUserUsecase(repo, refreshTokenRepo, &fakeMediaService{})
 
 			ctx := context.Background()
+			wrongPassword := user.Password("wrongpassword")
 
-			got, err := uu.Update(ctx, userID, username, email, password)
-			if err != nil {
+			got, err := uu.UpdatePassword(ctx, userID, wrongPassword, newPassword)
+			if !errors.Is(err, exception.ErrInvalid) {
 				t.Fatalf(
-					"Update(ctx, %v, %v, %v, %v) (*user.User, error) = %v, %v",
-					userID, username, email, password, got, err,
+					"UpdatePassword(ctx, %v, %v, %v) (*user.User, error) = %v, %v, want %v",
+					userID, wrongPassword, newPassword, got, err, exception.ErrInvalid,
 				)
 			}
-
-			if refreshTokenRepo.revokedUserID != 0 {
+			if got != nil ||
+				repo.updated != nil ||
+				refreshTokenRepo.revokedUserID != 0 {
 				t.Errorf(
-					"Update(ctx, %v, %v, %v, %v) revoked user id = %v, want no revocation",
-					userID, username, email, password,
-					refreshTokenRepo.revokedUserID,
+					"UpdatePassword(ctx, %v, %v, %v) returned %v, updated %v and revoked user id %v, want no result, update, or revocation",
+					userID, wrongPassword, newPassword,
+					got, repo.updated, refreshTokenRepo.revokedUserID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			repo := &fakeRepository{getErr: exception.ErrNotFound}
+			refreshTokenRepo := &fakeRefreshTokenRepo{}
+			uu := NewUserUsecase(repo, refreshTokenRepo, &fakeMediaService{})
+
+			ctx := context.Background()
+
+			got, err := uu.UpdatePassword(ctx, userID, oldPassword, newPassword)
+			if !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdatePassword(ctx, %v, %v, %v) (*user.User, error) = %v, %v, want %v",
+					userID, oldPassword, newPassword, got, err, exception.ErrNotFound,
+				)
+			}
+			if got != nil ||
+				repo.updated != nil ||
+				refreshTokenRepo.revokedUserID != 0 {
+				t.Errorf(
+					"UpdatePassword(ctx, %v, %v, %v) returned %v, updated %v and revoked user id %v, want no result, update, or revocation",
+					userID, oldPassword, newPassword,
+					got, repo.updated, refreshTokenRepo.revokedUserID,
 				)
 			}
 		},

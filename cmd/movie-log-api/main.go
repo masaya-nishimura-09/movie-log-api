@@ -137,6 +137,17 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	passwordCheckRate := limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  5,
+	}
+	passwordCheckStore := memory.NewStore()
+	passwordCheckLimiter := ginlimiter.NewMiddleware(
+		limiter.New(passwordCheckStore, passwordCheckRate),
+		ginlimiter.WithKeyGetter(userKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	registerRate := limiter.Rate{
 		Period: 1 * time.Hour,
 		Limit:  10,
@@ -257,7 +268,9 @@ func main() {
 	authUsers.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		authUsers.GET("/", userHandler.GetByID)
-		authUsers.PUT("/", userHandler.Update)
+		authUsers.PUT("/username", userHandler.UpdateUsername)
+		authUsers.PUT("/email", passwordCheckLimiter, userHandler.UpdateEmail)
+		authUsers.PUT("/password", passwordCheckLimiter, userHandler.UpdatePassword)
 		authUsers.DELETE("/", userHandler.Delete)
 	}
 

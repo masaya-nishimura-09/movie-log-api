@@ -106,7 +106,7 @@ func (r *repository) Create(
 	return nil
 }
 
-func (r *repository) Update(
+func (r *repository) UpdateUsername(
 	ctx context.Context,
 	u *user.User,
 ) error {
@@ -116,18 +116,64 @@ func (r *repository) Update(
 	result := r.db.WithContext(ctx).
 		Model(&userDTO{}).
 		Where("id = ?", u.ID).
-		Select("username", "email", "hashed_password", "updated_at").
+		Select("username", "updated_at").
 		Updates(userDTO{
-			Username:       dto.Username,
-			Email:          dto.Email,
-			HashedPassword: dto.HashedPassword,
-			UpdatedAt:      dto.UpdatedAt,
+			Username:  dto.Username,
+			UpdatedAt: dto.UpdatedAt,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("update username: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return exception.ErrNotFound
+	}
+	return nil
+}
+
+func (r *repository) UpdateEmail(
+	ctx context.Context,
+	u *user.User,
+) error {
+	u.UpdatedAt = time.Now()
+
+	dto := toDTO(u)
+	result := r.db.WithContext(ctx).
+		Model(&userDTO{}).
+		Where("id = ?", u.ID).
+		Select("email", "updated_at").
+		Updates(userDTO{
+			Email:     dto.Email,
+			UpdatedAt: dto.UpdatedAt,
 		})
 	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 		return exception.ErrAlreadyExists
 	}
 	if result.Error != nil {
-		return fmt.Errorf("update user: %w", result.Error)
+		return fmt.Errorf("update email: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return exception.ErrNotFound
+	}
+	return nil
+}
+
+func (r *repository) UpdatePassword(
+	ctx context.Context,
+	u *user.User,
+) error {
+	u.UpdatedAt = time.Now()
+
+	dto := toDTO(u)
+	result := r.db.WithContext(ctx).
+		Model(&userDTO{}).
+		Where("id = ?", u.ID).
+		Select("hashed_password", "updated_at").
+		Updates(userDTO{
+			HashedPassword: dto.HashedPassword,
+			UpdatedAt:      dto.UpdatedAt,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("update password: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return exception.ErrNotFound

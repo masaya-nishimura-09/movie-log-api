@@ -19,6 +19,20 @@ type UserReq struct {
 	Password string `json:"password"`
 }
 
+type UpdateUsernameReq struct {
+	Username string `json:"name"`
+}
+
+type UpdateEmailReq struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type UpdatePasswordReq struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 func (r UserReq) toDomain() (
 	userdomain.Username,
 	userdomain.Email,
@@ -38,6 +52,49 @@ func (r UserReq) toDomain() (
 		return "", "", "", err
 	}
 	return username, email, password, nil
+}
+
+func (r UpdateUsernameReq) toDomain() (
+	userdomain.Username,
+	error,
+) {
+	username, err := userdomain.NewUsername(r.Username)
+	if err != nil {
+		return "", err
+	}
+	return username, nil
+}
+
+func (r UpdateEmailReq) toDomain() (
+	userdomain.Password,
+	userdomain.Email,
+	error,
+) {
+	password, err := userdomain.NewPassword(r.Password)
+	if err != nil {
+		return "", "", err
+	}
+	email, err := userdomain.NewEmail(r.Email)
+	if err != nil {
+		return "", "", err
+	}
+	return password, email, nil
+}
+
+func (r UpdatePasswordReq) toDomain() (
+	userdomain.Password,
+	userdomain.Password,
+	error,
+) {
+	oldPassword, err := userdomain.NewPassword(r.OldPassword)
+	if err != nil {
+		return "", "", err
+	}
+	newPassword, err := userdomain.NewPassword(r.NewPassword)
+	if err != nil {
+		return "", "", err
+	}
+	return oldPassword, newPassword, nil
 }
 
 type UserHandler struct {
@@ -123,7 +180,7 @@ func (uh *UserHandler) Create(c *gin.Context) {
 	})
 }
 
-func (uh *UserHandler) Update(c *gin.Context) {
+func (uh *UserHandler) UpdateUsername(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	authUserID, ok := getUserID(c)
@@ -131,13 +188,13 @@ func (uh *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UserReq
+	var req UpdateUsernameReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.MalformedBody(c)
 		return
 	}
 
-	username, email, password, err := req.toDomain()
+	newUsername, err := req.toDomain()
 	if errors.Is(err, exception.ErrInvalid) {
 		response.InvalidInput(c, err)
 		return
@@ -148,23 +205,125 @@ func (uh *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	updatedUser, err := uh.userUsecase.Update(
+	updatedUser, updateUsernameErr := uh.userUsecase.UpdateUsername(
 		ctx,
 		authUserID,
-		username,
-		email,
-		password,
+		newUsername,
 	)
-	if errors.Is(err, exception.ErrNotFound) {
+	if errors.Is(updateUsernameErr, exception.ErrNotFound) {
 		response.UserNotFound(c)
 		return
 	}
-	if errors.Is(err, exception.ErrAlreadyExists) {
-		response.UserAlreadyExists(c)
+	if updateUsernameErr != nil {
+		logging.Error(c, "request_failed", updateUsernameErr)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  strconv.FormatUint(uint64(updatedUser.ID), 10),
+		"username": string(updatedUser.Username),
+		"email":    string(updatedUser.Email),
+	})
+}
+
+func (uh *UserHandler) UpdateEmail(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req UpdateEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	password, newEmail, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
 		return
 	}
 	if err != nil {
 		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	updatedUser, updateEmailErr := uh.userUsecase.UpdateEmail(
+		ctx,
+		authUserID,
+		newEmail,
+		password,
+	)
+	if errors.Is(updateEmailErr, exception.ErrNotFound) {
+		response.UserNotFound(c)
+		return
+	}
+	if errors.Is(updateEmailErr, exception.ErrAlreadyExists) {
+		response.UserAlreadyExists(c)
+		return
+	}
+	if errors.Is(updateEmailErr, exception.ErrInvalid) {
+		response.InvalidCurrentPassword(c)
+		return
+	}
+	if updateEmailErr != nil {
+		logging.Error(c, "request_failed", updateEmailErr)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  strconv.FormatUint(uint64(updatedUser.ID), 10),
+		"username": string(updatedUser.Username),
+		"email":    string(updatedUser.Email),
+	})
+}
+
+func (uh *UserHandler) UpdatePassword(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req UpdatePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	oldPassword, newPassword, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	updatedUser, updatePasswordErr := uh.userUsecase.UpdatePassword(
+		ctx,
+		authUserID,
+		oldPassword,
+		newPassword,
+	)
+	if errors.Is(updatePasswordErr, exception.ErrNotFound) {
+		response.UserNotFound(c)
+		return
+	}
+	if errors.Is(updatePasswordErr, exception.ErrInvalid) {
+		response.InvalidCurrentPassword(c)
+		return
+	}
+	if updatePasswordErr != nil {
+		logging.Error(c, "request_failed", updatePasswordErr)
 		response.InternalServerError(c)
 		return
 	}

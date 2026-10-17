@@ -321,9 +321,9 @@ func TestCreate(t *testing.T) {
 	)
 }
 
-func TestUpdate(t *testing.T) {
+func TestUpdateUsername(t *testing.T) {
 	t.Run(
-		"updates the user when a valid user is given",
+		"updates only the username",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
 			r := NewRepository(tx)
@@ -350,9 +350,9 @@ func TestUpdate(t *testing.T) {
 				HashedPassword: user.HashedPassword("test2password"),
 				Role:           user.RoleUser,
 			}
-			if err := r.Update(ctx, &u2); err != nil {
+			if err := r.UpdateUsername(ctx, &u2); err != nil {
 				t.Fatalf(
-					"Update(ctx, %v) error = %v",
+					"UpdateUsername(ctx, %v) error = %v",
 					u2, err,
 				)
 			}
@@ -364,19 +364,18 @@ func TestUpdate(t *testing.T) {
 					u1.ID, got, err,
 				)
 			}
-			if got.ID != u2.ID ||
-				got.Username != u2.Username ||
-				got.Email != u2.Email ||
-				got.HashedPassword != u2.HashedPassword {
+			if got.Username != u2.Username {
 				t.Errorf(
-					"GetByID(ctx, %d) (user.User, error) = %v, want %v",
-					u1.ID, got, u2,
+					"GetByID(ctx, %d) (user.User, error) = %v, want Username %v",
+					u1.ID, got, u2.Username,
 				)
 			}
-			if got.Role != u1.Role {
+			if got.Email != u1.Email ||
+				got.HashedPassword != u1.HashedPassword ||
+				got.Role != u1.Role {
 				t.Errorf(
-					"GetByID(ctx, %d) (user.User, error) = %v, want Role %v",
-					u1.ID, got, u1.Role,
+					"GetByID(ctx, %d) (user.User, error) = %v, want Email, HashedPassword and Role of %v",
+					u1.ID, got, u1,
 				)
 			}
 			if !got.CreatedAt.Equal(u1.CreatedAt.Truncate(time.Microsecond)) {
@@ -403,15 +402,130 @@ func TestUpdate(t *testing.T) {
 			ctx := context.Background()
 
 			u1 := user.User{
-				ID:             user.ID(999999),
+				ID:       user.ID(999999),
+				Username: user.Username("Test"),
+			}
+			if err := r.UpdateUsername(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdateUsername(ctx, %v) error = %v, want %v",
+					u1, err, exception.ErrNotFound,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			u := user.User{
+				ID:       user.ID(1),
+				Username: user.Username("Test"),
+			}
+
+			err := r.UpdateUsername(ctx, &u)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"UpdateUsername(ctx, %v) error = %v, want %v",
+					u, err, context.Canceled,
+				)
+			}
+		},
+	)
+}
+
+func TestUpdateEmail(t *testing.T) {
+	t.Run(
+		"updates only the email",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
 				Username:       user.Username("Test"),
 				Email:          user.Email("test@example.com"),
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
-			if err := r.Update(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
+			if err := r.Create(ctx, &u1); err != nil {
 				t.Fatalf(
-					"Update(ctx, %v) error = %v, want %v",
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
+
+			u2 := user.User{
+				ID:             u1.ID,
+				Username:       user.Username("Test2"),
+				Email:          user.Email("test2@example.com"),
+				HashedPassword: user.HashedPassword("test2password"),
+				Role:           user.RoleUser,
+			}
+			if err := r.UpdateEmail(ctx, &u2); err != nil {
+				t.Fatalf(
+					"UpdateEmail(ctx, %v) error = %v",
+					u2, err,
+				)
+			}
+
+			got, err := r.GetByID(ctx, u1.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v",
+					u1.ID, got, err,
+				)
+			}
+			if got.Email != u2.Email {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Email %v",
+					u1.ID, got, u2.Email,
+				)
+			}
+			if got.Username != u1.Username ||
+				got.HashedPassword != u1.HashedPassword ||
+				got.Role != u1.Role {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Username, HashedPassword and Role of %v",
+					u1.ID, got, u1,
+				)
+			}
+			if !got.CreatedAt.Equal(u1.CreatedAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want CreatedAt %v",
+					u1.ID, got, u1.CreatedAt.Truncate(time.Microsecond),
+				)
+			}
+			if !got.UpdatedAt.After(u1.UpdatedAt) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want UpdatedAt after %v",
+					u1.ID, got, u1.UpdatedAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
+				ID:    user.ID(999999),
+				Email: user.Email("test@example.com"),
+			}
+			if err := r.UpdateEmail(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdateEmail(ctx, %v) error = %v, want %v",
 					u1, err, exception.ErrNotFound,
 				)
 			}
@@ -453,9 +567,9 @@ func TestUpdate(t *testing.T) {
 			}
 
 			u2.Email = u1.Email
-			if err := r.Update(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
+			if err := r.UpdateEmail(ctx, &u2); !errors.Is(err, exception.ErrAlreadyExists) {
 				t.Fatalf(
-					"Update(ctx, %v) error = %v, want %v",
+					"UpdateEmail(ctx, %v) error = %v, want %v",
 					u2, err, exception.ErrAlreadyExists,
 				)
 			}
@@ -472,16 +586,132 @@ func TestUpdate(t *testing.T) {
 			cancel()
 
 			u := user.User{
+				ID:    user.ID(1),
+				Email: user.Email("test@example.com"),
+			}
+
+			err := r.UpdateEmail(ctx, &u)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"UpdateEmail(ctx, %v) error = %v, want %v",
+					u, err, context.Canceled,
+				)
+			}
+		},
+	)
+}
+
+func TestUpdatePassword(t *testing.T) {
+	t.Run(
+		"updates only the hashed password",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
 				Username:       user.Username("Test"),
 				Email:          user.Email("test@example.com"),
 				HashedPassword: user.HashedPassword("testpassword"),
 				Role:           user.RoleAdmin,
 			}
+			if err := r.Create(ctx, &u1); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
 
-			err := r.Update(ctx, &u)
+			u2 := user.User{
+				ID:             u1.ID,
+				Username:       user.Username("Test2"),
+				Email:          user.Email("test2@example.com"),
+				HashedPassword: user.HashedPassword("test2password"),
+				Role:           user.RoleUser,
+			}
+			if err := r.UpdatePassword(ctx, &u2); err != nil {
+				t.Fatalf(
+					"UpdatePassword(ctx, %v) error = %v",
+					u2, err,
+				)
+			}
+
+			got, err := r.GetByID(ctx, u1.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v",
+					u1.ID, got, err,
+				)
+			}
+			if got.HashedPassword != u2.HashedPassword {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want HashedPassword %v",
+					u1.ID, got, u2.HashedPassword,
+				)
+			}
+			if got.Username != u1.Username ||
+				got.Email != u1.Email ||
+				got.Role != u1.Role {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Username, Email and Role of %v",
+					u1.ID, got, u1,
+				)
+			}
+			if !got.CreatedAt.Equal(u1.CreatedAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want CreatedAt %v",
+					u1.ID, got, u1.CreatedAt.Truncate(time.Microsecond),
+				)
+			}
+			if !got.UpdatedAt.After(u1.UpdatedAt) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want UpdatedAt after %v",
+					u1.ID, got, u1.UpdatedAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
+				ID:             user.ID(999999),
+				HashedPassword: user.HashedPassword("testpassword"),
+			}
+			if err := r.UpdatePassword(ctx, &u1); !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdatePassword(ctx, %v) error = %v, want %v",
+					u1, err, exception.ErrNotFound,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			u := user.User{
+				ID:             user.ID(1),
+				HashedPassword: user.HashedPassword("testpassword"),
+			}
+
+			err := r.UpdatePassword(ctx, &u)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf(
-					"Update(ctx, %v) error = %v, want %v",
+					"UpdatePassword(ctx, %v) error = %v, want %v",
 					u, err, context.Canceled,
 				)
 			}
