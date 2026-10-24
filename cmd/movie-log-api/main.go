@@ -202,6 +202,7 @@ func main() {
 	refreshTokenRepo := authinfra.NewRefreshTokenRepository(db, refreshTokenTTL)
 	userRepo := userinfra.NewRepository(db)
 	recordRepo := recordinfra.NewRepository(db)
+	articleRepo := recordinfra.NewArticleRepository(db)
 	movieService := movieinfra.NewService(
 		tmdbClient,
 		tmdbPosterBaseURL,
@@ -224,6 +225,7 @@ func main() {
 		mediaService,
 	)
 	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, mediaService)
+	articleUsecase := recordusecase.NewArticleUsecase(articleRepo, recordRepo)
 	movieUsecase := movieusecase.NewMovieUsecase(movieService)
 	mediaUsecase := mediausecase.NewMediaUsecase(mediaService)
 
@@ -231,6 +233,7 @@ func main() {
 	authHandler := authhandler.NewAuthHandler(authUsecase)
 	userHandler := userhandler.NewUserHandler(userUsecase)
 	recordHandler := recordhandler.NewRecordHandler(recordUsecase)
+	articleHandler := recordhandler.NewArticleHandler(articleUsecase)
 	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
 	scheduler := schedulerhandler.NewScheduler(authUsecase, cleanupInterval)
@@ -283,6 +286,17 @@ func main() {
 		records.GET("/:id", recordHandler.GetByID)
 		records.PUT("/:id", recordHandler.Update)
 		records.DELETE("/:id", recordHandler.Delete)
+	}
+
+	articles := router.Group("/articles")
+	articles.Use(bodyLimit)
+	articles.Use(middleware.JWTAuth(authUsecase, userUsecase))
+	{
+		articles.POST("/", articleHandler.Create)
+		articles.GET("/", articleHandler.ListByUserID)
+		articles.GET("/:id", articleHandler.GetByID)
+		articles.PUT("/:id", articleHandler.Update)
+		articles.DELETE("/:id", articleHandler.Delete)
 	}
 
 	movies := router.Group("/movies")

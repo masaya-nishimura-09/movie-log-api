@@ -69,3 +69,18 @@ CREATE TABLE record_credits (
 );
 
 CREATE INDEX record_credits_record_id_idx ON record_credits (record_id);
+
+CREATE TABLE record_articles (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    record_id BIGINT NOT NULL REFERENCES records (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content JSONB NOT NULL,
+    content_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
+);
+
+CREATE INDEX record_articles_record_id_idx ON record_articles (record_id);
+
+CREATE INDEX record_articles_user_id_created_at_idx ON record_articles (user_id, created_at DESC, id DESC);

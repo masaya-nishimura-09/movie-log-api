@@ -48,6 +48,11 @@ flowchart LR
 - タイトル検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
 - ジャンル、制作国、クレジット、気分、メモの記録
 
+**記事**
+
+- 鑑賞記録に対する記事（Tiptap の JSON、空白を除いて最大 100 KB）の作成・取得・更新・削除
+- タイトルと本文のキーワード検索、鑑賞記録による絞り込み、並べ替え、ページネーション
+
 **映画情報**
 
 - TMDB を利用したタイトル検索と、指定した言語での詳細情報の取得
@@ -215,6 +220,29 @@ scripts/              # テーブル定義、初期データ
 | `page`       | ページ番号                                                   | `1`          |
 | `per_page`   | 1 ページあたりの件数（1〜100）                               | `20`         |
 
+### 記事
+
+| メソッド | エンドポイント | 説明             | 認証 |
+|----------|----------------|------------------|------|
+| POST     | /articles/     | 記事の作成       | 必要 |
+| GET      | /articles/     | 記事の一覧取得   | 必要 |
+| GET      | /articles/:id  | 記事の取得       | 必要 |
+| PUT      | /articles/:id  | 記事の更新       | 必要 |
+| DELETE   | /articles/:id  | 記事の削除       | 必要 |
+
+`POST /articles/` では `record_id`、`title`、`content` を指定します。`PUT /articles/:id` では `title` と `content` を指定します。記事の鑑賞記録は変更できません。`content` は Tiptap の JSON 文書（`type` が `doc` のオブジェクト、空白を除いて最大 100 KB）である必要があります。記事のレスポンスには、記事の鑑賞記録の `record_id`、`title`、`release_year`、`poster_url` を `record` に含めます。一覧のレスポンスには `content` を含みません。
+
+`GET /articles/` では、次のクエリパラメータを指定できます（いずれも任意）。
+
+| パラメータ   | 説明                                                       | 既定値       |
+|--------------|------------------------------------------------------------|--------------|
+| `record_id`  | 指定した鑑賞記録の記事のみを返す                           |              |
+| `keyword`    | キーワード（タイトルと本文の部分一致）                     |              |
+| `sort_field` | 並べ替えの基準（`created_at`、`updated_at`、`title`）      | `created_at` |
+| `sort_order` | 並び順（`asc`、`desc`）                                    | `desc`       |
+| `page`       | ページ番号                                                 | `1`          |
+| `per_page`   | 1 ページあたりの件数（1〜100）                             | `20`         |
+
 ### 映画情報
 
 | メソッド | エンドポイント | 説明                       | 認証 | レート制限                 |
@@ -240,6 +268,8 @@ erDiagram
     records ||--o{ record_countries : has
     records ||--o{ record_mood_tags : has
     records ||--o{ record_credits : has
+    users ||--o{ record_articles : has
+    records ||--o{ record_articles : has
 
     users {
         bigint id PK
@@ -284,6 +314,14 @@ erDiagram
         bigint record_id FK
         text person_name
         text credit_role
+    }
+    record_articles {
+        bigint id PK
+        bigint user_id FK
+        bigint record_id FK
+        text title
+        jsonb content
+        text content_text
     }
 ```
 
