@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	GetByID(ctx context.Context, recordID ID) (*Record, error)
 	ListByUserID(ctx context.Context, userID user.ID, query Query) (ListResult, error)
+	CountMoodTagsByUserID(ctx context.Context, userID user.ID) (MoodTagCounts, error)
 	Create(ctx context.Context, r *Record) error
 	Update(ctx context.Context, r *Record) error
 	Delete(ctx context.Context, recordID ID) error

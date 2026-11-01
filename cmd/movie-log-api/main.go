@@ -281,9 +281,10 @@ func main() {
 	records.Use(bodyLimit)
 	records.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
-		records.POST("/", recordHandler.Create)
 		records.GET("/", recordHandler.ListByUserID)
 		records.GET("/:id", recordHandler.GetByID)
+		records.GET("/mood-counts", recordHandler.CountMoodTagsByUserID)
+		records.POST("/", recordHandler.Create)
 		records.PUT("/:id", recordHandler.Update)
 		records.DELETE("/:id", recordHandler.Delete)
 	}

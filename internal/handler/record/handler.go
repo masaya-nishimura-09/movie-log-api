@@ -171,6 +171,13 @@ func toResponse(r *recorddomain.Record) gin.H {
 	}
 }
 
+func toMoodTagCountResponse(mtc recorddomain.MoodTagCount) gin.H {
+	return gin.H{
+		"mood_tag": string(mtc.Tag),
+		"count":    uint(mtc.Count),
+	}
+}
+
 type RecordHandler struct {
 	recordUsecase recordusecase.Usecase
 }
@@ -443,6 +450,29 @@ func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 		"filtered_count": uint(listResult.FilteredCount),
 		"total_count":    uint(listResult.TotalCount),
 	})
+}
+
+func (rh *RecordHandler) CountMoodTagsByUserID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	authUserID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	moodTagCounts, err := rh.recordUsecase.CountMoodTagsByUserID(ctx, authUserID)
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	moodTagCountsResponse := make([]gin.H, 0, len(moodTagCounts))
+	for _, mtc := range moodTagCounts {
+		moodTagCountsResponse = append(moodTagCountsResponse, toMoodTagCountResponse(mtc))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mood_tag_counts": moodTagCountsResponse})
 }
 
 func (rh *RecordHandler) Create(c *gin.Context) {
