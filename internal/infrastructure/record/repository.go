@@ -300,6 +300,7 @@ func (r *repository) CountMoodTagsByUserID(
 		Select("value, COUNT(*) AS count").
 		Where("record_id IN (SELECT id FROM records WHERE user_id = ?)", uint(userID)).
 		Group("value").
+		Order("value ASC").
 		Scan(&rows).Error
 
 	if err != nil {
