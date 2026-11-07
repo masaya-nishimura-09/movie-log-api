@@ -22,23 +22,25 @@ func NewRepository(db *gorm.DB) record.Repository {
 }
 
 type recordDTO struct {
-	ID          uint `gorm:"primaryKey"`
-	UserID      uint
-	Title       string
-	ReleaseYear uint
-	Runtime     uint
-	Genres      []genreDTO   `gorm:"foreignKey:RecordID"`
-	Countries   []countryDTO `gorm:"foreignKey:RecordID"`
-	Language    string
-	Credits     []creditDTO `gorm:"foreignKey:RecordID"`
-	PosterURL   string
-	WatchedAt   time.Time
-	Platform    string
-	Score       uint
-	MoodTags    []moodTagDTO `gorm:"foreignKey:RecordID"`
-	Memo        string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uint `gorm:"primaryKey"`
+	UserID        uint
+	Title         string
+	OriginalTitle string
+	Overview      string
+	ReleaseYear   uint
+	Runtime       uint
+	Genres        []genreDTO   `gorm:"foreignKey:RecordID"`
+	Countries     []countryDTO `gorm:"foreignKey:RecordID"`
+	Language      string
+	Credits       []creditDTO `gorm:"foreignKey:RecordID"`
+	PosterURL     string
+	WatchedAt     time.Time
+	Platform      string
+	Score         uint
+	MoodTags      []moodTagDTO `gorm:"foreignKey:RecordID"`
+	Memo          string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type genreDTO struct {
@@ -117,23 +119,25 @@ func toDTO(rec *record.Record) recordDTO {
 	}
 
 	return recordDTO{
-		ID:          uint(rec.ID),
-		UserID:      uint(rec.UserID),
-		Title:       string(rec.Title),
-		ReleaseYear: uint(rec.ReleaseYear),
-		Runtime:     uint(rec.Runtime),
-		Genres:      genres,
-		Countries:   countries,
-		Language:    string(rec.Language),
-		Credits:     credits,
-		PosterURL:   string(rec.PosterURL),
-		WatchedAt:   rec.WatchedAt,
-		Platform:    string(rec.Platform),
-		Score:       uint(rec.Score),
-		MoodTags:    moodTags,
-		Memo:        string(rec.Memo),
-		CreatedAt:   rec.CreatedAt,
-		UpdatedAt:   rec.UpdatedAt,
+		ID:            uint(rec.ID),
+		UserID:        uint(rec.UserID),
+		Title:         string(rec.Title),
+		OriginalTitle: string(rec.OriginalTitle),
+		Overview:      string(rec.Overview),
+		ReleaseYear:   uint(rec.ReleaseYear),
+		Runtime:       uint(rec.Runtime),
+		Genres:        genres,
+		Countries:     countries,
+		Language:      string(rec.Language),
+		Credits:       credits,
+		PosterURL:     string(rec.PosterURL),
+		WatchedAt:     rec.WatchedAt,
+		Platform:      string(rec.Platform),
+		Score:         uint(rec.Score),
+		MoodTags:      moodTags,
+		Memo:          string(rec.Memo),
+		CreatedAt:     rec.CreatedAt,
+		UpdatedAt:     rec.UpdatedAt,
 	}
 }
 
@@ -162,23 +166,25 @@ func fromDTO(dto *recordDTO) *record.Record {
 	}
 
 	return &record.Record{
-		ID:          record.ID(dto.ID),
-		UserID:      user.ID(dto.UserID),
-		Title:       record.Title(dto.Title),
-		ReleaseYear: record.ReleaseYear(dto.ReleaseYear),
-		Runtime:     record.Runtime(dto.Runtime),
-		Genres:      genres,
-		Countries:   countries,
-		Language:    record.Language(dto.Language),
-		Credits:     credits,
-		PosterURL:   record.PosterURL(dto.PosterURL),
-		WatchedAt:   dto.WatchedAt,
-		Platform:    record.Platform(dto.Platform),
-		Score:       record.Score(dto.Score),
-		MoodTags:    moodTags,
-		Memo:        record.Memo(dto.Memo),
-		CreatedAt:   dto.CreatedAt,
-		UpdatedAt:   dto.UpdatedAt,
+		ID:            record.ID(dto.ID),
+		UserID:        user.ID(dto.UserID),
+		Title:         record.Title(dto.Title),
+		OriginalTitle: record.OriginalTitle(dto.OriginalTitle),
+		Overview:      record.Overview(dto.Overview),
+		ReleaseYear:   record.ReleaseYear(dto.ReleaseYear),
+		Runtime:       record.Runtime(dto.Runtime),
+		Genres:        genres,
+		Countries:     countries,
+		Language:      record.Language(dto.Language),
+		Credits:       credits,
+		PosterURL:     record.PosterURL(dto.PosterURL),
+		WatchedAt:     dto.WatchedAt,
+		Platform:      record.Platform(dto.Platform),
+		Score:         record.Score(dto.Score),
+		MoodTags:      moodTags,
+		Memo:          record.Memo(dto.Memo),
+		CreatedAt:     dto.CreatedAt,
+		UpdatedAt:     dto.UpdatedAt,
 	}
 }
 
@@ -333,6 +339,8 @@ func (r *repository) Update(
 			Where("id = ? AND user_id = ?", dto.ID, dto.UserID).
 			Select(
 				"title",
+				"original_title",
+				"overview",
 				"release_year",
 				"runtime",
 				"language",
@@ -344,16 +352,18 @@ func (r *repository) Update(
 				"updated_at",
 			).
 			Updates(recordDTO{
-				Title:       dto.Title,
-				ReleaseYear: dto.ReleaseYear,
-				Runtime:     dto.Runtime,
-				Language:    dto.Language,
-				PosterURL:   dto.PosterURL,
-				WatchedAt:   dto.WatchedAt,
-				Platform:    dto.Platform,
-				Score:       dto.Score,
-				Memo:        dto.Memo,
-				UpdatedAt:   dto.UpdatedAt,
+				Title:         dto.Title,
+				OriginalTitle: dto.OriginalTitle,
+				Overview:      dto.Overview,
+				ReleaseYear:   dto.ReleaseYear,
+				Runtime:       dto.Runtime,
+				Language:      dto.Language,
+				PosterURL:     dto.PosterURL,
+				WatchedAt:     dto.WatchedAt,
+				Platform:      dto.Platform,
+				Score:         dto.Score,
+				Memo:          dto.Memo,
+				UpdatedAt:     dto.UpdatedAt,
 			})
 		if result.Error != nil {
 			return fmt.Errorf("update record: %w", result.Error)

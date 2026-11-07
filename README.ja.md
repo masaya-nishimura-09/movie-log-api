@@ -307,6 +307,8 @@ erDiagram
         bigint id PK
         bigint user_id FK
         text title
+        text original_title
+        text overview
         int release_year
         int runtime
         text language

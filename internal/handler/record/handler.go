@@ -22,23 +22,33 @@ type CreditReq struct {
 }
 
 type RecordReq struct {
-	Title       string      `json:"title"`
-	ReleaseYear uint        `json:"release_year"`
-	Runtime     uint        `json:"runtime"`
-	Genres      []string    `json:"genres"`
-	Countries   []string    `json:"countries"`
-	Language    string      `json:"language"`
-	Credits     []CreditReq `json:"credits"`
-	PosterURL   string      `json:"poster_url"`
-	WatchedAt   time.Time   `json:"watched_at"`
-	Platform    string      `json:"platform"`
-	Score       uint        `json:"score"`
-	MoodTags    []string    `json:"mood_tags"`
-	Memo        string      `json:"memo"`
+	Title         string      `json:"title"`
+	OriginalTitle string      `json:"original_title"`
+	Overview      string      `json:"overview"`
+	ReleaseYear   uint        `json:"release_year"`
+	Runtime       uint        `json:"runtime"`
+	Genres        []string    `json:"genres"`
+	Countries     []string    `json:"countries"`
+	Language      string      `json:"language"`
+	Credits       []CreditReq `json:"credits"`
+	PosterURL     string      `json:"poster_url"`
+	WatchedAt     time.Time   `json:"watched_at"`
+	Platform      string      `json:"platform"`
+	Score         uint        `json:"score"`
+	MoodTags      []string    `json:"mood_tags"`
+	Memo          string      `json:"memo"`
 }
 
 func (r RecordReq) toDomain(userID userdomain.ID) (recorddomain.Record, error) {
 	title, err := recorddomain.NewTitle(r.Title)
+	if err != nil {
+		return recorddomain.Record{}, err
+	}
+	originalTitle, err := recorddomain.NewOriginalTitle(r.OriginalTitle)
+	if err != nil {
+		return recorddomain.Record{}, err
+	}
+	overview, err := recorddomain.NewOverview(r.Overview)
 	if err != nil {
 		return recorddomain.Record{}, err
 	}
@@ -94,6 +104,8 @@ func (r RecordReq) toDomain(userID userdomain.ID) (recorddomain.Record, error) {
 	return recorddomain.NewRecord(
 		userID,
 		title,
+		originalTitle,
+		overview,
 		releaseYear,
 		runtime,
 		genres,
@@ -152,22 +164,24 @@ func toResponse(r *recorddomain.Record) gin.H {
 	}
 
 	return gin.H{
-		"record_id":    strconv.FormatUint(uint64(r.ID), 10),
-		"title":        string(r.Title),
-		"release_year": uint(r.ReleaseYear),
-		"runtime":      uint(r.Runtime),
-		"genres":       genres,
-		"countries":    countries,
-		"language":     string(r.Language),
-		"credits":      credits,
-		"poster_url":   string(r.PosterURL),
-		"watched_at":   r.WatchedAt.UTC(),
-		"platform":     string(r.Platform),
-		"score":        uint(r.Score),
-		"mood_tags":    moodTags,
-		"memo":         string(r.Memo),
-		"created_at":   r.CreatedAt.UTC(),
-		"updated_at":   r.UpdatedAt.UTC(),
+		"record_id":      strconv.FormatUint(uint64(r.ID), 10),
+		"title":          string(r.Title),
+		"original_title": string(r.OriginalTitle),
+		"overview":       string(r.Overview),
+		"release_year":   uint(r.ReleaseYear),
+		"runtime":        uint(r.Runtime),
+		"genres":         genres,
+		"countries":      countries,
+		"language":       string(r.Language),
+		"credits":        credits,
+		"poster_url":     string(r.PosterURL),
+		"watched_at":     r.WatchedAt.UTC(),
+		"platform":       string(r.Platform),
+		"score":          uint(r.Score),
+		"mood_tags":      moodTags,
+		"memo":           string(r.Memo),
+		"created_at":     r.CreatedAt.UTC(),
+		"updated_at":     r.UpdatedAt.UTC(),
 	}
 }
 

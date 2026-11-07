@@ -96,6 +96,8 @@ func (u *fakeUsecase) Delete(
 
 const validBody = `{
 	"title":"Test Movie",
+	"original_title":"Test Original Title",
+	"overview":"test overview",
 	"release_year":2020,
 	"runtime":120,
 	"genres":["drama"],
@@ -113,20 +115,23 @@ const validBody = `{
 const wantBody = `{"countries":["US"],"created_at":"2026-01-02T00:00:00Z",` +
 	`"credits":[{"credit_role":"director","person_name":"Test Director"}],` +
 	`"genres":["drama"],"language":"en","memo":"test memo","mood_tags":["moving"],` +
+	`"original_title":"Test Original Title","overview":"test overview",` +
 	`"platform":"netflix","poster_url":"https://example.com/poster.jpg",` +
 	`"record_id":"10","release_year":2020,"runtime":120,"score":4,` +
 	`"title":"Test Movie","updated_at":"2026-01-03T00:00:00Z","watched_at":"2026-01-01T00:00:00Z"}`
 
 func newTestRecord() recorddomain.Record {
 	return recorddomain.Record{
-		ID:          recorddomain.ID(10),
-		UserID:      userdomain.ID(1),
-		Title:       recorddomain.Title("Test Movie"),
-		ReleaseYear: recorddomain.ReleaseYear(2020),
-		Runtime:     recorddomain.Runtime(120),
-		Genres:      []recorddomain.Genre{recorddomain.GenreDrama},
-		Countries:   []recorddomain.Country{recorddomain.Country("US")},
-		Language:    recorddomain.Language("en"),
+		ID:            recorddomain.ID(10),
+		UserID:        userdomain.ID(1),
+		Title:         recorddomain.Title("Test Movie"),
+		OriginalTitle: recorddomain.OriginalTitle("Test Original Title"),
+		Overview:      recorddomain.Overview("test overview"),
+		ReleaseYear:   recorddomain.ReleaseYear(2020),
+		Runtime:       recorddomain.Runtime(120),
+		Genres:        []recorddomain.Genre{recorddomain.GenreDrama},
+		Countries:     []recorddomain.Country{recorddomain.Country("US")},
+		Language:      recorddomain.Language("en"),
 		Credits: []recorddomain.Credit{
 			{
 				PersonName: recorddomain.PersonName("Test Director"),
@@ -181,6 +186,8 @@ func TestCreate(t *testing.T) {
 				)
 			}
 			if usecase.createdRecord.Title != r.Title ||
+				usecase.createdRecord.OriginalTitle != r.OriginalTitle ||
+				usecase.createdRecord.Overview != r.Overview ||
 				usecase.createdRecord.Platform != r.Platform ||
 				usecase.createdRecord.Score != r.Score {
 				t.Errorf(

@@ -36,13 +36,15 @@ func newTestUser(t *testing.T, tx *gorm.DB, email string) user.User {
 
 func newTestRecord(userID user.ID, watchedAt time.Time) record.Record {
 	return record.Record{
-		UserID:      userID,
-		Title:       record.Title("Test Movie"),
-		ReleaseYear: record.ReleaseYear(2020),
-		Runtime:     record.Runtime(120),
-		Genres:      []record.Genre{record.GenreDrama, record.GenreThriller},
-		Countries:   []record.Country{record.Country("US"), record.Country("JP")},
-		Language:    record.Language("en"),
+		UserID:        userID,
+		Title:         record.Title("Test Movie"),
+		OriginalTitle: record.OriginalTitle("Test Original Title"),
+		Overview:      record.Overview("test overview"),
+		ReleaseYear:   record.ReleaseYear(2020),
+		Runtime:       record.Runtime(120),
+		Genres:        []record.Genre{record.GenreDrama, record.GenreThriller},
+		Countries:     []record.Country{record.Country("US"), record.Country("JP")},
+		Language:      record.Language("en"),
 		Credits: []record.Credit{
 			{
 				PersonName: record.PersonName("Test Director"),
@@ -107,6 +109,8 @@ func assertRecordEqual(t *testing.T, call string, got, want *record.Record) {
 	if got.ID != want.ID ||
 		got.UserID != want.UserID ||
 		got.Title != want.Title ||
+		got.OriginalTitle != want.OriginalTitle ||
+		got.Overview != want.Overview ||
 		got.ReleaseYear != want.ReleaseYear ||
 		got.Runtime != want.Runtime ||
 		got.Language != want.Language ||
@@ -902,14 +906,16 @@ func TestUpdate(t *testing.T) {
 			}
 
 			want := record.Record{
-				ID:          created.ID,
-				UserID:      userID,
-				Title:       record.Title("Updated Movie"),
-				ReleaseYear: record.ReleaseYear(1999),
-				Runtime:     record.Runtime(90),
-				Genres:      []record.Genre{record.GenreHorror},
-				Countries:   []record.Country{record.Country("FR")},
-				Language:    record.Language("fr"),
+				ID:            created.ID,
+				UserID:        userID,
+				Title:         record.Title("Updated Movie"),
+				OriginalTitle: record.OriginalTitle("Updated Original Title"),
+				Overview:      record.Overview("updated overview"),
+				ReleaseYear:   record.ReleaseYear(1999),
+				Runtime:       record.Runtime(90),
+				Genres:        []record.Genre{record.GenreHorror},
+				Countries:     []record.Country{record.Country("FR")},
+				Language:      record.Language("fr"),
 				Credits: []record.Credit{
 					{
 						PersonName: record.PersonName("Updated Director"),
