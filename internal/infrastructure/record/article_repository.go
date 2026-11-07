@@ -95,34 +95,9 @@ var articleDetailColumns = []string{
 	"record_articles.updated_at",
 }
 
-type articleSummaryDTO struct {
-	ID                uint
-	RecordID          uint
-	Title             string
-	RecordTitle       string
-	RecordReleaseYear uint
-	RecordPosterURL   string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-}
-
-func fromArticleSummaryDTO(dto *articleSummaryDTO) record.ArticleSummary {
-	return record.ArticleSummary{
-		ID: record.ArticleID(dto.ID),
-		Record: record.ArticleRecordSummary{
-			ID:          record.ID(dto.RecordID),
-			Title:       record.Title(dto.RecordTitle),
-			ReleaseYear: record.ReleaseYear(dto.RecordReleaseYear),
-			PosterURL:   record.PosterURL(dto.RecordPosterURL),
-		},
-		Title:     record.ArticleTitle(dto.Title),
-		CreatedAt: dto.CreatedAt,
-		UpdatedAt: dto.UpdatedAt,
-	}
-}
-
-var articleSummaryColumns = []string{
+var articleDetailColumnsWithoutContent = []string{
 	"record_articles.id",
+	"record_articles.user_id",
 	"record_articles.record_id",
 	"record_articles.title",
 	"records.title AS record_title",
@@ -185,11 +160,16 @@ func (r *articleRepository) ListByUserID(
 		return record.ArticleListResult{}, fmt.Errorf("count total articles: %w", err)
 	}
 
-	var dtos []articleSummaryDTO
+	columns := articleDetailColumnsWithoutContent
+	if query.IncludeContent {
+		columns = articleDetailColumns
+	}
+
+	var dtos []articleDetailDTO
 	result := db.
 		Model(&articleDTO{}).
 		Joins("JOIN records ON records.id = record_articles.record_id").
-		Select(articleSummaryColumns).
+		Select(columns).
 		Order(
 			"record_articles." + string(query.SortField) + " " + string(query.SortOrder) +
 				", record_articles.id DESC",
@@ -201,13 +181,13 @@ func (r *articleRepository) ListByUserID(
 		return record.ArticleListResult{}, fmt.Errorf("list articles by user id: %w", result.Error)
 	}
 
-	summaries := make([]record.ArticleSummary, 0, len(dtos))
+	details := make([]record.ArticleDetail, 0, len(dtos))
 	for i := range dtos {
-		summaries = append(summaries, fromArticleSummaryDTO(&dtos[i]))
+		details = append(details, *fromArticleDetailDTO(&dtos[i]))
 	}
 
 	return record.NewArticleListResult(
-		summaries,
+		details,
 		record.FilteredCount(filtered),
 		record.TotalCount(total),
 	), nil

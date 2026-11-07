@@ -128,9 +128,10 @@ func TestArticleListByUserID(t *testing.T) {
 				record.SortOrderAsc,
 				record.Page(2),
 				record.PerPage(10),
+				true,
 			)
 			want := record.NewArticleListResult(
-				[]record.ArticleSummary{{ID: record.ArticleID(1)}},
+				[]record.ArticleDetail{{Article: record.Article{ID: record.ArticleID(1)}}},
 				record.FilteredCount(1),
 				record.TotalCount(3),
 			)

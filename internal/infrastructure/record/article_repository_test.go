@@ -70,16 +70,16 @@ func assertArticleEqual(t *testing.T, call string, got, want *record.Article) {
 	}
 }
 
-func assertSummariesEqual(t *testing.T, call string, got []record.ArticleSummary, want []record.Article) {
+func assertArticlesEqual(t *testing.T, call string, got []record.ArticleDetail, want []record.Article) {
 	t.Helper()
 
 	if len(got) != len(want) {
-		t.Fatalf("%s = %v, want %d summaries", call, got, len(want))
+		t.Fatalf("%s = %v, want %d articles", call, got, len(want))
 	}
 	for i := range want {
-		if got[i].ID != want[i].ID ||
+		if got[i].Article.ID != want[i].ID ||
 			got[i].Record.ID != want[i].RecordID ||
-			got[i].Title != want[i].Title {
+			got[i].Article.Title != want[i].Title {
 			t.Errorf("%s[%d] = %v, want %v", call, i, got[i], want[i])
 		}
 	}
@@ -201,12 +201,13 @@ func newEmptyArticleQuery() record.ArticleQuery {
 		record.SortOrderDesc,
 		record.Page(1),
 		record.PerPage(20),
+		false,
 	)
 }
 
 func TestArticleListByUserID(t *testing.T) {
 	t.Run(
-		"returns only the user's article summaries, newest first, with counts",
+		"returns only the user's articles, newest first, with counts",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
 			r := NewArticleRepository(tx)
@@ -232,7 +233,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{third, second, first},
@@ -264,7 +265,7 @@ func TestArticleListByUserID(t *testing.T) {
 			got, err := r.ListByUserID(ctx, userID, newEmptyArticleQuery())
 			if err != nil || len(got.Articles) != 1 {
 				t.Fatalf(
-					"ListByUserID(ctx, %d, query) (record.ArticleListResult, error) = %v, %v, want 1 summary",
+					"ListByUserID(ctx, %d, query) (record.ArticleListResult, error) = %v, %v, want 1 article",
 					userID, got, err,
 				)
 			}
@@ -278,6 +279,64 @@ func TestArticleListByUserID(t *testing.T) {
 				t.Errorf(
 					"ListByUserID(ctx, %d, query) Record = %v, want %v",
 					userID, got.Articles[0].Record, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"includes the content when include content is true",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewArticleRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+			recordID := createTestRecord(t, tx, userID)
+			want := newTestArticle(userID, recordID, "Test Article")
+			createTestArticle(t, tx, &want)
+
+			query := newEmptyArticleQuery()
+			query.IncludeContent = true
+
+			got, err := r.ListByUserID(ctx, userID, query)
+			if err != nil || len(got.Articles) != 1 {
+				t.Fatalf(
+					"ListByUserID(ctx, %d, query) (record.ArticleListResult, error) = %v, %v, want 1 article",
+					userID, got, err,
+				)
+			}
+			assertArticleEqual(
+				t,
+				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
+				&got.Articles[0].Article, &want,
+			)
+		},
+	)
+
+	t.Run(
+		"does not include the content when include content is false",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewArticleRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+			recordID := createTestRecord(t, tx, userID)
+			a := newTestArticle(userID, recordID, "Test Article")
+			createTestArticle(t, tx, &a)
+
+			got, err := r.ListByUserID(ctx, userID, newEmptyArticleQuery())
+			if err != nil || len(got.Articles) != 1 {
+				t.Fatalf(
+					"ListByUserID(ctx, %d, query) (record.ArticleListResult, error) = %v, %v, want 1 article",
+					userID, got, err,
+				)
+			}
+			if len(got.Articles[0].Article.Content) != 0 {
+				t.Errorf(
+					"ListByUserID(ctx, %d, query) Content = %s, want empty",
+					userID, got.Articles[0].Article.Content,
 				)
 			}
 		},
@@ -311,7 +370,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{second, first},
@@ -355,7 +414,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{inText, inTitle},
@@ -397,7 +456,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{percent},
@@ -433,7 +492,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{a, b, c},
@@ -469,7 +528,7 @@ func TestArticleListByUserID(t *testing.T) {
 					userID, got, err,
 				)
 			}
-			assertSummariesEqual(
+			assertArticlesEqual(
 				t,
 				fmt.Sprintf("ListByUserID(ctx, %d, query)", userID),
 				got.Articles, []record.Article{first},

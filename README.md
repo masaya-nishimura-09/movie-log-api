@@ -276,18 +276,19 @@ the viewing record of an article cannot be changed.
 (an object whose `type` is `doc`, up to 100 KB excluding whitespace).
 In every article response, `record` holds the `record_id`, `title`,
 `release_year`, and `poster_url` of the article's viewing record.
-The list response does not include `content`.
+The list response includes `content` only when `include_content` is `true`.
 
 `GET /articles/` accepts the following query parameters, all of which are optional.
 
-| Parameter    | Description                                                | Default      |
-|--------------|------------------------------------------------------------|--------------|
-| `record_id`  | Return only the articles of this viewing record            |              |
-| `keyword`    | Keyword (partial match on the title and the body)          |              |
-| `sort_field` | Sort key (`created_at`, `updated_at`, or `title`)          | `created_at` |
-| `sort_order` | Sort order (`asc` or `desc`)                               | `desc`       |
-| `page`       | Page number                                                | `1`          |
-| `per_page`   | Number of articles per page (1–100)                        | `20`         |
+| Parameter         | Description                                                | Default      |
+|-------------------|------------------------------------------------------------|--------------|
+| `record_id`       | Return only the articles of this viewing record            |              |
+| `keyword`         | Keyword (partial match on the title and the body)          |              |
+| `sort_field`      | Sort key (`created_at`, `updated_at`, or `title`)          | `created_at` |
+| `sort_order`      | Sort order (`asc` or `desc`)                               | `desc`       |
+| `page`            | Page number                                                | `1`          |
+| `per_page`        | Number of articles per page (1–100)                        | `20`         |
+| `include_content` | Include `content` in each article (`true` or `false`)      | `false`      |
 
 ### Film Information
 

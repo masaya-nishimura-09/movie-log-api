@@ -1,13 +1,13 @@
 package record
 
 type ArticleListResult struct {
-	Articles      []ArticleSummary
+	Articles      []ArticleDetail
 	FilteredCount FilteredCount
 	TotalCount    TotalCount
 }
 
 func NewArticleListResult(
-	articles []ArticleSummary,
+	articles []ArticleDetail,
 	filteredCount FilteredCount,
 	totalCount TotalCount,
 ) ArticleListResult {

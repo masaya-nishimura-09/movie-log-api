@@ -8,12 +8,13 @@ import (
 )
 
 type ArticleQuery struct {
-	RecordID  ID
-	Keyword   ArticleKeyword
-	SortField ArticleSortField
-	SortOrder SortOrder
-	Page      Page
-	PerPage   PerPage
+	RecordID       ID
+	Keyword        ArticleKeyword
+	SortField      ArticleSortField
+	SortOrder      SortOrder
+	Page           Page
+	PerPage        PerPage
+	IncludeContent bool
 }
 
 func NewArticleQuery(
@@ -23,14 +24,16 @@ func NewArticleQuery(
 	sortOrder SortOrder,
 	page Page,
 	perPage PerPage,
+	includeContent bool,
 ) ArticleQuery {
 	return ArticleQuery{
-		RecordID:  recordID,
-		Keyword:   keyword,
-		SortField: sortField,
-		SortOrder: sortOrder,
-		Page:      page,
-		PerPage:   perPage,
+		RecordID:       recordID,
+		Keyword:        keyword,
+		SortField:      sortField,
+		SortOrder:      sortOrder,
+		Page:           page,
+		PerPage:        perPage,
+		IncludeContent: includeContent,
 	}
 }
 

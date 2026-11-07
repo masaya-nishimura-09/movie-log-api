@@ -549,19 +549,11 @@ func TestArticleGetByID(t *testing.T) {
 
 func TestArticleListByUserID(t *testing.T) {
 	t.Run(
-		"passes the converted query to the usecase and returns the summaries and 200 when the request is valid",
+		"passes the converted query to the usecase and returns the articles and 200 when the request is valid",
 		func(t *testing.T) {
 			usecase := &fakeArticleUsecase{
 				listResult: recorddomain.ArticleListResult{
-					Articles: []recorddomain.ArticleSummary{
-						{
-							ID:        recorddomain.ArticleID(10),
-							Record:    newTestArticleRecordSummary(),
-							Title:     recorddomain.ArticleTitle("Test Article"),
-							CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
-							UpdatedAt: time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC),
-						},
-					},
+					Articles:      []recorddomain.ArticleDetail{*newTestArticleDetail(newTestArticle())},
 					FilteredCount: recorddomain.FilteredCount(1),
 					TotalCount:    recorddomain.TotalCount(5),
 				},
@@ -599,11 +591,92 @@ func TestArticleListByUserID(t *testing.T) {
 				recorddomain.SortOrderAsc,
 				recorddomain.Page(2),
 				recorddomain.PerPage(10),
+				false,
 			)
 			if usecase.listedQuery != wantQuery {
 				t.Errorf(
 					"ListByUserID(c) query = %v, want %v",
 					usecase.listedQuery, wantQuery,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the articles with their content when include content is true",
+		func(t *testing.T) {
+			usecase := &fakeArticleUsecase{
+				listResult: recorddomain.ArticleListResult{
+					Articles:      []recorddomain.ArticleDetail{*newTestArticleDetail(newTestArticle())},
+					FilteredCount: recorddomain.FilteredCount(1),
+					TotalCount:    recorddomain.TotalCount(5),
+				},
+			}
+			articleHandler := NewArticleHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_content=true", nil)
+
+			articleHandler.ListByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"articles":[` + wantArticleBody + `],"filtered_count":1,"total_count":5}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+			if !usecase.listedQuery.IncludeContent {
+				t.Errorf(
+					"ListByUserID(c) query = %v, want IncludeContent true",
+					usecase.listedQuery,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the articles without their content when include content is false",
+		func(t *testing.T) {
+			usecase := &fakeArticleUsecase{
+				listResult: recorddomain.ArticleListResult{
+					Articles:      []recorddomain.ArticleDetail{*newTestArticleDetail(newTestArticle())},
+					FilteredCount: recorddomain.FilteredCount(1),
+					TotalCount:    recorddomain.TotalCount(5),
+				},
+			}
+			articleHandler := NewArticleHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_content=false", nil)
+
+			articleHandler.ListByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"articles":[` + wantArticleSummaryBody + `],"filtered_count":1,"total_count":5}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+			if usecase.listedQuery.IncludeContent {
+				t.Errorf(
+					"ListByUserID(c) query = %v, want IncludeContent false",
+					usecase.listedQuery,
 				)
 			}
 		},
@@ -635,6 +708,7 @@ func TestArticleListByUserID(t *testing.T) {
 				recorddomain.SortOrderDesc,
 				recorddomain.Page(1),
 				recorddomain.PerPage(20),
+				false,
 			)
 			if usecase.listedQuery != wantQuery {
 				t.Errorf(
@@ -800,6 +874,34 @@ func TestArticleListByUserID(t *testing.T) {
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when include content is neither true nor false",
+		func(t *testing.T) {
+			usecase := &fakeArticleUsecase{}
+			articleHandler := NewArticleHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_content=1", nil)
+
+			articleHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT","message":"invalid: include content must be true or false"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",

@@ -85,13 +85,13 @@ func toArticleResponse(d *recorddomain.ArticleDetail) gin.H {
 	}
 }
 
-func toArticleSummaryResponse(s recorddomain.ArticleSummary) gin.H {
+func toArticleSummaryResponse(d *recorddomain.ArticleDetail) gin.H {
 	return gin.H{
-		"article_id": strconv.FormatUint(uint64(s.ID), 10),
-		"record":     toArticleRecordSummaryResponse(s.Record),
-		"title":      string(s.Title),
-		"created_at": s.CreatedAt.UTC(),
-		"updated_at": s.UpdatedAt.UTC(),
+		"article_id": strconv.FormatUint(uint64(d.Article.ID), 10),
+		"record":     toArticleRecordSummaryResponse(d.Record),
+		"title":      string(d.Article.Title),
+		"created_at": d.Article.CreatedAt.UTC(),
+		"updated_at": d.Article.UpdatedAt.UTC(),
 	}
 }
 
@@ -143,6 +143,22 @@ func getArticleSortField(c *gin.Context) (recorddomain.ArticleSortField, bool) {
 	return dsf, true
 }
 
+func getArticleIncludeContent(c *gin.Context) (bool, bool) {
+	s := c.Query("include_content")
+	if s == "" {
+		s = "false"
+	}
+	switch s {
+	case "false":
+		return false, true
+	case "true":
+		return true, true
+	default:
+		response.InvalidInput(c, fmt.Errorf("%w: include content must be true or false", exception.ErrInvalid))
+		return false, false
+	}
+}
+
 func getArticleQuery(c *gin.Context) (recorddomain.ArticleQuery, bool) {
 	recordID, ok := getArticleRecordID(c)
 	if !ok {
@@ -174,6 +190,11 @@ func getArticleQuery(c *gin.Context) (recorddomain.ArticleQuery, bool) {
 		return recorddomain.ArticleQuery{}, false
 	}
 
+	includeContent, ok := getArticleIncludeContent(c)
+	if !ok {
+		return recorddomain.ArticleQuery{}, false
+	}
+
 	query := recorddomain.NewArticleQuery(
 		recordID,
 		keyword,
@@ -181,6 +202,7 @@ func getArticleQuery(c *gin.Context) (recorddomain.ArticleQuery, bool) {
 		sortOrder,
 		page,
 		perPage,
+		includeContent,
 	)
 
 	return query, true
@@ -243,8 +265,12 @@ func (ah *ArticleHandler) ListByUserID(c *gin.Context) {
 	}
 
 	articles := make([]gin.H, 0, len(listResult.Articles))
-	for _, s := range listResult.Articles {
-		articles = append(articles, toArticleSummaryResponse(s))
+	for i := range listResult.Articles {
+		if query.IncludeContent {
+			articles = append(articles, toArticleResponse(&listResult.Articles[i]))
+		} else {
+			articles = append(articles, toArticleSummaryResponse(&listResult.Articles[i]))
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
