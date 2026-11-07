@@ -3,6 +3,7 @@ package record
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 )
 
 type fakeRepository struct {
-	record    *record.Record
-	created   *record.Record
-	updated   *record.Record
-	deletedID record.ID
+	record        *record.Record
+	moodTagCounts record.MoodTagCounts
+	countUserID   user.ID
+	created       *record.Record
+	updated       *record.Record
+	deletedID     record.ID
 }
 
 func (r *fakeRepository) GetByID(
@@ -32,6 +35,14 @@ func (r *fakeRepository) ListByUserID(
 	query record.Query,
 ) (record.ListResult, error) {
 	return record.ListResult{}, nil
+}
+
+func (r *fakeRepository) CountMoodTagsByUserID(
+	ctx context.Context,
+	userID user.ID,
+) (record.MoodTagCounts, error) {
+	r.countUserID = userID
+	return r.moodTagCounts, nil
 }
 
 func (r *fakeRepository) Create(ctx context.Context, rec *record.Record) error {
@@ -131,6 +142,44 @@ func TestGetByID(t *testing.T) {
 				t.Errorf(
 					"GetByID(ctx, %v, %v) (*record.Record, error) = %v, %v, want nil",
 					userID, recordID, got, err,
+				)
+			}
+		},
+	)
+}
+
+func TestCountMoodTagsByUserID(t *testing.T) {
+	t.Run(
+		"passes the user ID to the repository and returns its result",
+		func(t *testing.T) {
+			userID := user.ID(1)
+			want := record.MoodTagCounts{
+				{Tag: record.MoodTagCozy, Count: record.MoodCount(1)},
+				{Tag: record.MoodTagDark, Count: record.MoodCount(0)},
+			}
+			repo := &fakeRepository{moodTagCounts: want}
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, mediaService)
+
+			ctx := context.Background()
+
+			got, err := ru.CountMoodTagsByUserID(ctx, userID)
+			if err != nil {
+				t.Fatalf(
+					"CountMoodTagsByUserID(ctx, %v) (record.MoodTagCounts, error) = %v, %v",
+					userID, got, err,
+				)
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf(
+					"CountMoodTagsByUserID(ctx, %v) = %v, want %v",
+					userID, got, want,
+				)
+			}
+			if repo.countUserID != userID {
+				t.Errorf(
+					"CountMoodTagsByUserID(ctx, %v) calls the repository with %v",
+					userID, repo.countUserID,
 				)
 			}
 		},

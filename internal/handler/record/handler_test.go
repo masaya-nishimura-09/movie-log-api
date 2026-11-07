@@ -20,6 +20,8 @@ type fakeUsecase struct {
 	record          *recorddomain.Record
 	listResult      recorddomain.ListResult
 	listedQuery     recorddomain.Query
+	moodTagCounts   recorddomain.MoodTagCounts
+	countedUserID   userdomain.ID
 	createdUserID   userdomain.ID
 	createdRecord   recorddomain.Record
 	updatedUserID   userdomain.ID
@@ -46,6 +48,15 @@ func (u *fakeUsecase) ListByUserID(
 	u.listedQuery = query
 
 	return u.listResult, u.err
+}
+
+func (u *fakeUsecase) CountMoodTagsByUserID(
+	ctx context.Context,
+	userID userdomain.ID,
+) (recorddomain.MoodTagCounts, error) {
+	u.countedUserID = userID
+
+	return u.moodTagCounts, u.err
 }
 
 func (u *fakeUsecase) Create(
@@ -938,6 +949,105 @@ func TestListByUserID(t *testing.T) {
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+}
+
+func TestCountMoodTagsByUserID(t *testing.T) {
+	t.Run(
+		"passes the user ID to the usecase and returns the mood tag counts and 200",
+		func(t *testing.T) {
+			userID := userdomain.ID(1)
+			usecase := &fakeUsecase{
+				moodTagCounts: recorddomain.MoodTagCounts{
+					{Tag: recorddomain.MoodTagCozy, Count: recorddomain.MoodCount(1)},
+					{Tag: recorddomain.MoodTagDark, Count: recorddomain.MoodCount(0)},
+				},
+			}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userID)
+			c.Request = httptest.NewRequest(http.MethodGet, "/mood-counts", nil)
+
+			recordHandler.CountMoodTagsByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"mood_tag_counts":[` +
+				`{"count":1,"mood_tag":"cozy"},` +
+				`{"count":0,"mood_tag":"dark"}]}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+			if usecase.countedUserID != userID {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) calls the usecase with %v, want %v",
+					usecase.countedUserID, userID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the authenticated user ID is missing from the context",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodGet, "/mood-counts", nil)
+
+			recordHandler.CountMoodTagsByUserID(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/mood-counts", nil)
+
+			recordHandler.CountMoodTagsByUserID(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+			want := `"code":"INTERNAL_SERVER_ERROR"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"CountMoodTagsByUserID(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
 				)
 			}
