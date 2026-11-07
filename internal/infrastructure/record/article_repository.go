@@ -206,15 +206,11 @@ func (r *articleRepository) ListByUserID(
 		summaries = append(summaries, fromArticleSummaryDTO(&dtos[i]))
 	}
 
-	filteredCount, err := record.NewFilteredCount(int(filtered))
-	if err != nil {
-		return record.ArticleListResult{}, fmt.Errorf("create filtered count: %w", err)
-	}
-	totalCount, err := record.NewTotalCount(int(total))
-	if err != nil {
-		return record.ArticleListResult{}, fmt.Errorf("create total count: %w", err)
-	}
-	return record.NewArticleListResult(summaries, filteredCount, totalCount), nil
+	return record.NewArticleListResult(
+		summaries,
+		record.FilteredCount(filtered),
+		record.TotalCount(total),
+	), nil
 }
 
 func (r *articleRepository) Create(

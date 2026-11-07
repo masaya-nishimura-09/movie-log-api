@@ -265,15 +265,11 @@ func (r *repository) ListByUserID(
 		records = append(records, fromDTO(&dtos[i]))
 	}
 
-	filteredCount, err := record.NewFilteredCount(int(filtered))
-	if err != nil {
-		return record.ListResult{}, fmt.Errorf("create filtered count: %w", err)
-	}
-	totalCount, err := record.NewTotalCount(int(total))
-	if err != nil {
-		return record.ListResult{}, fmt.Errorf("create total count: %w", err)
-	}
-	return record.NewListResult(records, filteredCount, totalCount), nil
+	return record.NewListResult(
+		records,
+		record.FilteredCount(filtered),
+		record.TotalCount(total),
+	), nil
 }
 
 func (r *repository) CountMoodTagsByUserID(
