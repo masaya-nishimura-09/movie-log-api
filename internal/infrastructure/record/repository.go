@@ -68,7 +68,7 @@ type moodTagDTO struct {
 
 type moodTagCountRow struct {
 	Value string
-	Count int
+	Count uint
 }
 
 func (recordDTO) TableName() string {
@@ -292,7 +292,7 @@ func (r *repository) CountMoodTagsByUserID(
 		return record.MoodTagCounts{}, fmt.Errorf("count mood tags: %w", err)
 	}
 
-	counts := make(map[string]int, len(rows))
+	counts := make(map[string]uint, len(rows))
 	for _, row := range rows {
 		counts[row.Value] = row.Count
 	}
