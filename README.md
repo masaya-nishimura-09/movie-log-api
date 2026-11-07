@@ -4,7 +4,10 @@
 
 **English** | [日本語](README.ja.md)
 
-The REST API that powers Cinestamp, an app for keeping a record of the films you watch.<br/>It manages viewing records, searches film information through TMDB, and stores poster images.
+The REST API that powers Cinestamp,
+an app for keeping a record of the films you watch.\
+It manages viewing records, searches film information through TMDB,
+and stores poster images.
 
 ![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
 ![Gin](https://img.shields.io/badge/Gin-1.12-0a2947?logo=gin&logoColor=f3e4c9)
@@ -46,38 +49,42 @@ flowchart LR
 
 ## Features
 
-**Viewing records**
+### Viewing Records
 
 - Create, retrieve, update, and delete viewing records
 - Title search, filtering by score, platform, mood, and genre, sorting, and pagination
 - Genres, countries of origin, credits, moods, and notes for each record
 
-**Articles**
+### Articles
 
-- Create, retrieve, update, and delete articles written for a viewing record (Tiptap JSON, up to 100 KB excluding whitespace)
-- Keyword search in titles and bodies, filtering by viewing record, sorting, and pagination
+- Create, retrieve, update, and delete articles written for a viewing record
+  (Tiptap JSON, up to 100 KB excluding whitespace)
+- Keyword search in titles and bodies, filtering by viewing record, sorting,
+  and pagination
 
-**Film information**
+### Film Information
 
 - Title search on TMDB and retrieval of film details in a specified language
 
-**Media**
+### Media
 
 - Poster image uploads to S3-compatible storage (JPEG, PNG, or WebP, up to 5 MB)
 - Deletion of a user's poster images when the account is deleted
 
-**Accounts**
+### Accounts
 
 - User registration, login, and logout
-- Authentication with short-lived JWT access tokens and refresh tokens that are rotated on every refresh
+- Authentication with short-lived JWT access tokens and refresh tokens
+  that are rotated on every refresh
 - Refresh tokens stored as SHA-256 hashes and passwords stored as bcrypt hashes
 
-**Security**
+### Security
 
 - Rate limiting: per client IP for login, registration, and token refresh;
   per user for film information, poster image uploads, and email and password changes
 - A size limit on JSON request bodies (up to 1 MB)
-- Client IPs accepted only from trusted proxies and from the web app authenticated with an internal secret
+- Client IPs accepted only from trusted proxies and from the web app
+  authenticated with an internal secret
 
 ## Tech Stack
 
@@ -161,14 +168,14 @@ Tests load `.env.test` and run against the test containers
 
 ## Project Structure
 
-```
+```text
 cmd/movie-log-api/    # Entry point and dependency wiring
 internal/
   domain/             # Models, value objects, and repository interfaces
   usecase/            # Application logic
   handler/            # HTTP handlers and error responses
   infrastructure/     # Integrations with PostgreSQL, S3, and TMDB
-  middleware/         # JWT authentication, request body size limit, and rate limit keys
+  middleware/         # JWT auth, request body size limit, and rate limit keys
   logging/            # Structured JSON logs for errors and warnings
   config/             # Environment variable loading
   testutil/           # Helpers for tests that use the test containers
@@ -208,13 +215,14 @@ The rate limit is counted across both endpoints combined.
 
 ### Viewing Records
 
-| Method | Endpoint     | Description                | Auth     |
-|--------|--------------|----------------------------|----------|
-| POST   | /records/    | Create a viewing record    | Required |
-| GET    | /records/    | List viewing records       | Required |
-| GET    | /records/:id | Get a viewing record       | Required |
-| PUT    | /records/:id | Update a viewing record    | Required |
-| DELETE | /records/:id | Delete a viewing record    | Required |
+| Method | Endpoint             | Description                   | Auth     |
+|--------|----------------------|-------------------------------|----------|
+| POST   | /records/            | Create a viewing record       | Required |
+| GET    | /records/            | List viewing records          | Required |
+| GET    | /records/:id         | Get a viewing record          | Required |
+| GET    | /records/mood-counts | Count viewing records by mood | Required |
+| PUT    | /records/:id         | Update a viewing record       | Required |
+| DELETE | /records/:id         | Delete a viewing record       | Required |
 
 `GET /records/` accepts the following query parameters, all of which are optional.
 
@@ -230,6 +238,11 @@ The rate limit is counted across both endpoints combined.
 | `page`       | Page number                                                        | `1`          |
 | `per_page`   | Number of records per page (1–100)                                 | `20`         |
 
+`GET /records/mood-counts` counts the authenticated user's viewing records by mood.
+`mood_tag_counts` in the response is an array of elements with `mood_tag` and `count`.
+It includes every mood in alphabetical order of `mood_tag`,
+and moods without records have a `count` of `0`.
+
 ### Articles
 
 | Method | Endpoint      | Description         | Auth     |
@@ -240,10 +253,14 @@ The rate limit is counted across both endpoints combined.
 | PUT    | /articles/:id | Update an article   | Required |
 | DELETE | /articles/:id | Delete an article   | Required |
 
-`POST /articles/` takes `record_id`, `title`, and `content`. `PUT /articles/:id` takes `title` and `content`;
-the viewing record of an article cannot be changed. `content` must be a Tiptap JSON document
-(an object whose `type` is `doc`, up to 100 KB excluding whitespace). In every article response, `record` holds the `record_id`, `title`, `release_year`, and `poster_url`
-of the article's viewing record. The list response does not include `content`.
+`POST /articles/` takes `record_id`, `title`, and `content`.
+`PUT /articles/:id` takes `title` and `content`;
+the viewing record of an article cannot be changed.
+`content` must be a Tiptap JSON document
+(an object whose `type` is `doc`, up to 100 KB excluding whitespace).
+In every article response, `record` holds the `record_id`, `title`,
+`release_year`, and `poster_url` of the article's viewing record.
+The list response does not include `content`.
 
 `GET /articles/` accepts the following query parameters, all of which are optional.
 
