@@ -4,7 +4,8 @@
 
 [English](README.md) | **日本語**
 
-映画鑑賞記録アプリ「Cinestamp」のバックエンドを担う REST API です。<br/>鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
+映画鑑賞記録アプリ「Cinestamp」のバックエンドを担う REST API です。\
+鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
 
 ![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
 ![Gin](https://img.shields.io/badge/Gin-1.12-0a2947?logo=gin&logoColor=f3e4c9)
@@ -14,7 +15,8 @@
 
 </div>
 
-本リポジトリでは、[Web アプリ](https://github.com/masaya-nishimura-09/movie-log)および[モバイルアプリ](https://github.com/masaya-nishimura-09/movie-log-mobile)が利用する API サーバーを管理しています。
+本リポジトリでは、[Web アプリ](https://github.com/masaya-nishimura-09/movie-log)および[モバイルアプリ](https://github.com/masaya-nishimura-09/movie-log-mobile)が利用する
+API サーバーを管理しています。
 
 ## アーキテクチャ
 
@@ -31,7 +33,8 @@ flowchart LR
 
 ### レイヤー構成
 
-ドメイン駆動設計（DDD）とクリーンアーキテクチャに基づいて設計しています。各層の依存は常に内側の domain 層へ向かい、infrastructure 層は domain 層で定義されたインターフェースを実装します。
+ドメイン駆動設計（DDD）とクリーンアーキテクチャに基づいて設計しています。
+各層の依存は常に内側の domain 層へ向かい、infrastructure 層は domain 層で定義されたインターフェースを実装します。
 
 ```mermaid
 flowchart LR
@@ -42,33 +45,33 @@ flowchart LR
 
 ## 主な機能
 
-**鑑賞記録**
+### 鑑賞記録
 
 - 鑑賞記録の作成・取得・更新・削除
 - タイトル検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
 - ジャンル、制作国、クレジット、気分、メモの記録
 
-**記事**
+### 記事
 
 - 鑑賞記録に対する記事（Tiptap の JSON、空白を除いて最大 100 KB）の作成・取得・更新・削除
 - タイトルと本文のキーワード検索、鑑賞記録による絞り込み、並べ替え、ページネーション
 
-**映画情報**
+### 映画情報
 
 - TMDB を利用したタイトル検索と、指定した言語での詳細情報の取得
 
-**メディア**
+### メディア
 
 - S3 互換ストレージへのポスター画像のアップロード（JPEG・PNG・WebP、最大 5 MB）
 - アカウント削除時における、該当ユーザーのポスター画像の削除
 
-**アカウント**
+### アカウント
 
 - ユーザー登録、ログイン、ログアウト
 - 有効期間の短い JWT アクセストークンと、更新のたびにローテーションされるリフレッシュトークンによる認証
 - リフレッシュトークンは SHA-256、パスワードは bcrypt でハッシュ化して保存
 
-**セキュリティ**
+### セキュリティ
 
 - レート制限（ログイン・ユーザー登録・トークン更新はクライアント IP 単位、映画情報の取得、ポスター画像のアップロード、メールアドレスとパスワードの変更はユーザー単位）
 - JSON リクエストボディのサイズ制限（最大 1 MB）
@@ -104,7 +107,8 @@ docker compose up -d postgres minio createbuckets
 go run ./cmd/movie-log-api
 ```
 
-API は `http://localhost:8080` で起動します。データベースの初回起動時に、`scripts/create_tables.sql` によってテーブルが作成され、`scripts/seed.sql` によって初期データが投入されます。
+API は `http://localhost:8080` で起動します。
+データベースの初回起動時に、`scripts/create_tables.sql` によってテーブルが作成され、`scripts/seed.sql` によって初期データが投入されます。
 
 ### 初期ユーザー
 
@@ -153,7 +157,7 @@ go test ./...
 
 ## ディレクトリ構成
 
-```
+```text
 cmd/movie-log-api/    # エントリーポイント、依存関係の組み立て
 internal/
   domain/             # モデル、値オブジェクト、リポジトリのインターフェース
@@ -169,7 +173,8 @@ scripts/              # テーブル定義、初期データ
 
 ## API
 
-認証が必要なエンドポイントでは、`Authorization: Bearer <token>` ヘッダーにアクセストークンを指定してください。エラーレスポンスは、すべて次の形式で返されます。
+認証が必要なエンドポイントでは、`Authorization: Bearer <token>` ヘッダーにアクセストークンを指定してください。
+エラーレスポンスは、すべて次の形式で返されます。
 
 ```json
 { "code": "INVALID_INPUT", "message": "per page must be between 1 and 100" }
@@ -194,17 +199,19 @@ scripts/              # テーブル定義、初期データ
 | PUT      | /users/password | ログイン中のユーザーのパスワードの更新 | 必要 | 5 回/分（ユーザー単位） |
 | DELETE   | /users/         | ログイン中のユーザーの削除       | 必要 |                    |
 
-`PUT /users/email` と `PUT /users/password` では、現在のパスワードが必要です。レート制限の回数は、2 つのエンドポイントの合計で計算されます。
+`PUT /users/email` と `PUT /users/password` では、現在のパスワードが必要です。
+レート制限の回数は、2 つのエンドポイントの合計で計算されます。
 
 ### 鑑賞記録
 
-| メソッド | エンドポイント | 説明                 | 認証 |
-|----------|----------------|----------------------|------|
-| POST     | /records/      | 鑑賞記録の作成       | 必要 |
-| GET      | /records/      | 鑑賞記録の一覧取得   | 必要 |
-| GET      | /records/:id   | 鑑賞記録の取得       | 必要 |
-| PUT      | /records/:id   | 鑑賞記録の更新       | 必要 |
-| DELETE   | /records/:id   | 鑑賞記録の削除       | 必要 |
+| メソッド | エンドポイント       | 説明                   | 認証 |
+|----------|----------------------|------------------------|------|
+| POST     | /records/            | 鑑賞記録の作成         | 必要 |
+| GET      | /records/            | 鑑賞記録の一覧取得     | 必要 |
+| GET      | /records/:id         | 鑑賞記録の取得         | 必要 |
+| GET      | /records/mood-counts | 気分ごとの記録数の取得 | 必要 |
+| PUT      | /records/:id         | 鑑賞記録の更新         | 必要 |
+| DELETE   | /records/:id         | 鑑賞記録の削除         | 必要 |
 
 `GET /records/` では、次のクエリパラメータを指定できます（いずれも任意）。
 
@@ -220,6 +227,10 @@ scripts/              # テーブル定義、初期データ
 | `page`       | ページ番号                                                   | `1`          |
 | `per_page`   | 1 ページあたりの件数（1〜100）                               | `20`         |
 
+`GET /records/mood-counts` は、ログイン中のユーザーの鑑賞記録を気分ごとに数えて返します。
+レスポンスの `mood_tag_counts` は、`mood_tag` と `count` を持つ要素の配列です。
+すべての気分を `mood_tag` のアルファベット順に含み、記録のない気分の `count` は `0` です。
+
 ### 記事
 
 | メソッド | エンドポイント | 説明             | 認証 |
@@ -230,7 +241,12 @@ scripts/              # テーブル定義、初期データ
 | PUT      | /articles/:id  | 記事の更新       | 必要 |
 | DELETE   | /articles/:id  | 記事の削除       | 必要 |
 
-`POST /articles/` では `record_id`、`title`、`content` を指定します。`PUT /articles/:id` では `title` と `content` を指定します。記事の鑑賞記録は変更できません。`content` は Tiptap の JSON 文書（`type` が `doc` のオブジェクト、空白を除いて最大 100 KB）である必要があります。記事のレスポンスには、記事の鑑賞記録の `record_id`、`title`、`release_year`、`poster_url` を `record` に含めます。一覧のレスポンスには `content` を含みません。
+`POST /articles/` では `record_id`、`title`、`content` を指定します。
+`PUT /articles/:id` では `title` と `content` を指定します。
+記事の鑑賞記録は変更できません。
+`content` は Tiptap の JSON 文書（`type` が `doc` のオブジェクト、空白を除いて最大 100 KB）である必要があります。
+記事のレスポンスには、記事の鑑賞記録の `record_id`、`title`、`release_year`、`poster_url` を `record` に含めます。
+一覧のレスポンスには `content` を含みません。
 
 `GET /articles/` では、次のクエリパラメータを指定できます（いずれも任意）。
 
@@ -250,7 +266,9 @@ scripts/              # テーブル定義、初期データ
 | GET      | /movies/search | TMDB での映画の検索        | 必要 | 60 回/分（ユーザー単位）   |
 | GET      | /movies/:id    | TMDB からの映画詳細の取得  | 必要 | 60 回/分（ユーザー単位）   |
 
-いずれのエンドポイントでも `language`（既定値 `en`）を指定できます。検索時には、あわせて `title` と `page` を指定します。レート制限の回数は、2 つのエンドポイントの合計で計算されます。
+いずれのエンドポイントでも `language`（既定値 `en`）を指定できます。
+検索時には、あわせて `title` と `page` を指定します。
+レート制限の回数は、2 つのエンドポイントの合計で計算されます。
 
 ### メディア
 

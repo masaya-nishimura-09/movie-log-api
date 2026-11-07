@@ -30,34 +30,40 @@ const (
 	MoodTagAbsurd       MoodTag = "absurd"
 )
 
+func AllMoodTags() []MoodTag {
+	return []MoodTag{
+		MoodTagAbsurd,
+		MoodTagBitterEnding,
+		MoodTagCozy,
+		MoodTagDark,
+		MoodTagDisturbing,
+		MoodTagEpic,
+		MoodTagExperimental,
+		MoodTagHardboiled,
+		MoodTagHeartwarming,
+		MoodTagMinimal,
+		MoodTagMoving,
+		MoodTagNostalgic,
+		MoodTagPoignant,
+		MoodTagRefreshing,
+		MoodTagRomantic,
+		MoodTagStylish,
+		MoodTagSurreal,
+		MoodTagTense,
+	}
+}
+
 func NewMoodTag(value string) (MoodTag, error) {
 	if value == "" {
 		return "", fmt.Errorf("%w: mood tag is required", exception.ErrInvalid)
 	}
 
-	switch moodTag := MoodTag(value); moodTag {
-	case MoodTagMoving,
-		MoodTagDark,
-		MoodTagStylish,
-		MoodTagHardboiled,
-		MoodTagSurreal,
-		MoodTagPoignant,
-		MoodTagRefreshing,
-		MoodTagNostalgic,
-		MoodTagEpic,
-		MoodTagTense,
-		MoodTagCozy,
-		MoodTagMinimal,
-		MoodTagExperimental,
-		MoodTagRomantic,
-		MoodTagDisturbing,
-		MoodTagHeartwarming,
-		MoodTagBitterEnding,
-		MoodTagAbsurd:
-		return moodTag, nil
-	default:
+	moodTag := MoodTag(value)
+	if !slices.Contains(AllMoodTags(), moodTag) {
 		return "", fmt.Errorf("%w: invalid mood tag", exception.ErrInvalid)
 	}
+
+	return moodTag, nil
 }
 
 func NewMoodTags(values []string) ([]MoodTag, error) {

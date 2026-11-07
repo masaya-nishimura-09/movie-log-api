@@ -66,6 +66,11 @@ type moodTagDTO struct {
 	Value    string
 }
 
+type moodTagCountRow struct {
+	Value string
+	Count uint
+}
+
 func (recordDTO) TableName() string {
 	return "records"
 }
@@ -269,6 +274,38 @@ func (r *repository) ListByUserID(
 		return record.ListResult{}, fmt.Errorf("create total count: %w", err)
 	}
 	return record.NewListResult(records, filteredCount, totalCount), nil
+}
+
+func (r *repository) CountMoodTagsByUserID(
+	ctx context.Context,
+	userID user.ID,
+) (record.MoodTagCounts, error) {
+	var rows []moodTagCountRow
+	err := r.db.WithContext(ctx).
+		Table("record_mood_tags").
+		Select("value, COUNT(*) AS count").
+		Where("record_id IN (SELECT id FROM records WHERE user_id = ?)", uint(userID)).
+		Group("value").
+		Scan(&rows).Error
+
+	if err != nil {
+		return record.MoodTagCounts{}, fmt.Errorf("count mood tags: %w", err)
+	}
+
+	counts := make(map[string]uint, len(rows))
+	for _, row := range rows {
+		counts[row.Value] = row.Count
+	}
+
+	allMoodTags := record.AllMoodTags()
+	moodTagCounts := make(record.MoodTagCounts, 0, len(allMoodTags))
+	for _, moodTag := range allMoodTags {
+		moodTagCounts = append(moodTagCounts, record.MoodTagCount{
+			Tag:   moodTag,
+			Count: record.MoodCount(counts[string(moodTag)]),
+		})
+	}
+	return moodTagCounts, nil
 }
 
 func (r *repository) Create(

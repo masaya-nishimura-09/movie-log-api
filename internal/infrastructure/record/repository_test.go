@@ -702,6 +702,120 @@ func TestListByUserID(t *testing.T) {
 	)
 }
 
+func newMoodTagCounts(counts map[record.MoodTag]record.MoodCount) record.MoodTagCounts {
+	moodTagCounts := make(record.MoodTagCounts, 0, len(record.AllMoodTags()))
+	for _, moodTag := range record.AllMoodTags() {
+		moodTagCounts = append(moodTagCounts, record.MoodTagCount{
+			Tag:   moodTag,
+			Count: counts[moodTag],
+		})
+	}
+	return moodTagCounts
+}
+
+func TestCountMoodTagsByUserID(t *testing.T) {
+	t.Run(
+		"counts mood tags of the user's records in alphabetical order with zero for unused tags",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+			otherUserID := newTestUser(t, tx, "other@example.com").ID
+
+			records := []record.Record{
+				newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)),
+				newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)),
+				newTestRecord(userID, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)),
+			}
+			records[0].MoodTags = []record.MoodTag{record.MoodTagMoving, record.MoodTagDark}
+			records[1].MoodTags = []record.MoodTag{record.MoodTagMoving}
+			records[2].MoodTags = []record.MoodTag{record.MoodTagCozy}
+			for i := range records {
+				if err := r.Create(ctx, &records[i]); err != nil {
+					t.Fatalf("Create(ctx, records[%d]) error = %v", i, err)
+				}
+			}
+
+			// Other user's record (should be excluded)
+			other := newTestRecord(otherUserID, time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
+			other.MoodTags = []record.MoodTag{record.MoodTagMoving, record.MoodTagAbsurd}
+			if err := r.Create(ctx, &other); err != nil {
+				t.Fatalf("Create(ctx, other) error = %v", err)
+			}
+
+			got, err := r.CountMoodTagsByUserID(ctx, userID)
+			if err != nil {
+				t.Fatalf("CountMoodTagsByUserID(ctx, %d) error = %v", userID, err)
+			}
+
+			want := newMoodTagCounts(map[record.MoodTag]record.MoodCount{
+				record.MoodTagCozy:   1,
+				record.MoodTagDark:   1,
+				record.MoodTagMoving: 2,
+			})
+			if !slices.Equal(got, want) {
+				t.Errorf(
+					"CountMoodTagsByUserID(ctx, %d) = %v, want %v",
+					userID, got, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns zero for every mood tag when the user has no records",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			got, err := r.CountMoodTagsByUserID(ctx, userID)
+			if err != nil {
+				t.Fatalf("CountMoodTagsByUserID(ctx, %d) error = %v", userID, err)
+			}
+
+			want := newMoodTagCounts(nil)
+			if !slices.Equal(got, want) {
+				t.Errorf(
+					"CountMoodTagsByUserID(ctx, %d) = %v, want %v",
+					userID, got, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			userID := user.ID(1)
+			got, err := r.CountMoodTagsByUserID(ctx, userID)
+
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"CountMoodTagsByUserID(ctx, %d) error = %v, want %v",
+					userID, err, context.Canceled,
+				)
+			}
+			if len(got) != 0 {
+				t.Errorf(
+					"CountMoodTagsByUserID(ctx, %d) = %v, want empty",
+					userID, got,
+				)
+			}
+		},
+	)
+}
+
 func TestCreate(t *testing.T) {
 	t.Run(
 		"persists the record and its associations",

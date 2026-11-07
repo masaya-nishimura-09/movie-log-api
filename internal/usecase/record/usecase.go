@@ -22,6 +22,10 @@ type Usecase interface {
 		userID user.ID,
 		query record.Query,
 	) (record.ListResult, error)
+	CountMoodTagsByUserID(
+		ctx context.Context,
+		userID user.ID,
+	) (record.MoodTagCounts, error)
 	Create(
 		ctx context.Context,
 		userID user.ID,
@@ -79,6 +83,18 @@ func (ru *RecordUsecase) ListByUserID(
 	}
 
 	return listResult, nil
+}
+
+func (ru *RecordUsecase) CountMoodTagsByUserID(
+	ctx context.Context,
+	userID user.ID,
+) (record.MoodTagCounts, error) {
+	moodTagCounts, err := ru.recordRepo.CountMoodTagsByUserID(ctx, userID)
+	if err != nil {
+		return record.MoodTagCounts{}, fmt.Errorf("count mood tags by user id: %w", err)
+	}
+
+	return moodTagCounts, nil
 }
 
 func (ru *RecordUsecase) Create(
