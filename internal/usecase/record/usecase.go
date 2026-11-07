@@ -41,17 +41,20 @@ type Usecase interface {
 }
 
 type RecordUsecase struct {
-	recordRepo   record.Repository
-	mediaService media.Service
+	recordRepo     record.Repository
+	attachmentRepo record.AttachmentRepository
+	mediaService   media.Service
 }
 
 func NewRecordUsecase(
 	recordRepo record.Repository,
+	attachmentRepo record.AttachmentRepository,
 	mediaService media.Service,
 ) *RecordUsecase {
 	return &RecordUsecase{
-		recordRepo:   recordRepo,
-		mediaService: mediaService,
+		recordRepo:     recordRepo,
+		attachmentRepo: attachmentRepo,
+		mediaService:   mediaService,
 	}
 }
 
@@ -157,12 +160,24 @@ func (ru *RecordUsecase) Delete(
 		return exception.ErrNotFound
 	}
 
+	attachments, err := ru.attachmentRepo.ListByRecordID(ctx, recordID)
+	if err != nil {
+		return fmt.Errorf("list attachments by record id: %w", err)
+	}
+
 	if err := ru.recordRepo.Delete(ctx, recordID); err != nil {
 		return fmt.Errorf("delete record: %w", err)
 	}
 
-	if err := ru.mediaService.Delete(ctx, userID, media.URL(r.PosterURL)); err != nil {
-		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
+	urls := make([]media.URL, 0, len(attachments)+1)
+	urls = append(urls, media.URL(r.PosterURL))
+	for _, a := range attachments {
+		urls = append(urls, media.URL(a.ImageURL))
+	}
+	for _, url := range urls {
+		if err := ru.mediaService.Delete(ctx, userID, url); err != nil {
+			slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
+		}
 	}
 
 	return nil

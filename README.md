@@ -54,6 +54,7 @@ flowchart LR
 - Create, retrieve, update, and delete viewing records
 - Title search, filtering by score, platform, mood, and genre, sorting, and pagination
 - Genres, countries of origin, credits, moods, and notes for each record
+- Up to 10 attached images for each record (JPEG, PNG, or WebP, up to 5 MB each)
 
 ### Articles
 
@@ -69,7 +70,8 @@ flowchart LR
 ### Media
 
 - Poster image uploads to S3-compatible storage (JPEG, PNG, or WebP, up to 5 MB)
-- Deletion of a user's poster images when the account is deleted
+- Deletion of a user's poster images and attached images when the account is deleted
+- Deletion of a record's poster image and attached images when the record is deleted
 
 ### Accounts
 
@@ -243,6 +245,20 @@ The rate limit is counted across both endpoints combined.
 It includes every mood in alphabetical order of `mood_tag`,
 and moods without records have a `count` of `0`.
 
+### Attached Images
+
+| Method | Endpoint                                | Description                     | Auth     | Rate limit         |
+|--------|-----------------------------------------|---------------------------------|----------|--------------------|
+| POST   | /records/:id/attachments                | Attach an image to a record     | Required | 30 / hour per user |
+| GET    | /records/:id/attachments                | List the images of a record     | Required |                    |
+| DELETE | /records/:id/attachments/:attachmentId  | Delete an attached image        | Required |                    |
+
+`POST /records/:id/attachments` takes one image in the multipart field `file`
+(JPEG, PNG, or WebP, up to 5 MB). A record can have up to 10 images.
+Each element of `attachments` in the list response has `attachment_id`, `image_url`,
+and `created_at`, oldest first.
+The rate limit is counted together with `POST /media/`.
+
 ### Articles
 
 | Method | Endpoint      | Description         | Auth     |
@@ -301,6 +317,8 @@ erDiagram
     records ||--o{ record_credits : has
     users ||--o{ record_articles : has
     records ||--o{ record_articles : has
+    users ||--o{ record_attachments : has
+    records ||--o{ record_attachments : has
 
     users {
         bigint id PK
@@ -355,6 +373,12 @@ erDiagram
         text title
         jsonb content
         text content_text
+    }
+    record_attachments {
+        bigint id PK
+        bigint user_id FK
+        bigint record_id FK
+        text image_url
     }
 ```
 

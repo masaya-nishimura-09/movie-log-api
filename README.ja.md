@@ -50,6 +50,7 @@ flowchart LR
 - 鑑賞記録の作成・取得・更新・削除
 - タイトル検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
 - ジャンル、制作国、クレジット、気分、メモの記録
+- 鑑賞記録ごとに最大 10 枚の画像の添付（JPEG・PNG・WebP、1 枚あたり最大 5 MB）
 
 ### 記事
 
@@ -63,7 +64,8 @@ flowchart LR
 ### メディア
 
 - S3 互換ストレージへのポスター画像のアップロード（JPEG・PNG・WebP、最大 5 MB）
-- アカウント削除時における、該当ユーザーのポスター画像の削除
+- アカウント削除時における、該当ユーザーのポスター画像と添付画像の削除
+- 鑑賞記録の削除時における、該当記録のポスター画像と添付画像の削除
 
 ### アカウント
 
@@ -231,6 +233,19 @@ scripts/              # テーブル定義、初期データ
 レスポンスの `mood_tag_counts` は、`mood_tag` と `count` を持つ要素の配列です。
 すべての気分を `mood_tag` のアルファベット順に含み、記録のない気分の `count` は `0` です。
 
+### 添付画像
+
+| メソッド | エンドポイント                         | 説明                     | 認証 | レート制限                 |
+|----------|----------------------------------------|--------------------------|------|----------------------------|
+| POST     | /records/:id/attachments               | 鑑賞記録への画像の添付   | 必要 | 30 回/時間（ユーザー単位） |
+| GET      | /records/:id/attachments               | 鑑賞記録の添付画像の一覧 | 必要 |                            |
+| DELETE   | /records/:id/attachments/:attachmentId | 添付画像の削除           | 必要 |                            |
+
+`POST /records/:id/attachments` は、multipart の `file` に画像を 1 枚受け取ります（JPEG・PNG・WebP、最大 5 MB）。
+1 件の鑑賞記録に添付できる画像は 10 枚までです。
+一覧のレスポンスの `attachments` は、`attachment_id`、`image_url`、`created_at` を持つ要素の配列で、古い順に並びます。
+レート制限の回数は、`POST /media/` との合計で計算されます。
+
 ### 記事
 
 | メソッド | エンドポイント | 説明             | 認証 |
@@ -288,6 +303,8 @@ erDiagram
     records ||--o{ record_credits : has
     users ||--o{ record_articles : has
     records ||--o{ record_articles : has
+    users ||--o{ record_attachments : has
+    records ||--o{ record_attachments : has
 
     users {
         bigint id PK
@@ -342,6 +359,12 @@ erDiagram
         text title
         jsonb content
         text content_text
+    }
+    record_attachments {
+        bigint id PK
+        bigint user_id FK
+        bigint record_id FK
+        text image_url
     }
 ```
 

@@ -61,8 +61,12 @@ func (r *fakeRepository) Delete(ctx context.Context, recordID record.ID) error {
 }
 
 type fakeMediaService struct {
-	deletedURL media.URL
-	err        error
+	uploadURL   media.URL
+	uploadErr   error
+	uploadCalls int
+	deletedURL  media.URL
+	deletedURLs []media.URL
+	err         error
 }
 
 func (s *fakeMediaService) Upload(
@@ -70,7 +74,8 @@ func (s *fakeMediaService) Upload(
 	userID user.ID,
 	m media.Media,
 ) (media.URL, error) {
-	return "", s.err
+	s.uploadCalls++
+	return s.uploadURL, s.uploadErr
 }
 
 func (s *fakeMediaService) Delete(
@@ -79,6 +84,7 @@ func (s *fakeMediaService) Delete(
 	url media.URL,
 ) error {
 	s.deletedURL = url
+	s.deletedURLs = append(s.deletedURLs, url)
 	return s.err
 }
 
@@ -100,7 +106,7 @@ func TestGetByID(t *testing.T) {
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -127,7 +133,7 @@ func TestGetByID(t *testing.T) {
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -159,7 +165,7 @@ func TestCountMoodTagsByUserID(t *testing.T) {
 			}
 			repo := &fakeRepository{moodTagCounts: want}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -192,7 +198,7 @@ func TestCreate(t *testing.T) {
 		func(t *testing.T) {
 			repo := &fakeRepository{}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 			userID := user.ID(1)
@@ -232,7 +238,7 @@ func TestUpdate(t *testing.T) {
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{ID: record.ID(99), UserID: user.ID(2)}
@@ -272,7 +278,7 @@ func TestUpdate(t *testing.T) {
 				},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{}
@@ -305,7 +311,7 @@ func TestUpdate(t *testing.T) {
 				},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{
@@ -340,7 +346,7 @@ func TestUpdate(t *testing.T) {
 				},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 			rec := record.Record{PosterURL: posterURL}
@@ -373,7 +379,7 @@ func TestDelete(t *testing.T) {
 				record: &record.Record{ID: recordID, UserID: userID},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -399,7 +405,7 @@ func TestDelete(t *testing.T) {
 				record: &record.Record{ID: recordID, UserID: user.ID(2)},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -431,7 +437,7 @@ func TestDelete(t *testing.T) {
 				},
 			}
 			mediaService := &fakeMediaService{}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
@@ -451,6 +457,48 @@ func TestDelete(t *testing.T) {
 	)
 
 	t.Run(
+		"deletes the poster and the attachment images of the record",
+		func(t *testing.T) {
+			posterURL := record.PosterURL("https://example.com/1/poster.jpg")
+			repo := &fakeRepository{
+				record: &record.Record{
+					ID:        recordID,
+					UserID:    userID,
+					PosterURL: posterURL,
+				},
+			}
+			attachmentRepo := &fakeAttachmentRepository{
+				attachments: []record.Attachment{
+					{ID: 1, UserID: userID, RecordID: recordID, ImageURL: "https://example.com/1/a.webp"},
+					{ID: 2, UserID: userID, RecordID: recordID, ImageURL: "https://example.com/1/b.webp"},
+				},
+			}
+			mediaService := &fakeMediaService{}
+			ru := NewRecordUsecase(repo, attachmentRepo, mediaService)
+
+			ctx := context.Background()
+
+			if err := ru.Delete(ctx, userID, recordID); err != nil {
+				t.Fatalf(
+					"Delete(ctx, %v, %v) error = %v",
+					userID, recordID, err,
+				)
+			}
+			want := []media.URL{
+				media.URL(posterURL),
+				"https://example.com/1/a.webp",
+				"https://example.com/1/b.webp",
+			}
+			if !slices.Equal(mediaService.deletedURLs, want) {
+				t.Errorf(
+					"Delete(ctx, %v, %v) deletes media %v, want %v",
+					userID, recordID, mediaService.deletedURLs, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"succeeds even when deleting the media fails",
 		func(t *testing.T) {
 			repo := &fakeRepository{
@@ -459,7 +507,7 @@ func TestDelete(t *testing.T) {
 			mediaService := &fakeMediaService{
 				err: errors.New("delete media"),
 			}
-			ru := NewRecordUsecase(repo, mediaService)
+			ru := NewRecordUsecase(repo, &fakeAttachmentRepository{}, mediaService)
 
 			ctx := context.Background()
 
