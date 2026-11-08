@@ -1,10 +1,10 @@
 <div align="center">
 
-# Cinestamp API
+# Cinelier API
 
 **English** | [日本語](README.ja.md)
 
-The REST API that powers Cinestamp,
+The REST API that powers Cinelier,
 an app for keeping a record of the films you watch.\
 It manages viewing records, searches film information through TMDB,
 and stores poster images.
@@ -29,7 +29,7 @@ This repository contains the API server used by the
 flowchart LR
     web["Web app<br/>(Next.js)"] --> api
     mobile["Mobile app<br/>(Expo)"] --> api
-    api["Cinestamp API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
+    api["Cinelier API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
     api --> storage[("S3 / MinIO<br/>poster images")]
     api --> tmdb["TMDB API"]
 ```

@@ -1,10 +1,10 @@
 <div align="center">
 
-# Cinestamp API
+# Cinelier API
 
 [English](README.md) | **日本語**
 
-映画鑑賞記録アプリ「Cinestamp」のバックエンドを担う REST API です。\
+映画鑑賞記録アプリ「Cinelier」のバックエンドを担う REST API です。\
 鑑賞記録の管理、TMDB を利用した映画情報の検索、ポスター画像の保存を提供します。
 
 ![Go](https://img.shields.io/badge/Go-1.26-0a2947?logo=go&logoColor=f3e4c9)
@@ -26,7 +26,7 @@ API サーバーを管理しています。
 flowchart LR
     web["Web アプリ<br/>(Next.js)"] --> api
     mobile["モバイルアプリ<br/>(Expo)"] --> api
-    api["Cinestamp API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
+    api["Cinelier API<br/>(Go / Gin)"] --> db[("PostgreSQL")]
     api --> storage[("S3 / MinIO<br/>ポスター画像")]
     api --> tmdb["TMDB API"]
 ```
