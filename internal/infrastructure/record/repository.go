@@ -38,7 +38,7 @@ type recordDTO struct {
 	Platform      string
 	Score         uint
 	MoodTags      []moodTagDTO `gorm:"foreignKey:RecordID"`
-	Memo          string
+	Note          *noteDTO     `gorm:"foreignKey:RecordID"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -68,6 +68,13 @@ type moodTagDTO struct {
 	Value    string
 }
 
+type noteDTO struct {
+	ID          uint `gorm:"primaryKey"`
+	RecordID    uint
+	Content     string
+	ContentText string
+}
+
 type moodTagCountRow struct {
 	Value string
 	Count uint
@@ -93,7 +100,11 @@ func (moodTagDTO) TableName() string {
 	return "record_mood_tags"
 }
 
-func toDTO(rec *record.Record) recordDTO {
+func (noteDTO) TableName() string {
+	return "record_notes"
+}
+
+func toDTO(rec *record.Record, noteText string) recordDTO {
 	genres := make([]genreDTO, 0, len(rec.Genres))
 	for _, genre := range rec.Genres {
 		genres = append(genres, genreDTO{RecordID: uint(rec.ID), Value: string(genre)})
@@ -118,6 +129,11 @@ func toDTO(rec *record.Record) recordDTO {
 		moodTags = append(moodTags, moodTagDTO{RecordID: uint(rec.ID), Value: string(moodTag)})
 	}
 
+	var note *noteDTO
+	if rec.Note != nil {
+		note = &noteDTO{RecordID: uint(rec.ID), Content: string(rec.Note), ContentText: noteText}
+	}
+
 	return recordDTO{
 		ID:            uint(rec.ID),
 		UserID:        uint(rec.UserID),
@@ -135,7 +151,7 @@ func toDTO(rec *record.Record) recordDTO {
 		Platform:      string(rec.Platform),
 		Score:         uint(rec.Score),
 		MoodTags:      moodTags,
-		Memo:          string(rec.Memo),
+		Note:          note,
 		CreatedAt:     rec.CreatedAt,
 		UpdatedAt:     rec.UpdatedAt,
 	}
@@ -165,6 +181,11 @@ func fromDTO(dto *recordDTO) *record.Record {
 		moodTags = append(moodTags, record.MoodTag(moodTag.Value))
 	}
 
+	var note record.Note
+	if dto.Note != nil {
+		note = record.Note(dto.Note.Content)
+	}
+
 	return &record.Record{
 		ID:            record.ID(dto.ID),
 		UserID:        user.ID(dto.UserID),
@@ -182,7 +203,7 @@ func fromDTO(dto *recordDTO) *record.Record {
 		Platform:      record.Platform(dto.Platform),
 		Score:         record.Score(dto.Score),
 		MoodTags:      moodTags,
-		Memo:          record.Memo(dto.Memo),
+		Note:          note,
 		CreatedAt:     dto.CreatedAt,
 		UpdatedAt:     dto.UpdatedAt,
 	}
@@ -198,6 +219,7 @@ func (r *repository) GetByID(
 		Preload("Countries").
 		Preload("Credits").
 		Preload("MoodTags").
+		Preload("Note").
 		First(&dto, recordID)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrNotFound
@@ -220,9 +242,16 @@ func (r *repository) ListByUserID(
 		Preload("MoodTags").
 		Where("user_id = ?", uint(userID))
 
-	if query.TitleKeyword != "" {
-		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(string(query.TitleKeyword))
-		db = db.Where("title ILIKE ?", "%"+escaped+"%")
+	if query.IncludeNote {
+		db = db.Preload("Note")
+	}
+	if query.Keyword != "" {
+		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(string(query.Keyword))
+		pattern := "%" + escaped + "%"
+		db = db.Where(
+			"(title ILIKE ? OR id IN (SELECT record_id FROM record_notes WHERE content_text ILIKE ?))",
+			pattern, pattern,
+		)
 	}
 	if query.Score != 0 {
 		db = db.Where("score = ?", query.Score)
@@ -314,11 +343,20 @@ func (r *repository) Create(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
+	var noteText string
+	if rec.Note != nil {
+		text, err := extractPlainText(rec.Note)
+		if err != nil {
+			return fmt.Errorf("create record: %w", err)
+		}
+		noteText = text
+	}
+
 	now := time.Now()
 	rec.CreatedAt = now
 	rec.UpdatedAt = now
 
-	dto := toDTO(rec)
+	dto := toDTO(rec, noteText)
 	result := r.db.WithContext(ctx).Create(&dto)
 	if result.Error != nil {
 		return fmt.Errorf("create record: %w", result.Error)
@@ -331,9 +369,18 @@ func (r *repository) Update(
 	ctx context.Context,
 	rec *record.Record,
 ) error {
+	var noteText string
+	if rec.Note != nil {
+		text, err := extractPlainText(rec.Note)
+		if err != nil {
+			return fmt.Errorf("update record: %w", err)
+		}
+		noteText = text
+	}
+
 	rec.UpdatedAt = time.Now()
 
-	dto := toDTO(rec)
+	dto := toDTO(rec, noteText)
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&recordDTO{}).
 			Where("id = ? AND user_id = ?", dto.ID, dto.UserID).
@@ -348,7 +395,6 @@ func (r *repository) Update(
 				"watched_at",
 				"platform",
 				"score",
-				"memo",
 				"updated_at",
 			).
 			Updates(recordDTO{
@@ -362,7 +408,6 @@ func (r *repository) Update(
 				WatchedAt:     dto.WatchedAt,
 				Platform:      dto.Platform,
 				Score:         dto.Score,
-				Memo:          dto.Memo,
 				UpdatedAt:     dto.UpdatedAt,
 			})
 		if result.Error != nil {
@@ -384,6 +429,9 @@ func (r *repository) Update(
 		if err := tx.Where("record_id = ?", dto.ID).Delete(&moodTagDTO{}).Error; err != nil {
 			return fmt.Errorf("delete record mood tags: %w", err)
 		}
+		if err := tx.Where("record_id = ?", dto.ID).Delete(&noteDTO{}).Error; err != nil {
+			return fmt.Errorf("delete record note: %w", err)
+		}
 
 		if len(dto.Genres) > 0 {
 			if err := tx.Create(&dto.Genres).Error; err != nil {
@@ -403,6 +451,11 @@ func (r *repository) Update(
 		if len(dto.MoodTags) > 0 {
 			if err := tx.Create(&dto.MoodTags).Error; err != nil {
 				return fmt.Errorf("create record mood tags: %w", err)
+			}
+		}
+		if dto.Note != nil {
+			if err := tx.Create(dto.Note).Error; err != nil {
+				return fmt.Errorf("create record note: %w", err)
 			}
 		}
 		return nil

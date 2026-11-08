@@ -3,8 +3,10 @@ package record
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -60,8 +62,35 @@ func newTestRecord(userID user.ID, watchedAt time.Time) record.Record {
 		Platform:  record.PlatformNetflix,
 		Score:     record.Score(4),
 		MoodTags:  []record.MoodTag{record.MoodTagMoving, record.MoodTagTense},
-		Memo:      record.Memo("test memo"),
+		Note:      newTestNote("test note"),
 	}
+}
+
+func newTestNote(text string) record.Note {
+	return record.Note(fmt.Sprintf(
+		`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":%q}]}]}`,
+		text,
+	))
+}
+
+func createTestRecord(t *testing.T, tx *gorm.DB, userID user.ID) record.ID {
+	t.Helper()
+	rec := newTestRecord(userID, time.Now())
+	if err := NewRepository(tx).Create(context.Background(), &rec); err != nil {
+		t.Fatalf("Create(ctx, %v) error = %v", rec, err)
+	}
+	return rec.ID
+}
+
+func equalNote(got, want record.Note) bool {
+	if got == nil || want == nil {
+		return got == nil && want == nil
+	}
+	var g, w any
+	if json.Unmarshal(got, &g) != nil || json.Unmarshal(want, &w) != nil {
+		return false
+	}
+	return reflect.DeepEqual(g, w)
 }
 
 func equalGenres(got, want []record.Genre) bool {
@@ -116,11 +145,16 @@ func assertRecordEqual(t *testing.T, call string, got, want *record.Record) {
 		got.Language != want.Language ||
 		got.PosterURL != want.PosterURL ||
 		got.Platform != want.Platform ||
-		got.Score != want.Score ||
-		got.Memo != want.Memo {
+		got.Score != want.Score {
 		t.Errorf(
 			"%s = %v, want %v",
 			call, got, want,
+		)
+	}
+	if !equalNote(got.Note, want.Note) {
+		t.Errorf(
+			"%s = %v, want Note %s",
+			call, got, want.Note,
 		)
 	}
 	if !got.WatchedAt.Equal(want.WatchedAt.Truncate(time.Microsecond)) {
@@ -176,7 +210,8 @@ func countAssociations(t *testing.T, tx *gorm.DB, recordID record.ID) int64 {
 	return countChildRows(t, tx, &genreDTO{}, recordID) +
 		countChildRows(t, tx, &countryDTO{}, recordID) +
 		countChildRows(t, tx, &creditDTO{}, recordID) +
-		countChildRows(t, tx, &moodTagDTO{}, recordID)
+		countChildRows(t, tx, &moodTagDTO{}, recordID) +
+		countChildRows(t, tx, &noteDTO{}, recordID)
 }
 
 func TestGetByID(t *testing.T) {
@@ -206,6 +241,37 @@ func TestGetByID(t *testing.T) {
 				fmt.Sprintf("GetByID(ctx, %d) (record.Record, error)", want.ID),
 				got, &want,
 			)
+		},
+	)
+
+	t.Run(
+		"returns no note when the record has no note",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+			want := newTestRecord(userID, time.Now())
+			want.Note = nil
+
+			if err := r.Create(ctx, &want); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", want, err)
+			}
+
+			got, err := r.GetByID(ctx, want.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (record.Record, error) = %v, %v",
+					want.ID, got, err,
+				)
+			}
+			if got.Note != nil {
+				t.Errorf(
+					"GetByID(ctx, %d) Note = %s, want nil",
+					want.ID, got.Note,
+				)
+			}
 		},
 	)
 
@@ -273,6 +339,7 @@ func newEmptyQuery() record.Query {
 		record.SortOrderDesc,
 		record.Page(1),
 		record.PerPage(20),
+		false,
 	)
 }
 
@@ -303,7 +370,6 @@ func TestListByUserID(t *testing.T) {
 					Platform:    record.PlatformNetflix,
 					Score:       record.Score(5),
 					MoodTags:    []record.MoodTag{record.MoodTagTense},
-					Memo:        record.Memo(""),
 				},
 				{
 					UserID:      userID,
@@ -319,7 +385,6 @@ func TestListByUserID(t *testing.T) {
 					Platform:    record.PlatformNetflix,
 					Score:       record.Score(5),
 					MoodTags:    []record.MoodTag{record.MoodTagTense},
-					Memo:        record.Memo(""),
 				},
 				{
 					UserID:      userID,
@@ -335,7 +400,6 @@ func TestListByUserID(t *testing.T) {
 					Platform:    record.PlatformNetflix,
 					Score:       record.Score(5),
 					MoodTags:    []record.MoodTag{record.MoodTagTense},
-					Memo:        record.Memo(""),
 				},
 			}
 			for i := range matching {
@@ -346,7 +410,7 @@ func TestListByUserID(t *testing.T) {
 
 			// Records that fail each filter
 			excluded := []record.Record{
-				{ // TitleKeyword miss
+				{ // Keyword miss
 					UserID:    userID,
 					Title:     record.Title("Inception"),
 					Genres:    []record.Genre{record.GenreDrama},
@@ -417,11 +481,12 @@ func TestListByUserID(t *testing.T) {
 				record.PlatformNetflix,
 				[]record.MoodTag{record.MoodTagTense},
 				[]record.Genre{record.GenreDrama},
-				record.TitleKeyword("Matrix"),
+				record.Keyword("Matrix"),
 				record.SortFieldWatchedAt,
 				record.SortOrderDesc,
 				record.Page(1),
 				record.PerPage(2),
+				false,
 			)
 
 			got, err := r.ListByUserID(ctx, userID, query)
@@ -522,6 +587,7 @@ func TestListByUserID(t *testing.T) {
 				record.SortOrderDesc,
 				record.Page(2),
 				record.PerPage(2),
+				false,
 			)
 
 			got, err := r.ListByUserID(ctx, userID, query)
@@ -545,7 +611,7 @@ func TestListByUserID(t *testing.T) {
 	)
 
 	t.Run(
-		"treats % in the title keyword as a literal character",
+		"treats % in the keyword as a literal character",
 		func(t *testing.T) {
 			tx := testutil.BeginTx(t, testDB)
 			r := NewRepository(tx)
@@ -569,11 +635,12 @@ func TestListByUserID(t *testing.T) {
 				"",
 				nil,
 				nil,
-				record.TitleKeyword("100%"),
+				record.Keyword("100%"),
 				record.SortFieldWatchedAt,
 				record.SortOrderDesc,
 				record.Page(1),
 				record.PerPage(20),
+				false,
 			)
 
 			got, err := r.ListByUserID(ctx, userID, query)
@@ -585,6 +652,112 @@ func TestListByUserID(t *testing.T) {
 			}
 			if got.Records[0].ID != matching.ID {
 				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, matching.ID)
+			}
+		},
+	)
+
+	t.Run(
+		"matches the keyword against the text of the note",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			matching := newTestRecord(userID, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
+			matching.Note = newTestNote("what I noticed the second time")
+			if err := r.Create(ctx, &matching); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", matching, err)
+			}
+			excluded := newTestRecord(userID, time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC))
+			if err := r.Create(ctx, &excluded); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", excluded, err)
+			}
+			withoutNote := newTestRecord(userID, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC))
+			withoutNote.Note = nil
+			if err := r.Create(ctx, &withoutNote); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", withoutNote, err)
+			}
+
+			query := newEmptyQuery()
+			query.Keyword = record.Keyword("noticed")
+
+			got, err := r.ListByUserID(ctx, userID, query)
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if got.FilteredCount != 1 {
+				t.Errorf("ListByUserID FilteredCount = %d, want 1", got.FilteredCount)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if got.Records[0].ID != matching.ID {
+				t.Errorf("ListByUserID Records[0].ID = %d, want %d", got.Records[0].ID, matching.ID)
+			}
+		},
+	)
+
+	t.Run(
+		"includes the note when include note is true",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			want := newTestRecord(userID, time.Now())
+			if err := r.Create(ctx, &want); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", want, err)
+			}
+
+			query := newEmptyQuery()
+			query.IncludeNote = true
+
+			got, err := r.ListByUserID(ctx, userID, query)
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if !equalNote(got.Records[0].Note, want.Note) {
+				t.Errorf(
+					"ListByUserID Records[0].Note = %s, want %s",
+					got.Records[0].Note, want.Note,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"does not include the note when include note is false",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			rec := newTestRecord(userID, time.Now())
+			if err := r.Create(ctx, &rec); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", rec, err)
+			}
+
+			got, err := r.ListByUserID(ctx, userID, newEmptyQuery())
+			if err != nil {
+				t.Fatalf("ListByUserID(ctx, %d, query) error = %v", userID, err)
+			}
+			if len(got.Records) != 1 {
+				t.Fatalf("ListByUserID returns %d records, want 1", len(got.Records))
+			}
+			if got.Records[0].Note != nil {
+				t.Errorf(
+					"ListByUserID Records[0].Note = %s, want nil",
+					got.Records[0].Note,
+				)
 			}
 		},
 	)
@@ -623,6 +796,7 @@ func TestListByUserID(t *testing.T) {
 				record.SortOrderDesc,
 				record.Page(1),
 				record.PerPage(20),
+				false,
 			)
 
 			got, err := r.ListByUserID(ctx, userID, query)
@@ -858,7 +1032,7 @@ func TestCreate(t *testing.T) {
 			)
 
 			wantCount := int64(
-				len(want.Genres) + len(want.Countries) + len(want.Credits) + len(want.MoodTags),
+				len(want.Genres) + len(want.Countries) + len(want.Credits) + len(want.MoodTags) + 1,
 			)
 			if count := countAssociations(t, tx, want.ID); count != wantCount {
 				t.Errorf(
@@ -927,7 +1101,7 @@ func TestUpdate(t *testing.T) {
 				Platform:  record.PlatformTheater,
 				Score:     record.Score(5),
 				MoodTags:  []record.MoodTag{record.MoodTagDark},
-				Memo:      record.Memo("updated memo"),
+				Note:      newTestNote("updated note"),
 			}
 			if err := r.Update(ctx, &want); err != nil {
 				t.Fatalf("Update(ctx, %v) error = %v", want, err)
@@ -960,12 +1134,54 @@ func TestUpdate(t *testing.T) {
 			}
 
 			wantCount := int64(
-				len(want.Genres) + len(want.Countries) + len(want.Credits) + len(want.MoodTags),
+				len(want.Genres) + len(want.Countries) + len(want.Credits) + len(want.MoodTags) + 1,
 			)
 			if count := countAssociations(t, tx, created.ID); count != wantCount {
 				t.Errorf(
 					"Update(ctx, %v) leaves %d association rows, want %d",
 					want, count, wantCount,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"removes the note when the record has no note",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+			userID := newTestUser(t, tx, "test@example.com").ID
+
+			created := newTestRecord(userID, time.Now())
+			if err := r.Create(ctx, &created); err != nil {
+				t.Fatalf("Create(ctx, %v) error = %v", created, err)
+			}
+
+			want := created
+			want.Note = nil
+			if err := r.Update(ctx, &want); err != nil {
+				t.Fatalf("Update(ctx, %v) error = %v", want, err)
+			}
+
+			got, err := r.GetByID(ctx, created.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (record.Record, error) = %v, %v",
+					created.ID, got, err,
+				)
+			}
+			if got.Note != nil {
+				t.Errorf(
+					"GetByID(ctx, %d) Note = %s, want nil",
+					created.ID, got.Note,
+				)
+			}
+			if count := countChildRows(t, tx, &noteDTO{}, created.ID); count != 0 {
+				t.Errorf(
+					"Update(ctx, %v) leaves %d note rows, want 0",
+					want, count,
 				)
 			}
 		},

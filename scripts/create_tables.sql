@@ -35,7 +35,6 @@ CREATE TABLE records (
     watched_at TIMESTAMPTZ NOT NULL,
     platform TEXT NOT NULL,
     score INTEGER NOT NULL,
-    memo TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
 );
@@ -72,18 +71,12 @@ CREATE TABLE record_credits (
 
 CREATE INDEX record_credits_record_id_idx ON record_credits (record_id);
 
-CREATE TABLE record_articles (
+CREATE TABLE record_notes (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    record_id BIGINT NOT NULL REFERENCES records (id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
+    record_id BIGINT NOT NULL UNIQUE REFERENCES records (id) ON DELETE CASCADE,
     content JSONB NOT NULL,
-    content_text TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
+    content_text TEXT NOT NULL
 );
-
-CREATE INDEX record_articles_record_id_idx ON record_articles (record_id);
 
 CREATE TABLE record_attachments (
     id BIGSERIAL PRIMARY KEY,
@@ -94,5 +87,3 @@ CREATE TABLE record_attachments (
 );
 
 CREATE INDEX record_attachments_record_id_idx ON record_attachments (record_id);
-
-CREATE INDEX record_articles_user_id_created_at_idx ON record_articles (user_id, created_at DESC, id DESC);

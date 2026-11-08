@@ -48,14 +48,10 @@ flowchart LR
 ### 鑑賞記録
 
 - 鑑賞記録の作成・取得・更新・削除
-- タイトル検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
-- ジャンル、制作国、クレジット、気分、メモの記録
+- タイトルとノートのキーワード検索、スコア・プラットフォーム・気分・ジャンルによる絞り込み、並べ替え、ページネーション
+- ジャンル、制作国、クレジット、気分の記録
+- 鑑賞記録ごとに 1 つのノート（Tiptap の JSON、空白を除いて最大 100 KB）
 - 鑑賞記録ごとに最大 10 枚の画像の添付（JPEG・PNG・WebP、1 枚あたり最大 5 MB）
-
-### 記事
-
-- 鑑賞記録に対する記事（Tiptap の JSON、空白を除いて最大 100 KB）の作成・取得・更新・削除
-- タイトルと本文のキーワード検索、鑑賞記録による絞り込み、並べ替え、ページネーション
 
 ### 映画情報
 
@@ -215,19 +211,26 @@ scripts/              # テーブル定義、初期データ
 | PUT      | /records/:id         | 鑑賞記録の更新         | 必要 |
 | DELETE   | /records/:id         | 鑑賞記録の削除         | 必要 |
 
+`POST /records/` と `PUT /records/:id` では、任意で `note` を指定できます。
+`note` は Tiptap の JSON 文書（`type` が `doc` のオブジェクト、空白を除いて最大 100 KB）か `null` です。
+`PUT /records/:id` は鑑賞記録をまるごと置き換えるため、`null` を送るか `note` を送らないと、ノートは消えます。
+`GET /records/:id`、`POST /records/`、`PUT /records/:id` のレスポンスには `note` を含めます。ノートがないときは `null` です。
+一覧のレスポンスには、`include_note` が `true` のときだけ `note` を含めます。
+
 `GET /records/` では、次のクエリパラメータを指定できます（いずれも任意）。
 
-| パラメータ   | 説明                                                         | 既定値       |
-|--------------|--------------------------------------------------------------|--------------|
-| `title`      | タイトル（部分一致）                                         |              |
-| `score`      | スコア（1〜5）                                               |              |
-| `platform`   | プラットフォーム（`netflix`、`theater` など）                |              |
-| `mood_tags`  | 気分（複数指定可。指定したすべての気分を含む記録のみを返す） |              |
-| `genres`     | ジャンル（複数指定可。指定したすべてのジャンルを含む記録のみを返す） |  |
-| `sort_field` | 並べ替えの基準（`watched_at`、`release_year`、`score`、`title`） | `watched_at` |
-| `sort_order` | 並び順（`asc`、`desc`）                                      | `desc`       |
-| `page`       | ページ番号                                                   | `1`          |
-| `per_page`   | 1 ページあたりの件数（1〜100）                               | `20`         |
+| パラメータ     | 説明                                                                 | 既定値       |
+|----------------|----------------------------------------------------------------------|--------------|
+| `keyword`      | キーワード（タイトルとノートの部分一致）                             |              |
+| `score`        | スコア（1〜5）                                                       |              |
+| `platform`     | プラットフォーム（`netflix`、`theater` など）                        |              |
+| `mood_tags`    | 気分（複数指定可。指定したすべての気分を含む記録のみを返す）         |              |
+| `genres`       | ジャンル（複数指定可。指定したすべてのジャンルを含む記録のみを返す） |              |
+| `sort_field`   | 並べ替えの基準（`watched_at`、`release_year`、`score`、`title`）     | `watched_at` |
+| `sort_order`   | 並び順（`asc`、`desc`）                                              | `desc`       |
+| `page`         | ページ番号                                                           | `1`          |
+| `per_page`     | 1 ページあたりの件数（1〜100）                                       | `20`         |
+| `include_note` | `true` のとき、各記録に `note` を含める（`true`、`false`）           | `false`      |
 
 `GET /records/mood-counts` は、ログイン中のユーザーの鑑賞記録を気分ごとに数えて返します。
 レスポンスの `mood_tag_counts` は、`mood_tag` と `count` を持つ要素の配列です。
@@ -245,35 +248,6 @@ scripts/              # テーブル定義、初期データ
 1 件の鑑賞記録に添付できる画像は 10 枚までです。
 一覧のレスポンスの `attachments` は、`attachment_id`、`image_url`、`created_at` を持つ要素の配列で、古い順に並びます。
 レート制限の回数は、`POST /media/` との合計で計算されます。
-
-### 記事
-
-| メソッド | エンドポイント | 説明             | 認証 |
-|----------|----------------|------------------|------|
-| POST     | /articles/     | 記事の作成       | 必要 |
-| GET      | /articles/     | 記事の一覧取得   | 必要 |
-| GET      | /articles/:id  | 記事の取得       | 必要 |
-| PUT      | /articles/:id  | 記事の更新       | 必要 |
-| DELETE   | /articles/:id  | 記事の削除       | 必要 |
-
-`POST /articles/` では `record_id`、`title`、`content` を指定します。
-`PUT /articles/:id` では `title` と `content` を指定します。
-記事の鑑賞記録は変更できません。
-`content` は Tiptap の JSON 文書（`type` が `doc` のオブジェクト、空白を除いて最大 100 KB）である必要があります。
-記事のレスポンスには、記事の鑑賞記録の `record_id`、`title`、`release_year`、`poster_url` を `record` に含めます。
-一覧のレスポンスには、`include_content` が `true` のときだけ `content` を含めます。
-
-`GET /articles/` では、次のクエリパラメータを指定できます（いずれも任意）。
-
-| パラメータ        | 説明                                                          | 既定値       |
-|-------------------|---------------------------------------------------------------|--------------|
-| `record_id`       | 指定した鑑賞記録の記事のみを返す                              |              |
-| `keyword`         | キーワード（タイトルと本文の部分一致）                        |              |
-| `sort_field`      | 並べ替えの基準（`created_at`、`updated_at`、`title`）         | `created_at` |
-| `sort_order`      | 並び順（`asc`、`desc`）                                       | `desc`       |
-| `page`            | ページ番号                                                    | `1`          |
-| `per_page`        | 1 ページあたりの件数（1〜100）                                | `20`         |
-| `include_content` | `true` のとき、各記事に `content` を含める（`true`、`false`） | `false`      |
 
 ### 映画情報
 
@@ -302,8 +276,7 @@ erDiagram
     records ||--o{ record_countries : has
     records ||--o{ record_mood_tags : has
     records ||--o{ record_credits : has
-    users ||--o{ record_articles : has
-    records ||--o{ record_articles : has
+    records ||--o| record_notes : has
     users ||--o{ record_attachments : has
     records ||--o{ record_attachments : has
 
@@ -334,7 +307,6 @@ erDiagram
         timestamptz watched_at
         text platform
         int score
-        text memo
     }
     record_genres {
         bigint record_id FK
@@ -353,11 +325,9 @@ erDiagram
         text person_name
         text credit_role
     }
-    record_articles {
+    record_notes {
         bigint id PK
-        bigint user_id FK
-        bigint record_id FK
-        text title
+        bigint record_id FK, UK
         jsonb content
         text content_text
     }

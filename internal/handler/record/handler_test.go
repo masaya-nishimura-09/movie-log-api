@@ -108,13 +108,22 @@ const validBody = `{
 	"watched_at":"2026-01-01T00:00:00Z",
 	"platform":"netflix",
 	"score":4,
-	"mood_tags":["moving"],
-	"memo":"test memo"
+	"note":{"type":"doc","content":[{"type":"paragraph"}]},
+	"mood_tags":["moving"]
 }`
 
 const wantBody = `{"countries":["US"],"created_at":"2026-01-02T00:00:00Z",` +
 	`"credits":[{"credit_role":"director","person_name":"Test Director"}],` +
-	`"genres":["drama"],"language":"en","memo":"test memo","mood_tags":["moving"],` +
+	`"genres":["drama"],"language":"en","mood_tags":["moving"],` +
+	`"original_title":"Test Original Title","overview":"test overview",` +
+	`"platform":"netflix","poster_url":"https://example.com/poster.jpg",` +
+	`"record_id":"10","release_year":2020,"runtime":120,"score":4,` +
+	`"title":"Test Movie","updated_at":"2026-01-03T00:00:00Z","watched_at":"2026-01-01T00:00:00Z"}`
+
+const wantBodyWithNote = `{"countries":["US"],"created_at":"2026-01-02T00:00:00Z",` +
+	`"credits":[{"credit_role":"director","person_name":"Test Director"}],` +
+	`"genres":["drama"],"language":"en","mood_tags":["moving"],` +
+	`"note":{"type":"doc","content":[{"type":"paragraph"}]},` +
 	`"original_title":"Test Original Title","overview":"test overview",` +
 	`"platform":"netflix","poster_url":"https://example.com/poster.jpg",` +
 	`"record_id":"10","release_year":2020,"runtime":120,"score":4,` +
@@ -143,7 +152,7 @@ func newTestRecord() recorddomain.Record {
 		Platform:  recorddomain.PlatformNetflix,
 		Score:     recorddomain.Score(4),
 		MoodTags:  []recorddomain.MoodTag{recorddomain.MoodTagMoving},
-		Memo:      recorddomain.Memo("test memo"),
+		Note:      recorddomain.Note(`{"type":"doc","content":[{"type":"paragraph"}]}`),
 		CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC),
 	}
@@ -172,10 +181,10 @@ func TestCreate(t *testing.T) {
 					rec.Code, http.StatusCreated,
 				)
 			}
-			if rec.Body.String() != wantBody {
+			if rec.Body.String() != wantBodyWithNote {
 				t.Errorf(
 					"Create(c) body = %v, want %v",
-					rec.Body.String(), wantBody,
+					rec.Body.String(), wantBodyWithNote,
 				)
 			}
 
@@ -189,10 +198,73 @@ func TestCreate(t *testing.T) {
 				usecase.createdRecord.OriginalTitle != r.OriginalTitle ||
 				usecase.createdRecord.Overview != r.Overview ||
 				usecase.createdRecord.Platform != r.Platform ||
-				usecase.createdRecord.Score != r.Score {
+				usecase.createdRecord.Score != r.Score ||
+				!slices.Equal(usecase.createdRecord.Note, r.Note) {
 				t.Errorf(
 					"Create(c) usecase record = %v, want %v",
 					usecase.createdRecord, r,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"passes no note to the usecase when the note is null",
+		func(t *testing.T) {
+			r := newTestRecord()
+			usecase := &fakeUsecase{record: &r}
+			recordHandler := NewRecordHandler(usecase)
+
+			body := strings.Replace(validBody, `{"type":"doc","content":[{"type":"paragraph"}]}`, `null`, 1)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			recordHandler.Create(c)
+			if rec.Code != http.StatusCreated {
+				t.Errorf(
+					"Create(c) code = %v, want %v",
+					rec.Code, http.StatusCreated,
+				)
+			}
+			if usecase.createdRecord.Note != nil {
+				t.Errorf(
+					"Create(c) usecase note = %s, want nil",
+					usecase.createdRecord.Note,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the note is not a document",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			body := strings.Replace(validBody, `{"type":"doc","content":[{"type":"paragraph"}]}`, `{"type":"paragraph"}`, 1)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			recordHandler.Create(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"Create(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT","message":"invalid: note must be a document with type \"doc\""`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"Create(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
 				)
 			}
 		},
@@ -340,10 +412,41 @@ func TestGetByID(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			if rec.Body.String() != wantBody {
+			if rec.Body.String() != wantBodyWithNote {
 				t.Errorf(
 					"GetByID(c) body = %v, want %v",
-					rec.Body.String(), wantBody,
+					rec.Body.String(), wantBodyWithNote,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns null as the note when the record has no note",
+		func(t *testing.T) {
+			r := newTestRecord()
+			r.Note = nil
+			usecase := &fakeUsecase{record: &r}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Params = gin.Params{{Key: "id", Value: "10"}}
+			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+			recordHandler.GetByID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"GetByID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `"note":null`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"GetByID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
 				)
 			}
 		},
@@ -456,7 +559,7 @@ func TestListByUserID(t *testing.T) {
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
 				"/?score=5&platform=netflix&mood_tags=moving&genres=drama"+
-					"&title=test+movie&sort_field=title&sort_order=asc&page=2&per_page=10",
+					"&keyword=test+movie&sort_field=title&sort_order=asc&page=2&per_page=10",
 				nil,
 			)
 
@@ -501,10 +604,10 @@ func TestListByUserID(t *testing.T) {
 					usecase.listedQuery.Genres, wantGenres,
 				)
 			}
-			if usecase.listedQuery.TitleKeyword != "test movie" {
+			if usecase.listedQuery.Keyword != "test movie" {
 				t.Errorf(
-					"ListByUserID(c) title = %v, want %v",
-					usecase.listedQuery.TitleKeyword, "test movie",
+					"ListByUserID(c) keyword = %v, want %v",
+					usecase.listedQuery.Keyword, "test movie",
 				)
 			}
 			if usecase.listedQuery.SortField != recorddomain.SortFieldTitle {
@@ -529,6 +632,94 @@ func TestListByUserID(t *testing.T) {
 				t.Errorf(
 					"ListByUserID(c) perPage = %v, want %v",
 					usecase.listedQuery.PerPage, 10,
+				)
+			}
+			if usecase.listedQuery.IncludeNote {
+				t.Errorf(
+					"ListByUserID(c) includeNote = %v, want %v",
+					usecase.listedQuery.IncludeNote, false,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the records with their notes when include note is true",
+		func(t *testing.T) {
+			r := newTestRecord()
+			usecase := &fakeUsecase{
+				listResult: recorddomain.ListResult{
+					Records:       []*recorddomain.Record{&r},
+					FilteredCount: recorddomain.FilteredCount(1),
+					TotalCount:    recorddomain.TotalCount(5),
+				},
+			}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_note=true", nil)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"filtered_count":1,"records":[` + wantBodyWithNote + `],"total_count":5}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+			if !usecase.listedQuery.IncludeNote {
+				t.Errorf(
+					"ListByUserID(c) includeNote = %v, want %v",
+					usecase.listedQuery.IncludeNote, true,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the records without their notes when include note is false",
+		func(t *testing.T) {
+			r := newTestRecord()
+			usecase := &fakeUsecase{
+				listResult: recorddomain.ListResult{
+					Records:       []*recorddomain.Record{&r},
+					FilteredCount: recorddomain.FilteredCount(1),
+					TotalCount:    recorddomain.TotalCount(5),
+				},
+			}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_note=false", nil)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			want := `{"filtered_count":1,"records":[` + wantBody + `],"total_count":5}`
+			if rec.Body.String() != want {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want %v",
+					rec.Body.String(), want,
+				)
+			}
+			if usecase.listedQuery.IncludeNote {
+				t.Errorf(
+					"ListByUserID(c) includeNote = %v, want %v",
+					usecase.listedQuery.IncludeNote, false,
 				)
 			}
 		},
@@ -748,7 +939,7 @@ func TestListByUserID(t *testing.T) {
 	)
 
 	t.Run(
-		"returns 400 when the title is invalid",
+		"returns 400 when the keyword is invalid",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{}
 			recordHandler := NewRecordHandler(usecase)
@@ -758,7 +949,7 @@ func TestListByUserID(t *testing.T) {
 			c.Set("userID", userdomain.ID(1))
 			c.Request = httptest.NewRequest(
 				http.MethodGet,
-				"/?title="+strings.Repeat("a", 256),
+				"/?keyword="+strings.Repeat("a", 256),
 				nil,
 			)
 
@@ -770,6 +961,34 @@ func TestListByUserID(t *testing.T) {
 				)
 			}
 			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ListByUserID(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when include note is neither true nor false",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			recordHandler := NewRecordHandler(usecase)
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Request = httptest.NewRequest(http.MethodGet, "/?include_note=1", nil)
+
+			recordHandler.ListByUserID(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ListByUserID(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT","message":"invalid: include note must be true or false"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"ListByUserID(c) body = %v, want to contain %v",
@@ -1087,10 +1306,10 @@ func TestUpdate(t *testing.T) {
 					rec.Code, http.StatusOK,
 				)
 			}
-			if rec.Body.String() != wantBody {
+			if rec.Body.String() != wantBodyWithNote {
 				t.Errorf(
 					"Update(c) body = %v, want %v",
-					rec.Body.String(), wantBody,
+					rec.Body.String(), wantBodyWithNote,
 				)
 			}
 
@@ -1100,10 +1319,43 @@ func TestUpdate(t *testing.T) {
 					usecase.updatedUserID, usecase.updatedRecordID, userID, recordID,
 				)
 			}
-			if usecase.updatedRecord.Title != r.Title {
+			if usecase.updatedRecord.Title != r.Title ||
+				!slices.Equal(usecase.updatedRecord.Note, r.Note) {
 				t.Errorf(
 					"Update(c) usecase record = %v, want %v",
 					usecase.updatedRecord, r,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"passes no note to the usecase when the note is omitted",
+		func(t *testing.T) {
+			r := newTestRecord()
+			usecase := &fakeUsecase{record: &r}
+			recordHandler := NewRecordHandler(usecase)
+
+			body := strings.Replace(validBody, `"note":{"type":"doc","content":[{"type":"paragraph"}]},`, ``, 1)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Set("userID", userdomain.ID(1))
+			c.Params = gin.Params{{Key: "id", Value: "10"}}
+			c.Request = httptest.NewRequest(
+				http.MethodPut, "/", strings.NewReader(body),
+			)
+
+			recordHandler.Update(c)
+			if rec.Code != http.StatusOK {
+				t.Errorf(
+					"Update(c) code = %v, want %v",
+					rec.Code, http.StatusOK,
+				)
+			}
+			if usecase.updatedRecord.Note != nil {
+				t.Errorf(
+					"Update(c) usecase note = %s, want nil",
+					usecase.updatedRecord.Note,
 				)
 			}
 		},

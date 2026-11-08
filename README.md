@@ -52,16 +52,11 @@ flowchart LR
 ### Viewing Records
 
 - Create, retrieve, update, and delete viewing records
-- Title search, filtering by score, platform, mood, and genre, sorting, and pagination
-- Genres, countries of origin, credits, moods, and notes for each record
+- Keyword search in titles and notes, filtering by score, platform, mood, and genre,
+  sorting, and pagination
+- Genres, countries of origin, credits, and moods for each record
+- One note for each record (Tiptap JSON, up to 100 KB excluding whitespace)
 - Up to 10 attached images for each record (JPEG, PNG, or WebP, up to 5 MB each)
-
-### Articles
-
-- Create, retrieve, update, and delete articles written for a viewing record
-  (Tiptap JSON, up to 100 KB excluding whitespace)
-- Keyword search in titles and bodies, filtering by viewing record, sorting,
-  and pagination
 
 ### Film Information
 
@@ -226,19 +221,28 @@ The rate limit is counted across both endpoints combined.
 | PUT    | /records/:id         | Update a viewing record       | Required |
 | DELETE | /records/:id         | Delete a viewing record       | Required |
 
+`POST /records/` and `PUT /records/:id` take an optional `note`
+(a Tiptap JSON document whose `type` is `doc`, up to 100 KB excluding whitespace, or `null`).
+`PUT /records/:id` replaces the whole record,
+so sending `null` or omitting `note` removes the note.
+`GET /records/:id`, `POST /records/`, and `PUT /records/:id` return the record with `note`,
+which is `null` when the record has no note.
+The list response includes `note` only when `include_note` is `true`.
+
 `GET /records/` accepts the following query parameters, all of which are optional.
 
-| Parameter    | Description                                                        | Default      |
-|--------------|--------------------------------------------------------------------|--------------|
-| `title`      | Title (partial match)                                              |              |
-| `score`      | Score (1–5)                                                        |              |
-| `platform`   | Platform (e.g. `netflix`, `theater`)                               |              |
-| `mood_tags`  | Moods (repeatable; returns only records that have all of them)     |              |
-| `genres`     | Genres (repeatable; returns only records that have all of them)    |              |
-| `sort_field` | Sort key (`watched_at`, `release_year`, `score`, or `title`)       | `watched_at` |
-| `sort_order` | Sort order (`asc` or `desc`)                                       | `desc`       |
-| `page`       | Page number                                                        | `1`          |
-| `per_page`   | Number of records per page (1–100)                                 | `20`         |
+| Parameter      | Description                                                     | Default      |
+|----------------|-----------------------------------------------------------------|--------------|
+| `keyword`      | Keyword (partial match on the title and the note)               |              |
+| `score`        | Score (1–5)                                                     |              |
+| `platform`     | Platform (e.g. `netflix`, `theater`)                            |              |
+| `mood_tags`    | Moods (repeatable; returns only records that have all of them)  |              |
+| `genres`       | Genres (repeatable; returns only records that have all of them) |              |
+| `sort_field`   | Sort key (`watched_at`, `release_year`, `score`, or `title`)    | `watched_at` |
+| `sort_order`   | Sort order (`asc` or `desc`)                                    | `desc`       |
+| `page`         | Page number                                                     | `1`          |
+| `per_page`     | Number of records per page (1–100)                              | `20`         |
+| `include_note` | Include `note` in each record (`true` or `false`)               | `false`      |
 
 `GET /records/mood-counts` counts the authenticated user's viewing records by mood.
 `mood_tag_counts` in the response is an array of elements with `mood_tag` and `count`.
@@ -258,37 +262,6 @@ and moods without records have a `count` of `0`.
 Each element of `attachments` in the list response has `attachment_id`, `image_url`,
 and `created_at`, oldest first.
 The rate limit is counted together with `POST /media/`.
-
-### Articles
-
-| Method | Endpoint      | Description         | Auth     |
-|--------|---------------|---------------------|----------|
-| POST   | /articles/    | Create an article   | Required |
-| GET    | /articles/    | List articles       | Required |
-| GET    | /articles/:id | Get an article      | Required |
-| PUT    | /articles/:id | Update an article   | Required |
-| DELETE | /articles/:id | Delete an article   | Required |
-
-`POST /articles/` takes `record_id`, `title`, and `content`.
-`PUT /articles/:id` takes `title` and `content`;
-the viewing record of an article cannot be changed.
-`content` must be a Tiptap JSON document
-(an object whose `type` is `doc`, up to 100 KB excluding whitespace).
-In every article response, `record` holds the `record_id`, `title`,
-`release_year`, and `poster_url` of the article's viewing record.
-The list response includes `content` only when `include_content` is `true`.
-
-`GET /articles/` accepts the following query parameters, all of which are optional.
-
-| Parameter         | Description                                                | Default      |
-|-------------------|------------------------------------------------------------|--------------|
-| `record_id`       | Return only the articles of this viewing record            |              |
-| `keyword`         | Keyword (partial match on the title and the body)          |              |
-| `sort_field`      | Sort key (`created_at`, `updated_at`, or `title`)          | `created_at` |
-| `sort_order`      | Sort order (`asc` or `desc`)                               | `desc`       |
-| `page`            | Page number                                                | `1`          |
-| `per_page`        | Number of articles per page (1–100)                        | `20`         |
-| `include_content` | Include `content` in each article (`true` or `false`)      | `false`      |
 
 ### Film Information
 
@@ -316,8 +289,7 @@ erDiagram
     records ||--o{ record_countries : has
     records ||--o{ record_mood_tags : has
     records ||--o{ record_credits : has
-    users ||--o{ record_articles : has
-    records ||--o{ record_articles : has
+    records ||--o| record_notes : has
     users ||--o{ record_attachments : has
     records ||--o{ record_attachments : has
 
@@ -348,7 +320,6 @@ erDiagram
         timestamptz watched_at
         text platform
         int score
-        text memo
     }
     record_genres {
         bigint record_id FK
@@ -367,11 +338,9 @@ erDiagram
         text person_name
         text credit_role
     }
-    record_articles {
+    record_notes {
         bigint id PK
-        bigint user_id FK
-        bigint record_id FK
-        text title
+        bigint record_id FK, UK
         jsonb content
         text content_text
     }

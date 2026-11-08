@@ -8,15 +8,16 @@ import (
 )
 
 type Query struct {
-	Score        Score
-	Platform     Platform
-	MoodTags     []MoodTag
-	Genres       []Genre
-	TitleKeyword TitleKeyword
-	SortField    SortField
-	SortOrder    SortOrder
-	Page         Page
-	PerPage      PerPage
+	Score       Score
+	Platform    Platform
+	MoodTags    []MoodTag
+	Genres      []Genre
+	Keyword     Keyword
+	SortField   SortField
+	SortOrder   SortOrder
+	Page        Page
+	PerPage     PerPage
+	IncludeNote bool
 }
 
 func NewQuery(
@@ -24,33 +25,35 @@ func NewQuery(
 	platform Platform,
 	moodTags []MoodTag,
 	genres []Genre,
-	titleKeyword TitleKeyword,
+	keyword Keyword,
 	sortField SortField,
 	sortOrder SortOrder,
 	page Page,
 	perPage PerPage,
+	includeNote bool,
 ) Query {
 	return Query{
-		Score:        score,
-		Platform:     platform,
-		MoodTags:     moodTags,
-		Genres:       genres,
-		TitleKeyword: titleKeyword,
-		SortField:    sortField,
-		SortOrder:    sortOrder,
-		Page:         page,
-		PerPage:      perPage,
+		Score:       score,
+		Platform:    platform,
+		MoodTags:    moodTags,
+		Genres:      genres,
+		Keyword:     keyword,
+		SortField:   sortField,
+		SortOrder:   sortOrder,
+		Page:        page,
+		PerPage:     perPage,
+		IncludeNote: includeNote,
 	}
 }
 
-type TitleKeyword string
+type Keyword string
 
-func NewTitleKeyword(value string) (TitleKeyword, error) {
+func NewKeyword(value string) (Keyword, error) {
 	if utf8.RuneCountInString(value) > 255 {
-		return "", fmt.Errorf("%w: title keyword must be at most 255 characters", exception.ErrInvalid)
+		return "", fmt.Errorf("%w: keyword must be at most 255 characters", exception.ErrInvalid)
 	}
 
-	return TitleKeyword(value), nil
+	return Keyword(value), nil
 }
 
 type SortField string

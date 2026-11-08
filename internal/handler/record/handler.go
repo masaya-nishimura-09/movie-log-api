@@ -1,6 +1,7 @@
 package record
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,21 +23,21 @@ type CreditReq struct {
 }
 
 type RecordReq struct {
-	Title         string      `json:"title"`
-	OriginalTitle string      `json:"original_title"`
-	Overview      string      `json:"overview"`
-	ReleaseYear   uint        `json:"release_year"`
-	Runtime       uint        `json:"runtime"`
-	Genres        []string    `json:"genres"`
-	Countries     []string    `json:"countries"`
-	Language      string      `json:"language"`
-	Credits       []CreditReq `json:"credits"`
-	PosterURL     string      `json:"poster_url"`
-	WatchedAt     time.Time   `json:"watched_at"`
-	Platform      string      `json:"platform"`
-	Score         uint        `json:"score"`
-	MoodTags      []string    `json:"mood_tags"`
-	Memo          string      `json:"memo"`
+	Title         string           `json:"title"`
+	OriginalTitle string           `json:"original_title"`
+	Overview      string           `json:"overview"`
+	ReleaseYear   uint             `json:"release_year"`
+	Runtime       uint             `json:"runtime"`
+	Genres        []string         `json:"genres"`
+	Countries     []string         `json:"countries"`
+	Language      string           `json:"language"`
+	Credits       []CreditReq      `json:"credits"`
+	PosterURL     string           `json:"poster_url"`
+	WatchedAt     time.Time        `json:"watched_at"`
+	Platform      string           `json:"platform"`
+	Score         uint             `json:"score"`
+	MoodTags      []string         `json:"mood_tags"`
+	Note          *json.RawMessage `json:"note"`
 }
 
 func (r RecordReq) toDomain(userID userdomain.ID) (recorddomain.Record, error) {
@@ -96,9 +97,12 @@ func (r RecordReq) toDomain(userID userdomain.ID) (recorddomain.Record, error) {
 	if err != nil {
 		return recorddomain.Record{}, err
 	}
-	memo, err := recorddomain.NewMemo(r.Memo)
-	if err != nil {
-		return recorddomain.Record{}, err
+	var note recorddomain.Note
+	if r.Note != nil {
+		note, err = recorddomain.NewNote(*r.Note)
+		if err != nil {
+			return recorddomain.Record{}, err
+		}
 	}
 
 	return recorddomain.NewRecord(
@@ -117,7 +121,7 @@ func (r RecordReq) toDomain(userID userdomain.ID) (recorddomain.Record, error) {
 		platform,
 		score,
 		moodTags,
-		memo,
+		note,
 	), nil
 }
 
@@ -179,10 +183,15 @@ func toResponse(r *recorddomain.Record) gin.H {
 		"platform":       string(r.Platform),
 		"score":          uint(r.Score),
 		"mood_tags":      moodTags,
-		"memo":           string(r.Memo),
 		"created_at":     r.CreatedAt.UTC(),
 		"updated_at":     r.UpdatedAt.UTC(),
 	}
+}
+
+func toResponseWithNote(r *recorddomain.Record) gin.H {
+	res := toResponse(r)
+	res["note"] = json.RawMessage(r.Note)
+	return res
 }
 
 func toMoodTagCountResponse(mtc recorddomain.MoodTagCount) gin.H {
@@ -263,14 +272,14 @@ func getGenres(c *gin.Context) ([]recorddomain.Genre, bool) {
 	return dg, true
 }
 
-func getTitleKeyword(c *gin.Context) (recorddomain.TitleKeyword, bool) {
-	t := c.Query("title")
-	dt, err := recorddomain.NewTitleKeyword(t)
+func getKeyword(c *gin.Context) (recorddomain.Keyword, bool) {
+	k := c.Query("keyword")
+	dk, err := recorddomain.NewKeyword(k)
 	if err != nil {
 		response.InvalidInput(c, err)
 		return "", false
 	}
-	return dt, true
+	return dk, true
 }
 
 func getSortField(c *gin.Context) (recorddomain.SortField, bool) {
@@ -337,6 +346,22 @@ func getPerPage(c *gin.Context) (recorddomain.PerPage, bool) {
 	return dpp, true
 }
 
+func getIncludeNote(c *gin.Context) (bool, bool) {
+	s := c.Query("include_note")
+	if s == "" {
+		s = "false"
+	}
+	switch s {
+	case "false":
+		return false, true
+	case "true":
+		return true, true
+	default:
+		response.InvalidInput(c, fmt.Errorf("%w: include note must be true or false", exception.ErrInvalid))
+		return false, false
+	}
+}
+
 func getQuery(c *gin.Context) (recorddomain.Query, bool) {
 	score, ok := getScore(c)
 	if !ok {
@@ -358,7 +383,7 @@ func getQuery(c *gin.Context) (recorddomain.Query, bool) {
 		return recorddomain.Query{}, false
 	}
 
-	titleKeyword, ok := getTitleKeyword(c)
+	keyword, ok := getKeyword(c)
 	if !ok {
 		return recorddomain.Query{}, false
 	}
@@ -383,16 +408,22 @@ func getQuery(c *gin.Context) (recorddomain.Query, bool) {
 		return recorddomain.Query{}, false
 	}
 
+	includeNote, ok := getIncludeNote(c)
+	if !ok {
+		return recorddomain.Query{}, false
+	}
+
 	query := recorddomain.NewQuery(
 		score,
 		platform,
 		moodTags,
 		genres,
-		titleKeyword,
+		keyword,
 		sortField,
 		sortOrder,
 		page,
 		perPage,
+		includeNote,
 	)
 
 	return query, true
@@ -431,7 +462,7 @@ func (rh *RecordHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toResponse(r))
+	c.JSON(http.StatusOK, toResponseWithNote(r))
 }
 
 func (rh *RecordHandler) ListByUserID(c *gin.Context) {
@@ -456,7 +487,11 @@ func (rh *RecordHandler) ListByUserID(c *gin.Context) {
 
 	records := make([]gin.H, 0, len(listResult.Records))
 	for _, r := range listResult.Records {
-		records = append(records, toResponse(r))
+		if query.IncludeNote {
+			records = append(records, toResponseWithNote(r))
+		} else {
+			records = append(records, toResponse(r))
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -521,7 +556,7 @@ func (rh *RecordHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, toResponse(createdRecord))
+	c.JSON(http.StatusCreated, toResponseWithNote(createdRecord))
 }
 
 func (rh *RecordHandler) Update(c *gin.Context) {
@@ -565,7 +600,7 @@ func (rh *RecordHandler) Update(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toResponse(updatedRecord))
+	c.JSON(http.StatusOK, toResponseWithNote(updatedRecord))
 }
 
 func (rh *RecordHandler) Delete(c *gin.Context) {

@@ -76,13 +76,6 @@ func RecordNotFound(c *gin.Context) {
 	})
 }
 
-func ArticleNotFound(c *gin.Context) {
-	c.JSON(http.StatusNotFound, gin.H{
-		"code":    "ARTICLE_NOT_FOUND",
-		"message": "article not found",
-	})
-}
-
 func AttachmentNotFound(c *gin.Context) {
 	c.JSON(http.StatusNotFound, gin.H{
 		"code":    "ATTACHMENT_NOT_FOUND",

@@ -23,7 +23,7 @@ type Record struct {
 	Platform      Platform
 	Score         Score
 	MoodTags      []MoodTag
-	Memo          Memo
+	Note          Note
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -46,7 +46,7 @@ func NewRecord(
 	platform Platform,
 	score Score,
 	moodTags []MoodTag,
-	memo Memo,
+	note Note,
 ) Record {
 	return Record{
 		UserID:        userID,
@@ -64,6 +64,6 @@ func NewRecord(
 		Platform:      platform,
 		Score:         score,
 		MoodTags:      moodTags,
-		Memo:          memo,
+		Note:          note,
 	}
 }
