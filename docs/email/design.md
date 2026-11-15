@@ -26,6 +26,45 @@ API からメールを送れるようにする（issue #32）。ウェブ（movi
 - 確認されないアカウントは、登録から7日で削除する。
 - 列を足す時点でいる既存のユーザーは、全員を確認済みにする。既存のユーザーは開発者本人だけのため。
 
+## 基盤
+
+### domain（`internal/domain/mail`）
+
+```go
+type Message struct {
+    From     Address
+    To       Address
+    ReplyTo  ReplyTo  // お問い合わせのときだけ使う。空なら付けない
+    Subject  Subject
+    HTMLBody HTMLBody
+    TextBody TextBody
+}
+
+type Service interface {
+    Send(ctx context.Context, m Message) error
+}
+```
+
+- 値ごとに型を作り、`NewXxx` で検証する。`Message` は `NewMessage` で作る。
+- from は `Message` に持たせ、メールを組み立てる側が選ぶ。後で noreply などの from が増えても、`Service` は変わらない。
+- `user.Email` の検証は `mail.NewAddress` を使う。ユーザーのアドレスは必ずメールの宛先として通るようにするため。
+
+### infrastructure（`internal/infrastructure/mail`）
+
+- Resend の公式の Go の SDK（`github.com/resend/resend-go/v4`）を使う。S3 と同じく、公式の SDK があるものは SDK を使う。
+- エラーは `send mail: %w` で包むだけにする。Resend のエラーは usecase で区別しようがないため。
+
+### 設定（`internal/config/mail.go`）
+
+| 関数 | 環境変数 | 本番の値 |
+|---|---|---|
+| `NewResendClient()` | `RESEND_API_KEY` | |
+| `MailSupportAddress()` | `MAIL_SUPPORT_ADDRESS` | `support@cinelier.app` |
+| `MailAdminAddress()` | `MAIL_ADMIN_ADDRESS` | 管理者のアドレス |
+
+- from は役割の名前で持つ。noreply が増えたら `MAIL_NOREPLY_ADDRESS` を足す。
+- Resend への送信は、応答を5秒まで待つ。SDK の既定（1分）のままだと、利用者が登録などで長く待たされるため。TMDB と同じ値。
+
 ## 送るメール
 
 すべて from `support@cinelier.app`。
