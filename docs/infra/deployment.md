@@ -84,6 +84,9 @@ S3
 /etc/systemd/system/
 ├ movie-log-backup.service
 └ movie-log-backup.timer
+
+/etc/systemd/journald.conf.d/
+└ retention.conf        … ログを30日で削除する設定
 ```
 
 ### サーバーに入れたもの
@@ -131,6 +134,29 @@ API はアクセス元の IP ごとに回数制限をしている（ログイン
 2. 一致しない → Gin の `c.ClientIP()` を使う（API を直接呼んだ場合）
 
 2 では、接続相手が Caddy になる。`TRUSTED_PROXIES` に Caddy のいるネットワークの範囲を登録すると、Caddy が付ける `X-Forwarded-For` から本当の IP を取る。この範囲を固定するため、compose で `networks.default` のサブネットを `172.30.0.0/24` に固定している。
+
+### ログ
+
+- api、postgres、caddy のログは、compose の `logging.driver: journald` で、サーバーの journald に保存する。保存先は `/var/log/journal/` で、再起動しても残る。
+- journald は30日を過ぎたログを自動で削除する。設定は `/etc/systemd/journald.conf.d/retention.conf` にある。
+
+  ```ini
+  [Journal]
+  MaxRetentionSec=30day
+  MaxFileSec=1day
+  ```
+
+- `MaxFileSec=1day` は、ログのファイルを1日ごとに分ける設定。journald はファイル単位で削除するため、初期値（1か月）のままだと、30日を過ぎても最大で約60日残る。
+- `MaxRetentionSec` は単位を付けて書く。`30` だけだと30秒になる。
+- 設定は OS やバックアップなど、サーバー全体のログにも適用される。
+- 30日はプライバシーポリシーに書いた期間と同じ。変える場合はポリシーも変える。
+- Docker の初期設定（json-file）は、ログを削除しない。`/etc/docker/daemon.json` は作っていない。
+
+ログは `docker compose logs` で今まで通り見られる。journald から直接見る場合:
+
+```bash
+journalctl CONTAINER_NAME=movie-log-api -n 20 --no-pager
+```
 
 ## 運用の手順
 
