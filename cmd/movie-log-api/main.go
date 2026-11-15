@@ -13,6 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
+	maildomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
+	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
 	mediahandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/media"
 	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
@@ -21,6 +23,7 @@ import (
 	schedulerhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/scheduler"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
+	mailinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/mail"
 	mediainfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/media"
 	movieinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/movie"
 	recordinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/record"
@@ -100,6 +103,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+	resendClient, err := config.NewResendClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mailSupportAddress, err := config.MailSupportAddress()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mailAdminAddress, err := config.MailAdminAddress()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	webBaseURL, err := config.WebBaseURL()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	trustedProxies, err := config.TrustedProxies()
 	if err != nil {
 		log.Fatal(err)
@@ -159,6 +182,28 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	verifyEmailRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	verifyEmailStore := memory.NewStore()
+	verifyEmailLimiter := ginlimiter.NewMiddleware(
+		limiter.New(verifyEmailStore, verifyEmailRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	resendVerificationEmailRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	resendVerificationEmailStore := memory.NewStore()
+	resendVerificationEmailLimiter := ginlimiter.NewMiddleware(
+		limiter.New(resendVerificationEmailStore, resendVerificationEmailRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	refreshRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  30,
@@ -212,6 +257,11 @@ func main() {
 		s3Bucket,
 		s3PublicBaseURL,
 	)
+	emailVerificationTokenRepo := userinfra.NewEmailVerificationTokenRepository(
+		db,
+		userdomain.EmailVerificationTokenTTL,
+	)
+	mailService := mailinfra.NewService(resendClient)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -223,6 +273,11 @@ func main() {
 		userRepo,
 		refreshTokenRepo,
 		mediaService,
+		emailVerificationTokenRepo,
+		mailService,
+		maildomain.Address(mailSupportAddress),
+		maildomain.Address(mailAdminAddress),
+		webBaseURL,
 	)
 	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, attachmentRepo, mediaService)
 	attachmentUsecase := recordusecase.NewAttachmentUsecase(attachmentRepo, recordRepo, mediaService)
@@ -236,7 +291,7 @@ func main() {
 	attachmentHandler := recordhandler.NewAttachmentHandler(attachmentUsecase)
 	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
-	scheduler := schedulerhandler.NewScheduler(authUsecase, cleanupInterval)
+	scheduler := schedulerhandler.NewScheduler(authUsecase, userUsecase, cleanupInterval)
 
 	// routing
 	router := gin.New()
@@ -264,6 +319,8 @@ func main() {
 	users.Use(bodyLimit)
 	{
 		users.POST("/register", registerLimiter, userHandler.Create)
+		users.POST("/verify-email", verifyEmailLimiter, userHandler.VerifyEmail)
+		users.POST("/verify-email/resend", resendVerificationEmailLimiter, userHandler.ResendVerificationEmail)
 	}
 
 	authUsers := router.Group("/users")

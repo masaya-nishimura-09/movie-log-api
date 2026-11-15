@@ -74,6 +74,10 @@ func (ah *AuthHandler) Login(c *gin.Context) {
 		response.InvalidCredentials(c)
 		return
 	}
+	if errors.Is(err, exception.ErrForbidden) {
+		response.EmailNotVerified(c)
+		return
+	}
 	if err != nil {
 		logging.Error(c, "request_failed", err)
 		response.InternalServerError(c)

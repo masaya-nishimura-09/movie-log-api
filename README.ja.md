@@ -129,7 +129,7 @@ API は `http://localhost:8080` で起動します。
 | `JWT_SECRET`              | 必須      | アクセストークンの署名鍵（32 バイト以上）                            |
 | `ACCESS_TOKEN_TTL_HOURS`  | 任意      | アクセストークンの有効期間（時間単位、既定値 `1`）                   |
 | `REFRESH_TOKEN_TTL_HOURS` | 任意      | リフレッシュトークンの有効期間（時間単位、既定値 `720`）             |
-| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンを定期的に掃除するか（`true` または `false`） |
+| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンと、確認されないまま7日たったユーザーを定期的に掃除するか（`true` または `false`） |
 | `CLEANUP_INTERVAL_SECOND` | 必須      | 掃除の間隔（秒単位、1 以上）                                         |
 | `AWS_REGION`              | 必須      | ストレージのリージョン                                               |
 | `AWS_ACCESS_KEY_ID`       | 必須      | ストレージのアクセスキー ID                                          |
@@ -140,6 +140,10 @@ API は `http://localhost:8080` で起動します。
 | `TMDB_ACCESS_TOKEN`       | 必須      | TMDB API の読み取りアクセストークン                                  |
 | `TMDB_ENDPOINT`           | 必須      | TMDB API のベース URL                                                |
 | `TMDB_POSTER_BASE_URL`    | 必須      | TMDB のポスター画像のベース URL                                      |
+| `RESEND_API_KEY`          | 必須      | メールの送信に使う Resend の API キー                                |
+| `MAIL_SUPPORT_ADDRESS`    | 必須      | メールの送信元アドレス                                               |
+| `MAIL_ADMIN_ADDRESS`      | 必須      | 管理者への通知を送るアドレス                                         |
+| `WEB_BASE_URL`            | 必須      | Web アプリのベース URL（メールに書くリンクに使用）                   |
 | `TRUSTED_PROXIES`         | 任意      | 信頼するプロキシの IP アドレスまたは CIDR（カンマ区切り）            |
 | `APP_VERSION`             | 任意      | ログに記録するバージョン（Git のコミット ID など）                   |
 | `INTERNAL_API_SECRET`     | 任意      | Web アプリとの共有シークレット。一致した場合、Web アプリから送られる `X-Real-IP` をレート制限に使用（Web アプリと同じ値を設定） |
@@ -190,7 +194,9 @@ scripts/              # テーブル定義、初期データ
 
 | メソッド | エンドポイント  | 説明                             | 認証 | レート制限         |
 |----------|-----------------|----------------------------------|------|--------------------|
-| POST     | /users/register | ユーザー登録                     | 不要 | 10 回/時間         |
+| POST     | /users/register | ユーザー登録（確認メールを送信） | 不要 | 10 回/時間         |
+| POST     | /users/verify-email | メールアドレスの確認         | 不要 | 10 回/時間         |
+| POST     | /users/verify-email/resend | 確認メールの再送      | 不要 | 10 回/時間         |
 | GET      | /users/         | ログイン中のユーザー情報の取得   | 必要 |                    |
 | PUT      | /users/username | ログイン中のユーザー名の更新     | 必要 |                    |
 | PUT      | /users/email    | ログイン中のユーザーのメールアドレスの更新 | 必要 | 5 回/分（ユーザー単位） |

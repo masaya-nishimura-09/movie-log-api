@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
@@ -34,6 +35,10 @@ func (r *fakeUserRepo) Create(ctx context.Context, u *user.User) error {
 	return nil
 }
 
+func (r *fakeUserRepo) ReplaceUnverified(ctx context.Context, u *user.User) error {
+	return nil
+}
+
 func (r *fakeUserRepo) UpdateUsername(ctx context.Context, u *user.User) error {
 	return nil
 }
@@ -46,7 +51,15 @@ func (r *fakeUserRepo) UpdatePassword(ctx context.Context, u *user.User) error {
 	return nil
 }
 
+func (r *fakeUserRepo) UpdateEmailVerifiedAt(ctx context.Context, u *user.User) error {
+	return nil
+}
+
 func (r *fakeUserRepo) Delete(ctx context.Context, userID user.ID) error {
+	return nil
+}
+
+func (r *fakeUserRepo) DeleteUnverifiedCreatedBefore(ctx context.Context, before time.Time) error {
 	return nil
 }
 
@@ -128,10 +141,12 @@ func TestLogin(t *testing.T) {
 			}
 			hashedPassword := user.HashedPassword(hashed)
 			role := user.RoleUser
+			emailVerifiedAt := time.Now()
 			u := user.User{
-				ID:             userID,
-				Role:           role,
-				HashedPassword: hashedPassword,
+				ID:              userID,
+				Role:            role,
+				HashedPassword:  hashedPassword,
+				EmailVerifiedAt: &emailVerifiedAt,
 			}
 
 			userRepo := &fakeUserRepo{user: &u}
@@ -191,6 +206,50 @@ func TestLogin(t *testing.T) {
 				t.Fatalf(
 					"Login(ctx, %v, %v) err = %v, want %v",
 					email, fakePassword, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrForbidden without issuing tokens when the email is not verified",
+		func(t *testing.T) {
+			email := user.Email("test@example.com")
+			password := user.Password("testpassword")
+			hashed, err := bcrypt.GenerateFromPassword(
+				[]byte(password),
+				bcrypt.DefaultCost,
+			)
+			if err != nil {
+				t.Fatalf(
+					"GenerateFromPassword(%v, %v) = %v",
+					password, bcrypt.DefaultCost, err,
+				)
+			}
+			u := user.User{
+				ID:             user.ID(1),
+				Role:           user.RoleUser,
+				HashedPassword: user.HashedPassword(hashed),
+			}
+
+			userRepo := &fakeUserRepo{user: &u}
+			accessTokenService := &fakeAccessTokenService{}
+			refreshTokenRepo := &fakeRefreshTokenRepo{}
+			au := NewAuthUsecase(userRepo, accessTokenService, refreshTokenRepo)
+
+			ctx := context.Background()
+
+			_, _, err = au.Login(ctx, email, password)
+			if !errors.Is(err, exception.ErrForbidden) {
+				t.Fatalf(
+					"Login(ctx, %v, %v) err = %v, want %v",
+					email, password, err, exception.ErrForbidden,
+				)
+			}
+			if accessTokenService.principal != nil {
+				t.Errorf(
+					"Login(ctx, %v, %v) generated an access token for %v, want none",
+					email, password, accessTokenService.principal,
 				)
 			}
 		},

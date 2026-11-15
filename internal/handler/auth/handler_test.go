@@ -215,6 +215,39 @@ func TestLogin(t *testing.T) {
 	)
 
 	t.Run(
+		"returns 403 when the email is not verified",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrForbidden}
+			authHandler := NewAuthHandler(usecase)
+
+			body := `{
+				"email":"test@example.com",
+				"password":"testpassword"
+			}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			authHandler.Login(c)
+			if rec.Code != http.StatusForbidden {
+				t.Errorf(
+					"Login(c) code = %v, want %v",
+					rec.Code, http.StatusForbidden,
+				)
+			}
+			want := `"code":"EMAIL_NOT_VERIFIED"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"Login(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
 		"returns 500 when the usecase returns an unexpected error",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{err: errors.New("unexpected")}
