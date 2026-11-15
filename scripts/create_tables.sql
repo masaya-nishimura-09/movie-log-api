@@ -4,9 +4,22 @@ CREATE TABLE users (
     email TEXT NOT NULL UNIQUE,
     hashed_password TEXT NOT NULL,
     role TEXT NOT NULL,
+    email_verified_at TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
 );
+
+CREATE TABLE email_verification_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
+);
+
+CREATE UNIQUE INDEX email_verification_tokens_hash_idx ON email_verification_tokens (hash);
+
+CREATE INDEX email_verification_tokens_user_id_idx ON email_verification_tokens (user_id);
 
 CREATE TABLE refresh_tokens (
     id BIGSERIAL PRIMARY KEY,

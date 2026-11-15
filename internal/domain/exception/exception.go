@@ -14,4 +14,7 @@ var (
 
 	// Authentication
 	ErrUnauthenticated = errors.New("unauthenticated")
+
+	// Authorization
+	ErrForbidden = errors.New("forbidden")
 )

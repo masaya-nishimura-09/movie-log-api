@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	maildomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/handler/response"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
@@ -31,6 +32,36 @@ type UpdateEmailReq struct {
 type UpdatePasswordReq struct {
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
+}
+
+type VerifyEmailReq struct {
+	Token string `json:"token"`
+}
+
+type ResendVerificationEmailReq struct {
+	Email string `json:"email"`
+}
+
+func (r VerifyEmailReq) toDomain() (
+	userdomain.EmailVerificationTokenValue,
+	error,
+) {
+	value, err := userdomain.NewEmailVerificationTokenValue(r.Token)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+func (r ResendVerificationEmailReq) toDomain() (
+	userdomain.Email,
+	error,
+) {
+	email, err := userdomain.NewEmail(r.Email)
+	if err != nil {
+		return "", err
+	}
+	return email, nil
 }
 
 func (r UserReq) toDomain() (
@@ -116,6 +147,19 @@ func getUserID(c *gin.Context) (userdomain.ID, bool) {
 	return id, true
 }
 
+func getLanguage(c *gin.Context) (maildomain.Language, bool) {
+	l := c.Query("language")
+	if l == "" {
+		l = "en"
+	}
+	language, err := maildomain.NewLanguage(l)
+	if err != nil {
+		response.InvalidInput(c, err)
+		return "", false
+	}
+	return language, true
+}
+
 func (uh *UserHandler) GetByID(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -151,6 +195,11 @@ func (uh *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	language, ok := getLanguage(c)
+	if !ok {
+		return
+	}
+
 	username, email, password, err := req.toDomain()
 	if errors.Is(err, exception.ErrInvalid) {
 		response.InvalidInput(c, err)
@@ -162,9 +211,27 @@ func (uh *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	createdUser, err := uh.userUsecase.Create(ctx, username, email, password)
-	if errors.Is(err, exception.ErrAlreadyExists) {
-		response.UserAlreadyExists(c)
+	if err := uh.userUsecase.Create(ctx, username, email, password, language); err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (uh *UserHandler) VerifyEmail(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req VerifyEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	value, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
 		return
 	}
 	if err != nil {
@@ -173,11 +240,52 @@ func (uh *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"user_id":  strconv.FormatUint(uint64(createdUser.ID), 10),
-		"username": string(createdUser.Username),
-		"email":    string(createdUser.Email),
-	})
+	verifyEmailErr := uh.userUsecase.VerifyEmail(ctx, value)
+	if errors.Is(verifyEmailErr, exception.ErrInvalid) {
+		response.InvalidVerificationToken(c)
+		return
+	}
+	if verifyEmailErr != nil {
+		logging.Error(c, "request_failed", verifyEmailErr)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (uh *UserHandler) ResendVerificationEmail(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req ResendVerificationEmailReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	language, ok := getLanguage(c)
+	if !ok {
+		return
+	}
+
+	email, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	if err := uh.userUsecase.ResendVerificationEmail(ctx, email, language); err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (uh *UserHandler) UpdateUsername(c *gin.Context) {

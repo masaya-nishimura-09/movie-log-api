@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
@@ -70,8 +71,24 @@ func (u *fakeUserUsecase) Create(
 	username user.Username,
 	email user.Email,
 	password user.Password,
-) (*user.User, error) {
-	return nil, nil
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) VerifyEmail(
+	ctx context.Context,
+	value user.EmailVerificationTokenValue,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) ResendVerificationEmail(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	return nil
 }
 
 func (u *fakeUserUsecase) UpdateUsername(
@@ -103,6 +120,12 @@ func (u *fakeUserUsecase) UpdatePassword(
 func (u *fakeUserUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) DeleteUnverifiedUsers(
+	ctx context.Context,
 ) error {
 	return nil
 }

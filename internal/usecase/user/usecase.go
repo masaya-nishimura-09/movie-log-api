@@ -2,11 +2,15 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +23,17 @@ type Usecase interface {
 		username user.Username,
 		email user.Email,
 		password user.Password,
-	) (*user.User, error)
+		language mail.Language,
+	) error
+	VerifyEmail(
+		ctx context.Context,
+		value user.EmailVerificationTokenValue,
+	) error
+	ResendVerificationEmail(
+		ctx context.Context,
+		email user.Email,
+		language mail.Language,
+	) error
 	UpdateUsername(
 		ctx context.Context,
 		userID user.ID,
@@ -38,23 +52,39 @@ type Usecase interface {
 		newPassword user.Password,
 	) (*user.User, error)
 	Delete(ctx context.Context, userID user.ID) error
+	DeleteUnverifiedUsers(ctx context.Context) error
 }
 
 type UserUsecase struct {
-	userRepo         user.Repository
-	refreshTokenRepo auth.RefreshTokenRepository
-	mediaService     media.Service
+	userRepo                   user.Repository
+	refreshTokenRepo           auth.RefreshTokenRepository
+	mediaService               media.Service
+	emailVerificationTokenRepo user.EmailVerificationTokenRepository
+	mailService                mail.Service
+	supportAddress             mail.Address
+	adminAddress               mail.Address
+	webBaseURL                 *url.URL
 }
 
 func NewUserUsecase(
 	userRepo user.Repository,
 	refreshTokenRepo auth.RefreshTokenRepository,
 	mediaService media.Service,
+	emailVerificationTokenRepo user.EmailVerificationTokenRepository,
+	mailService mail.Service,
+	supportAddress mail.Address,
+	adminAddress mail.Address,
+	webBaseURL *url.URL,
 ) *UserUsecase {
 	return &UserUsecase{
-		userRepo:         userRepo,
-		refreshTokenRepo: refreshTokenRepo,
-		mediaService:     mediaService,
+		userRepo:                   userRepo,
+		refreshTokenRepo:           refreshTokenRepo,
+		mediaService:               mediaService,
+		emailVerificationTokenRepo: emailVerificationTokenRepo,
+		mailService:                mailService,
+		supportAddress:             supportAddress,
+		adminAddress:               adminAddress,
+		webBaseURL:                 webBaseURL,
 	}
 }
 
@@ -75,10 +105,30 @@ func (uu *UserUsecase) Create(
 	username user.Username,
 	email user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if existingUser != nil && existingUser.IsEmailVerified() {
+		m := buildMessage(
+			uu.supportAddress,
+			mail.Address(existingUser.Email),
+			language,
+			logoURL(uu.webBaseURL),
+			alreadyRegisteredMailContent(language, loginURL(uu.webBaseURL, language)),
+		)
+		if err := uu.mailService.Send(ctx, m); err != nil {
+			return fmt.Errorf("send already registered mail: %w", err)
+		}
+		return nil
 	}
 
 	u := user.NewUser(
@@ -88,11 +138,134 @@ func (uu *UserUsecase) Create(
 		user.RoleUser,
 	)
 
-	if err := uu.userRepo.Create(ctx, &u); err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+	if existingUser != nil {
+		u.ID = existingUser.ID
+		if err := uu.userRepo.ReplaceUnverified(ctx, &u); err != nil {
+			return fmt.Errorf("replace unverified user: %w", err)
+		}
+	} else {
+		err := uu.userRepo.Create(ctx, &u)
+		if errors.Is(err, exception.ErrAlreadyExists) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
 	}
 
-	return &u, nil
+	if err := uu.sendVerificationMail(ctx, &u, language); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) VerifyEmail(
+	ctx context.Context,
+	value user.EmailVerificationTokenValue,
+) error {
+	token, err := uu.emailVerificationTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find email verification token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("verify email: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	if existingUser.IsEmailVerified() {
+		if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+			return fmt.Errorf("delete email verification tokens: %w", err)
+		}
+		return nil
+	}
+
+	verifiedAt := time.Now()
+	existingUser.EmailVerifiedAt = &verifiedAt
+	if err := uu.userRepo.UpdateEmailVerifiedAt(ctx, existingUser); err != nil {
+		return fmt.Errorf("update email verified at: %w", err)
+	}
+
+	if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete email verification tokens: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		uu.adminAddress,
+		mail.LanguageJA,
+		logoURL(uu.webBaseURL),
+		userVerifiedMailContent(verifiedAt),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		slog.WarnContext(ctx, "user_verified_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) ResendVerificationEmail(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if existingUser.IsEmailVerified() {
+		return nil
+	}
+
+	latestToken, err := uu.emailVerificationTokenRepo.FindLatestByUserID(ctx, existingUser.ID)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("find latest email verification token: %w", err)
+	}
+	if latestToken != nil && time.Since(latestToken.CreatedAt) < user.EmailVerificationResendInterval {
+		return nil
+	}
+
+	if err := uu.sendVerificationMail(ctx, existingUser, language); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) sendVerificationMail(
+	ctx context.Context,
+	u *user.User,
+	language mail.Language,
+) error {
+	if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("delete email verification tokens: %w", err)
+	}
+
+	token, err := uu.emailVerificationTokenRepo.Create(ctx, u.ID)
+	if err != nil {
+		return fmt.Errorf("create email verification token: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(u.Email),
+		language,
+		logoURL(uu.webBaseURL),
+		verificationMailContent(language, verificationURL(uu.webBaseURL, language, token.Value)),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		return fmt.Errorf("send verification mail: %w", err)
+	}
+
+	return nil
 }
 
 func (uu *UserUsecase) UpdateUsername(
@@ -202,6 +375,15 @@ func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
 
 	if err := uu.mediaService.DeleteAllForUser(ctx, userID); err != nil {
 		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) DeleteUnverifiedUsers(ctx context.Context) error {
+	before := time.Now().Add(-user.UnverifiedUserRetention)
+	if err := uu.userRepo.DeleteUnverifiedCreatedBefore(ctx, before); err != nil {
+		return fmt.Errorf("delete unverified users: %w", err)
 	}
 
 	return nil

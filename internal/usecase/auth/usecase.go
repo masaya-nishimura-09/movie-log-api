@@ -84,6 +84,10 @@ func (au *AuthUsecase) Login(
 		return nil, nil, fmt.Errorf("login: %w", exception.ErrInvalid)
 	}
 
+	if !existingUser.IsEmailVerified() {
+		return nil, nil, fmt.Errorf("login: %w", exception.ErrForbidden)
+	}
+
 	principal := auth.Principal{
 		UserID: user.ID(existingUser.ID),
 		Role:   user.Role(existingUser.Role),

@@ -138,7 +138,7 @@ Set the following environment variables in `.env`.
 | `JWT_SECRET`              | Required | Signing key for access tokens (at least 32 bytes)                    |
 | `ACCESS_TOKEN_TTL_HOURS`  | Optional | Access token lifetime in hours (default: `1`)                        |
 | `REFRESH_TOKEN_TTL_HOURS` | Optional | Refresh token lifetime in hours (default: `720`)                     |
-| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens (`true` or `false`) |
+| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens and users left unverified for 7 days (`true` or `false`) |
 | `CLEANUP_INTERVAL_SECOND` | Required | Interval in seconds between cleanups (at least `1`)                  |
 | `AWS_REGION`              | Required | Storage region                                                       |
 | `AWS_ACCESS_KEY_ID`       | Required | Storage access key ID                                                |
@@ -149,6 +149,10 @@ Set the following environment variables in `.env`.
 | `TMDB_ACCESS_TOKEN`       | Required | TMDB API read access token                                           |
 | `TMDB_ENDPOINT`           | Required | Base URL of the TMDB API                                             |
 | `TMDB_POSTER_BASE_URL`    | Required | Base URL of TMDB poster images                                       |
+| `RESEND_API_KEY`          | Required | Resend API key for sending emails                                    |
+| `MAIL_SUPPORT_ADDRESS`    | Required | Sender address of emails                                             |
+| `MAIL_ADMIN_ADDRESS`      | Required | Address that receives notifications for the administrator            |
+| `WEB_BASE_URL`            | Required | Base URL of the web app (used for links in emails)                   |
 | `TRUSTED_PROXIES`         | Optional | Comma-separated IP addresses or CIDRs of trusted proxies             |
 | `APP_VERSION`             | Optional | Version written to logs, such as the Git commit hash                 |
 | `INTERNAL_API_SECRET`     | Optional | Secret shared with the web app. When it matches, the `X-Real-IP` header sent by the web app is used for rate limiting (must match the web app's value) |
@@ -200,7 +204,9 @@ For endpoints that require authentication, send the access token in the
 
 | Method | Endpoint        | Description                            | Auth     | Rate limit        |
 |--------|-----------------|----------------------------------------|----------|-------------------|
-| POST   | /users/register | Register a user                        | Not required | 10 / hour     |
+| POST   | /users/register | Register a user (sends a verification email) | Not required | 10 / hour |
+| POST   | /users/verify-email | Verify an email address            | Not required | 10 / hour     |
+| POST   | /users/verify-email/resend | Resend the verification email | Not required | 10 / hour |
 | GET    | /users/         | Get the authenticated user             | Required |                   |
 | PUT    | /users/username | Update the authenticated user's name   | Required |                   |
 | PUT    | /users/email    | Update the authenticated user's email  | Required | 5 / min per user  |
