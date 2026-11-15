@@ -2,23 +2,20 @@ package user
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 )
 
 type Email string
-
-var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$")
 
 func NewEmail(value string) (Email, error) {
 	if value == "" {
 		return "", fmt.Errorf("%w: email is required", exception.ErrInvalid)
 	}
-	normalized := strings.ToLower(value)
-	if !emailRegex.MatchString(normalized) {
+	address, err := mail.NewAddress(value)
+	if err != nil {
 		return "", fmt.Errorf("%w: invalid email", exception.ErrInvalid)
 	}
-	return Email(normalized), nil
+	return Email(address), nil
 }
