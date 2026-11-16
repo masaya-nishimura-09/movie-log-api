@@ -204,6 +204,17 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	verifyEmailChangeRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	verifyEmailChangeStore := memory.NewStore()
+	verifyEmailChangeLimiter := ginlimiter.NewMiddleware(
+		limiter.New(verifyEmailChangeStore, verifyEmailChangeRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	refreshRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  30,
@@ -261,6 +272,10 @@ func main() {
 		db,
 		userdomain.EmailVerificationTokenTTL,
 	)
+	emailChangeTokenRepo := userinfra.NewEmailChangeTokenRepository(
+		db,
+		userdomain.EmailChangeTokenTTL,
+	)
 	mailService := mailinfra.NewService(resendClient)
 
 	// usecase
@@ -274,6 +289,7 @@ func main() {
 		refreshTokenRepo,
 		mediaService,
 		emailVerificationTokenRepo,
+		emailChangeTokenRepo,
 		mailService,
 		maildomain.Address(mailSupportAddress),
 		maildomain.Address(mailAdminAddress),
@@ -321,6 +337,7 @@ func main() {
 		users.POST("/register", registerLimiter, userHandler.Create)
 		users.POST("/verify-email", verifyEmailLimiter, userHandler.VerifyEmail)
 		users.POST("/verify-email/resend", resendVerificationEmailLimiter, userHandler.ResendVerificationEmail)
+		users.POST("/email/verify", verifyEmailChangeLimiter, userHandler.VerifyEmailChange)
 	}
 
 	authUsers := router.Group("/users")

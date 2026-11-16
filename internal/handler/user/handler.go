@@ -42,6 +42,21 @@ type ResendVerificationEmailReq struct {
 	Email string `json:"email"`
 }
 
+type VerifyEmailChangeReq struct {
+	Token string `json:"token"`
+}
+
+func (r VerifyEmailChangeReq) toDomain() (
+	userdomain.EmailChangeTokenValue,
+	error,
+) {
+	value, err := userdomain.NewEmailChangeTokenValue(r.Token)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
 func (r VerifyEmailReq) toDomain() (
 	userdomain.EmailVerificationTokenValue,
 	error,
@@ -349,6 +364,11 @@ func (uh *UserHandler) UpdateEmail(c *gin.Context) {
 		return
 	}
 
+	language, ok := getLanguage(c)
+	if !ok {
+		return
+	}
+
 	password, newEmail, err := req.toDomain()
 	if errors.Is(err, exception.ErrInvalid) {
 		response.InvalidInput(c, err)
@@ -360,18 +380,15 @@ func (uh *UserHandler) UpdateEmail(c *gin.Context) {
 		return
 	}
 
-	updatedUser, updateEmailErr := uh.userUsecase.UpdateEmail(
+	updateEmailErr := uh.userUsecase.UpdateEmail(
 		ctx,
 		authUserID,
 		newEmail,
 		password,
+		language,
 	)
 	if errors.Is(updateEmailErr, exception.ErrNotFound) {
 		response.UserNotFound(c)
-		return
-	}
-	if errors.Is(updateEmailErr, exception.ErrAlreadyExists) {
-		response.UserAlreadyExists(c)
 		return
 	}
 	if errors.Is(updateEmailErr, exception.ErrInvalid) {
@@ -384,11 +401,45 @@ func (uh *UserHandler) UpdateEmail(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"user_id":  strconv.FormatUint(uint64(updatedUser.ID), 10),
-		"username": string(updatedUser.Username),
-		"email":    string(updatedUser.Email),
-	})
+	c.Status(http.StatusNoContent)
+}
+
+func (uh *UserHandler) VerifyEmailChange(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req VerifyEmailChangeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	value, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	verifyEmailChangeErr := uh.userUsecase.VerifyEmailChange(ctx, value)
+	if errors.Is(verifyEmailChangeErr, exception.ErrInvalid) {
+		response.InvalidVerificationToken(c)
+		return
+	}
+	if errors.Is(verifyEmailChangeErr, exception.ErrAlreadyExists) {
+		response.UserAlreadyExists(c)
+		return
+	}
+	if verifyEmailChangeErr != nil {
+		logging.Error(c, "request_failed", verifyEmailChangeErr)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (uh *UserHandler) UpdatePassword(c *gin.Context) {

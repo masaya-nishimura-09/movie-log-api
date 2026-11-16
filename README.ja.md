@@ -129,7 +129,7 @@ API は `http://localhost:8080` で起動します。
 | `JWT_SECRET`              | 必須      | アクセストークンの署名鍵（32 バイト以上）                            |
 | `ACCESS_TOKEN_TTL_HOURS`  | 任意      | アクセストークンの有効期間（時間単位、既定値 `1`）                   |
 | `REFRESH_TOKEN_TTL_HOURS` | 任意      | リフレッシュトークンの有効期間（時間単位、既定値 `720`）             |
-| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンと、確認されないまま7日たったユーザーを定期的に掃除するか（`true` または `false`） |
+| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンとメールアドレス変更のトークン、確認されないまま7日たったユーザーを定期的に掃除するか（`true` または `false`） |
 | `CLEANUP_INTERVAL_SECOND` | 必須      | 掃除の間隔（秒単位、1 以上）                                         |
 | `AWS_REGION`              | 必須      | ストレージのリージョン                                               |
 | `AWS_ACCESS_KEY_ID`       | 必須      | ストレージのアクセスキー ID                                          |
@@ -197,9 +197,10 @@ scripts/              # テーブル定義、初期データ
 | POST     | /users/register | ユーザー登録（確認メールを送信） | 不要 | 10 回/時間         |
 | POST     | /users/verify-email | メールアドレスの確認         | 不要 | 10 回/時間         |
 | POST     | /users/verify-email/resend | 確認メールの再送      | 不要 | 10 回/時間         |
+| POST     | /users/email/verify | メールアドレスの変更の確認   | 不要 | 10 回/時間         |
 | GET      | /users/         | ログイン中のユーザー情報の取得   | 必要 |                    |
 | PUT      | /users/username | ログイン中のユーザー名の更新     | 必要 |                    |
-| PUT      | /users/email    | ログイン中のユーザーのメールアドレスの更新 | 必要 | 5 回/分（ユーザー単位） |
+| PUT      | /users/email    | ログイン中のユーザーのメールアドレスの変更の申し込み（新しいアドレスに確認メールを送信） | 必要 | 5 回/分（ユーザー単位） |
 | PUT      | /users/password | ログイン中のユーザーのパスワードの更新 | 必要 | 5 回/分（ユーザー単位） |
 | DELETE   | /users/         | ログイン中のユーザーの削除       | 必要 |                    |
 

@@ -138,7 +138,7 @@ Set the following environment variables in `.env`.
 | `JWT_SECRET`              | Required | Signing key for access tokens (at least 32 bytes)                    |
 | `ACCESS_TOKEN_TTL_HOURS`  | Optional | Access token lifetime in hours (default: `1`)                        |
 | `REFRESH_TOKEN_TTL_HOURS` | Optional | Refresh token lifetime in hours (default: `720`)                     |
-| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens and users left unverified for 7 days (`true` or `false`) |
+| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens, expired email change tokens and users left unverified for 7 days (`true` or `false`) |
 | `CLEANUP_INTERVAL_SECOND` | Required | Interval in seconds between cleanups (at least `1`)                  |
 | `AWS_REGION`              | Required | Storage region                                                       |
 | `AWS_ACCESS_KEY_ID`       | Required | Storage access key ID                                                |
@@ -207,9 +207,10 @@ For endpoints that require authentication, send the access token in the
 | POST   | /users/register | Register a user (sends a verification email) | Not required | 10 / hour |
 | POST   | /users/verify-email | Verify an email address            | Not required | 10 / hour     |
 | POST   | /users/verify-email/resend | Resend the verification email | Not required | 10 / hour |
+| POST   | /users/email/verify | Confirm an email address change    | Not required | 10 / hour     |
 | GET    | /users/         | Get the authenticated user             | Required |                   |
 | PUT    | /users/username | Update the authenticated user's name   | Required |                   |
-| PUT    | /users/email    | Update the authenticated user's email  | Required | 5 / min per user  |
+| PUT    | /users/email    | Request to change the authenticated user's email (sends a verification email to the new address) | Required | 5 / min per user |
 | PUT    | /users/password | Update the authenticated user's password | Required | 5 / min per user |
 | DELETE | /users/         | Delete the authenticated user          | Required |                   |
 
