@@ -15,25 +15,29 @@ import (
 )
 
 type fakeUsecase struct {
-	user                *user.User
-	gotUserID           user.ID
-	registeredUsername  user.Username
-	registeredEmail     user.Email
-	registeredPassword  user.Password
-	registeredLanguage  mail.Language
-	verifiedValue       user.EmailVerificationTokenValue
-	resentEmail         user.Email
-	resentLanguage      mail.Language
-	updatedUserID       user.ID
-	updatedUsername     user.Username
-	updatedEmail        user.Email
-	updatedLanguage     mail.Language
-	verifiedChangeValue user.EmailChangeTokenValue
-	confirmedPassword   user.Password
-	oldPassword         user.Password
-	newPassword         user.Password
-	deletedUserID       user.ID
-	err                 error
+	user                   *user.User
+	gotUserID              user.ID
+	registeredUsername     user.Username
+	registeredEmail        user.Email
+	registeredPassword     user.Password
+	registeredLanguage     mail.Language
+	verifiedValue          user.EmailVerificationTokenValue
+	resentEmail            user.Email
+	resentLanguage         mail.Language
+	updatedUserID          user.ID
+	updatedUsername        user.Username
+	updatedEmail           user.Email
+	updatedLanguage        mail.Language
+	verifiedChangeValue    user.EmailChangeTokenValue
+	resetRequestedEmail    user.Email
+	resetRequestedLanguage mail.Language
+	resetValue             user.PasswordResetTokenValue
+	resetPassword          user.Password
+	confirmedPassword      user.Password
+	oldPassword            user.Password
+	newPassword            user.Password
+	deletedUserID          user.ID
+	err                    error
 }
 
 func (u *fakeUsecase) GetByID(
@@ -112,6 +116,32 @@ func (u *fakeUsecase) VerifyEmailChange(
 }
 
 func (u *fakeUsecase) DeleteExpiredEmailChangeTokens(
+	ctx context.Context,
+) error {
+	return u.err
+}
+
+func (u *fakeUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	u.resetRequestedEmail = email
+	u.resetRequestedLanguage = language
+	return u.err
+}
+
+func (u *fakeUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	u.resetValue = value
+	u.resetPassword = newPassword
+	return u.err
+}
+
+func (u *fakeUsecase) DeleteExpiredPasswordResetTokens(
 	ctx context.Context,
 ) error {
 	return u.err
@@ -842,6 +872,209 @@ func TestVerifyEmailChange(t *testing.T) {
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf(
 					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestRequestPasswordReset(t *testing.T) {
+	t.Run(
+		"passes the converted values to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			email := user.Email("test@example.com")
+			if usecase.resetRequestedEmail != email || usecase.resetRequestedLanguage != mail.LanguageJA {
+				t.Errorf(
+					"RequestPasswordReset(c) usecase args = %v, %v, want %v, %v",
+					usecase.resetRequestedEmail, usecase.resetRequestedLanguage, email, mail.LanguageJA,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the email is not a valid address",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"invalid"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"RequestPasswordReset(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestResetPassword(t *testing.T) {
+	t.Run(
+		"passes the converted values to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			value := user.PasswordResetTokenValue("testtokenvalue")
+			password := user.Password("newpassword")
+			if usecase.resetValue != value || usecase.resetPassword != password {
+				t.Errorf(
+					"ResetPassword(c) usecase args = %v, %v, want %v, %v",
+					usecase.resetValue, usecase.resetPassword, value, password,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the password is shorter than 8 characters",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"short"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ResetPassword(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is invalid or expired",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrInvalid}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_PASSWORD_RESET_TOKEN"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ResetPassword(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
 					rec.Code, http.StatusInternalServerError,
 				)
 			}

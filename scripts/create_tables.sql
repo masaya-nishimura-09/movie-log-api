@@ -35,6 +35,19 @@ CREATE UNIQUE INDEX email_change_tokens_hash_idx ON email_change_tokens (hash);
 
 CREATE INDEX email_change_tokens_user_id_idx ON email_change_tokens (user_id);
 
+CREATE TABLE password_reset_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    language TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
+);
+
+CREATE UNIQUE INDEX password_reset_tokens_hash_idx ON password_reset_tokens (hash);
+
+CREATE INDEX password_reset_tokens_user_id_idx ON password_reset_tokens (user_id);
+
 CREATE TABLE refresh_tokens (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,

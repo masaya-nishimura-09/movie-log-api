@@ -115,6 +115,16 @@ func emailChangeVerificationURL(
 	return u.String()
 }
 
+func passwordResetURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.PasswordResetTokenValue,
+) string {
+	u := webBaseURL.JoinPath(string(language), "reset-password")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return u.String()
+}
+
 func contactURL(webBaseURL *url.URL, language mail.Language) string {
 	return webBaseURL.JoinPath(string(language), "contact").String()
 }
@@ -293,6 +303,76 @@ func emailChangedMailContent(language mail.Language, newEmail user.Email, contac
 			"Cinelier のアカウントのメールアドレスが変更されました。",
 			fmt.Sprintf("新しいメールアドレス: %s", newEmail),
 			"今後は、新しいメールアドレスでログインしてください。",
+		},
+		buttonLabel: "お問い合わせ",
+		buttonURL:   contactURL,
+		notes: []string{
+			"心当たりがない場合は、上のボタンからお問い合わせください。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
+func passwordResetMailContent(language mail.Language, resetURL string) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] Reset your password",
+			heading: "Reset your password",
+			paragraphs: []string{
+				"We received a request to reset the password of your Cinelier account.",
+				"Click the button below to set a new password.",
+			},
+			buttonLabel: "Reset password",
+			buttonURL:   resetURL,
+			notes: []string{
+				"This link expires in 1 hour.",
+				"If you did not request this, you can ignore this email. Your password will not be changed.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】パスワードの再設定",
+		heading: "パスワードの再設定",
+		paragraphs: []string{
+			"Cinelier のアカウントのパスワードを再設定する申し込みがありました。",
+			"下のボタンを押して、新しいパスワードを設定してください。",
+		},
+		buttonLabel: "パスワードを再設定する",
+		buttonURL:   resetURL,
+		notes: []string{
+			"このリンクの有効期限は1時間です。",
+			"心当たりがない場合は、このメールを破棄してください。パスワードは変更されません。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
+func passwordChangedMailContent(language mail.Language, contactURL string) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] Your password has been changed",
+			heading: "Your password has been changed",
+			paragraphs: []string{
+				"The password of your Cinelier account has been reset.",
+				"You have been logged out on all devices. Please log in again with the new password.",
+			},
+			buttonLabel: "Contact us",
+			buttonURL:   contactURL,
+			notes: []string{
+				"If you did not make this change, please contact us from the button above.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】パスワードが変更されました",
+		heading: "パスワードが変更されました",
+		paragraphs: []string{
+			"Cinelier のアカウントのパスワードが再設定されました。",
+			"すべての端末からログアウトしています。新しいパスワードでログインし直してください。",
 		},
 		buttonLabel: "お問い合わせ",
 		buttonURL:   contactURL,

@@ -215,6 +215,28 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	requestPasswordResetRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	requestPasswordResetStore := memory.NewStore()
+	requestPasswordResetLimiter := ginlimiter.NewMiddleware(
+		limiter.New(requestPasswordResetStore, requestPasswordResetRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	resetPasswordRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	resetPasswordStore := memory.NewStore()
+	resetPasswordLimiter := ginlimiter.NewMiddleware(
+		limiter.New(resetPasswordStore, resetPasswordRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	refreshRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  30,
@@ -276,6 +298,10 @@ func main() {
 		db,
 		userdomain.EmailChangeTokenTTL,
 	)
+	passwordResetTokenRepo := userinfra.NewPasswordResetTokenRepository(
+		db,
+		userdomain.PasswordResetTokenTTL,
+	)
 	mailService := mailinfra.NewService(resendClient)
 
 	// usecase
@@ -290,6 +316,7 @@ func main() {
 		mediaService,
 		emailVerificationTokenRepo,
 		emailChangeTokenRepo,
+		passwordResetTokenRepo,
 		mailService,
 		maildomain.Address(mailSupportAddress),
 		maildomain.Address(mailAdminAddress),
@@ -338,6 +365,8 @@ func main() {
 		users.POST("/verify-email", verifyEmailLimiter, userHandler.VerifyEmail)
 		users.POST("/verify-email/resend", resendVerificationEmailLimiter, userHandler.ResendVerificationEmail)
 		users.POST("/email/verify", verifyEmailChangeLimiter, userHandler.VerifyEmailChange)
+		users.POST("/password/reset-request", requestPasswordResetLimiter, userHandler.RequestPasswordReset)
+		users.POST("/password/reset", resetPasswordLimiter, userHandler.ResetPassword)
 	}
 
 	authUsers := router.Group("/users")
