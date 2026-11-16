@@ -1,0 +1,5 @@
+{{define "content"}}
+{{template "heading" "新しいユーザーの確認"}}
+{{template "paragraph" "新しいユーザーのメールアドレスの確認が済みました。"}}
+{{template "paragraph" (printf "確認日時: %s（日本時間）" .VerifiedAt)}}
+{{end}}

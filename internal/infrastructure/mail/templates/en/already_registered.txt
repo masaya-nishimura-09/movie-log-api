@@ -1,0 +1,10 @@
+{{define "subject"}}[Cinelier] This email address is already registered{{end}}
+{{define "content"}}This email address is already registered
+
+Someone tried to sign up for Cinelier with this email address.
+This address is already registered. Please log in from the login page.
+
+Open the login page
+{{.URL}}
+
+If this was not you, you can ignore this email. No changes have been made to your account.{{end}}

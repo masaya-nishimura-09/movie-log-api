@@ -1,0 +1,5 @@
+{{define "subject"}}[Cinelier] 新しいユーザーの確認{{end}}
+{{define "content"}}新しいユーザーの確認
+
+新しいユーザーのメールアドレスの確認が済みました。
+確認日時: {{.VerifiedAt}}（日本時間）{{end}}

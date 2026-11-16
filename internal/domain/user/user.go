@@ -39,7 +39,3 @@ func NewUser(
 		Role:           role,
 	}
 }
-
-func (u User) IsEmailVerified() bool {
-	return u.EmailVerifiedAt != nil
-}

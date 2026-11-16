@@ -140,9 +140,7 @@ func (uu *fakeUserUsecase) DeleteUnverifiedUsers(
 func (uu *fakeUserUsecase) DeleteExpiredEmailChangeTokens(
 	ctx context.Context,
 ) error {
-	if uu.emailChangeTokenCalled != nil {
-		uu.emailChangeTokenCalled <- struct{}{}
-	}
+	uu.emailChangeTokenCalled <- struct{}{}
 	return nil
 }
 
@@ -165,9 +163,7 @@ func (uu *fakeUserUsecase) ResetPassword(
 func (uu *fakeUserUsecase) DeleteExpiredPasswordResetTokens(
 	ctx context.Context,
 ) error {
-	if uu.passwordResetTokenCalled != nil {
-		uu.passwordResetTokenCalled <- struct{}{}
-	}
+	uu.passwordResetTokenCalled <- struct{}{}
 	return nil
 }
 
@@ -176,7 +172,11 @@ func TestRun(t *testing.T) {
 		"calls DeleteExpiredRefreshTokens as soon as it starts",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
-			userUsecase := &fakeUserUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
 			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
 
 			ctx := t.Context()
@@ -194,7 +194,11 @@ func TestRun(t *testing.T) {
 		"calls DeleteExpiredRefreshTokens again after the interval",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 2)}
-			userUsecase := &fakeUserUsecase{called: make(chan struct{}, 2)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 2),
+				emailChangeTokenCalled:   make(chan struct{}, 2),
+				passwordResetTokenCalled: make(chan struct{}, 2),
+			}
 			scheduler := NewScheduler(usecase, userUsecase, 10*time.Millisecond)
 
 			ctx := t.Context()
@@ -215,8 +219,9 @@ func TestRun(t *testing.T) {
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
 			userUsecase := &fakeUserUsecase{
-				called:                 make(chan struct{}, 1),
-				emailChangeTokenCalled: make(chan struct{}, 1),
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
 			}
 			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
 
@@ -237,6 +242,7 @@ func TestRun(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
 			userUsecase := &fakeUserUsecase{
 				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
 				passwordResetTokenCalled: make(chan struct{}, 1),
 			}
 			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
@@ -256,7 +262,11 @@ func TestRun(t *testing.T) {
 		"calls DeleteUnverifiedUsers as soon as it starts",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
-			userUsecase := &fakeUserUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
 			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
 
 			ctx := t.Context()
@@ -274,7 +284,11 @@ func TestRun(t *testing.T) {
 		"calls DeleteUnverifiedUsers again after the interval",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 2)}
-			userUsecase := &fakeUserUsecase{called: make(chan struct{}, 2)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 2),
+				emailChangeTokenCalled:   make(chan struct{}, 2),
+				passwordResetTokenCalled: make(chan struct{}, 2),
+			}
 			scheduler := NewScheduler(usecase, userUsecase, 10*time.Millisecond)
 
 			ctx := t.Context()
@@ -294,7 +308,11 @@ func TestRun(t *testing.T) {
 		"returns when the context is canceled",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
-			userUsecase := &fakeUserUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
 			scheduler := NewScheduler(usecase, userUsecase, time.Hour)
 
 			ctx, cancel := context.WithCancel(t.Context())

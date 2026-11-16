@@ -33,26 +33,25 @@ API からメールを送れるようにする（issue #32）。ウェブ（movi
 ### domain（`internal/domain/mail`）
 
 ```go
-type Message struct {
-    From     Address
-    To       Address
-    ReplyTo  ReplyTo  // お問い合わせのときだけ使う。空なら付けない
-    Subject  Subject
-    HTMLBody HTMLBody
-    TextBody TextBody
-}
-
 type Service interface {
-    Send(ctx context.Context, m Message) error
+    SendEmailVerification(ctx context.Context, to Address, language Language, verificationURL URL) error
+    SendAlreadyRegistered(ctx context.Context, to Address, language Language, loginURL URL) error
+    SendUserVerified(ctx context.Context, to Address, verifiedAt time.Time) error
+    // ほかのメールも、種類ごとに1つずつ
 }
 ```
 
-- 値ごとに型を作り、`NewXxx` で検証する。`Message` は `NewMessage` で作る。
-- from は `Message` に持たせ、メールを組み立てる側が選ぶ。後で noreply などの from が増えても、`Service` は変わらない。
+- domain の `mail` は、値の型（`Address`、`ReplyTo`、`Language`、`URL`）と、どんなメールを送れるかの一覧（`Service`）だけを持つ。件名や本文などのメールの中身は持たない。
+- メールの種類ごとに関数を分ける。Rails の Action Mailer と同じく、メール1通ごとにメソッドを1つ用意する形。
+- 値ごとに型を作り、`NewXxx` で検証する。
 - `user.Email` の検証は `mail.NewAddress` を使う。ユーザーのアドレスは必ずメールの宛先として通るようにするため。
 
 ### infrastructure（`internal/infrastructure/mail`）
 
+- メールの文面と HTML は infrastructure のひな形で作る。HTML は外の都合で決まる形式なので、クリーンアーキテクチャの考え方に沿って外側の層に置く。usecase は、どのメールを、どの値で送るかだけを決める。
+- ひな形は `templates/` に、言語ごとのフォルダに分けて、メール1通ごとに HTML（`html/template`）とテキスト（`text/template`）を置く。件名はテキストのひな形の中に書く。ロゴや色、フッターは共通の枠（`layout.html`、`layout.txt`）にまとめる。
+- ひな形のファイルは `embed` でプログラムに取り込む。本番のイメージにはプログラムだけを入れているので、別のファイルとして読む作りにすると、本番でひな形が見つからないため。
+- 差出人（`MAIL_SUPPORT_ADDRESS`）とロゴの URL（`{WEB_BASE_URL}/mail/logo.png`）は infrastructure が持つ。
 - Resend の公式の Go の SDK（`github.com/resend/resend-go/v4`）を使う。S3 と同じく、公式の SDK があるものは SDK を使う。
 - エラーは `send mail: %w` で包むだけにする。Resend のエラーは usecase で区別しようがないため。
 
