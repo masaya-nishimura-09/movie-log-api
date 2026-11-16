@@ -45,6 +45,13 @@ func (s *Scheduler) cleanup(ctx context.Context) {
 		slog.InfoContext(ctx, "refresh_token_cleanup_completed")
 	}
 
+	slog.InfoContext(ctx, "email_change_token_cleanup_run", "interval", s.interval.String())
+	if err := s.userUsecase.DeleteExpiredEmailChangeTokens(ctx); err != nil {
+		slog.ErrorContext(ctx, "email_change_token_cleanup_failed", "message", err.Error())
+	} else {
+		slog.InfoContext(ctx, "email_change_token_cleanup_completed")
+	}
+
 	slog.InfoContext(ctx, "unverified_user_cleanup_run", "interval", s.interval.String())
 	if err := s.userUsecase.DeleteUnverifiedUsers(ctx); err != nil {
 		slog.ErrorContext(ctx, "unverified_user_cleanup_failed", "message", err.Error())

@@ -44,7 +44,12 @@ type Usecase interface {
 		userID user.ID,
 		email user.Email,
 		password user.Password,
-	) (*user.User, error)
+		language mail.Language,
+	) error
+	VerifyEmailChange(
+		ctx context.Context,
+		value user.EmailChangeTokenValue,
+	) error
 	UpdatePassword(
 		ctx context.Context,
 		userID user.ID,
@@ -53,6 +58,7 @@ type Usecase interface {
 	) (*user.User, error)
 	Delete(ctx context.Context, userID user.ID) error
 	DeleteUnverifiedUsers(ctx context.Context) error
+	DeleteExpiredEmailChangeTokens(ctx context.Context) error
 }
 
 type UserUsecase struct {
@@ -60,6 +66,7 @@ type UserUsecase struct {
 	refreshTokenRepo           auth.RefreshTokenRepository
 	mediaService               media.Service
 	emailVerificationTokenRepo user.EmailVerificationTokenRepository
+	emailChangeTokenRepo       user.EmailChangeTokenRepository
 	mailService                mail.Service
 	supportAddress             mail.Address
 	adminAddress               mail.Address
@@ -71,6 +78,7 @@ func NewUserUsecase(
 	refreshTokenRepo auth.RefreshTokenRepository,
 	mediaService media.Service,
 	emailVerificationTokenRepo user.EmailVerificationTokenRepository,
+	emailChangeTokenRepo user.EmailChangeTokenRepository,
 	mailService mail.Service,
 	supportAddress mail.Address,
 	adminAddress mail.Address,
@@ -81,6 +89,7 @@ func NewUserUsecase(
 		refreshTokenRepo:           refreshTokenRepo,
 		mediaService:               mediaService,
 		emailVerificationTokenRepo: emailVerificationTokenRepo,
+		emailChangeTokenRepo:       emailChangeTokenRepo,
 		mailService:                mailService,
 		supportAddress:             supportAddress,
 		adminAddress:               adminAddress,
@@ -298,32 +307,136 @@ func (uu *UserUsecase) UpdateEmail(
 	userID user.ID,
 	newEmail user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	existingUser, err := uu.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get user by id: %w", err)
+		return fmt.Errorf("get user by id: %w", err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
 		[]byte(existingUser.HashedPassword),
 		[]byte(password),
 	); err != nil {
-		return nil, fmt.Errorf("login: %w", exception.ErrInvalid)
+		return fmt.Errorf("login: %w", exception.ErrInvalid)
 	}
 
-	u := user.NewUser(
-		existingUser.Username,
-		newEmail,
-		existingUser.HashedPassword,
-		existingUser.Role,
+	if newEmail == existingUser.Email {
+		return nil
+	}
+
+	otherUser, err := uu.userRepo.GetByEmail(ctx, newEmail)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if otherUser != nil && otherUser.IsEmailVerified() {
+		m := buildMessage(
+			uu.supportAddress,
+			mail.Address(newEmail),
+			language,
+			logoURL(uu.webBaseURL),
+			emailChangeAlreadyRegisteredMailContent(language, loginURL(uu.webBaseURL, language)),
+		)
+		if err := uu.mailService.Send(ctx, m); err != nil {
+			return fmt.Errorf("send already registered mail: %w", err)
+		}
+		return nil
+	}
+
+	if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete email change tokens: %w", err)
+	}
+
+	token, err := uu.emailChangeTokenRepo.Create(ctx, userID, newEmail, language)
+	if err != nil {
+		return fmt.Errorf("create email change token: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(newEmail),
+		language,
+		logoURL(uu.webBaseURL),
+		emailChangeVerificationMailContent(
+			language,
+			emailChangeVerificationURL(uu.webBaseURL, language, token.Value),
+		),
 	)
-	u.ID = userID
-
-	if err := uu.userRepo.UpdateEmail(ctx, &u); err != nil {
-		return nil, fmt.Errorf("update email: %w", err)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		return fmt.Errorf("send email change verification mail: %w", err)
 	}
 
-	return &u, nil
+	return nil
+}
+
+func (uu *UserUsecase) VerifyEmailChange(
+	ctx context.Context,
+	value user.EmailChangeTokenValue,
+) error {
+	token, err := uu.emailChangeTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find email change token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("verify email change: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	otherUser, err := uu.userRepo.GetByEmail(ctx, token.NewEmail)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+	if otherUser != nil && otherUser.ID == existingUser.ID {
+		if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+			return fmt.Errorf("delete email change tokens: %w", err)
+		}
+		return nil
+	}
+
+	if otherUser != nil {
+		if otherUser.IsEmailVerified() {
+			return fmt.Errorf("verify email change: %w", exception.ErrAlreadyExists)
+		}
+		if err := uu.userRepo.Delete(ctx, otherUser.ID); err != nil {
+			return fmt.Errorf("delete unverified user: %w", err)
+		}
+	}
+
+	oldEmail := existingUser.Email
+	existingUser.Email = token.NewEmail
+	if err := uu.userRepo.UpdateEmail(ctx, existingUser); err != nil {
+		return fmt.Errorf("update email: %w", err)
+	}
+
+	if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete email change tokens: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(oldEmail),
+		token.Language,
+		logoURL(uu.webBaseURL),
+		emailChangedMailContent(token.Language, token.NewEmail, contactURL(uu.webBaseURL, token.Language)),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		slog.WarnContext(ctx, "email_changed_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) DeleteExpiredEmailChangeTokens(ctx context.Context) error {
+	if err := uu.emailChangeTokenRepo.DeleteExpired(ctx); err != nil {
+		return fmt.Errorf("delete expired email change tokens: %w", err)
+	}
+
+	return nil
 }
 
 func (uu *UserUsecase) UpdatePassword(

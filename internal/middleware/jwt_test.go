@@ -104,8 +104,16 @@ func (u *fakeUserUsecase) UpdateEmail(
 	userID user.ID,
 	email user.Email,
 	password user.Password,
-) (*user.User, error) {
-	return nil, nil
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) VerifyEmailChange(
+	ctx context.Context,
+	value user.EmailChangeTokenValue,
+) error {
+	return nil
 }
 
 func (u *fakeUserUsecase) UpdatePassword(
@@ -125,6 +133,12 @@ func (u *fakeUserUsecase) Delete(
 }
 
 func (u *fakeUserUsecase) DeleteUnverifiedUsers(
+	ctx context.Context,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) DeleteExpiredEmailChangeTokens(
 	ctx context.Context,
 ) error {
 	return nil

@@ -105,6 +105,20 @@ func verificationURL(
 	return u.String()
 }
 
+func emailChangeVerificationURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.EmailChangeTokenValue,
+) string {
+	u := webBaseURL.JoinPath(string(language), "verify-email-change")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return u.String()
+}
+
+func contactURL(webBaseURL *url.URL, language mail.Language) string {
+	return webBaseURL.JoinPath(string(language), "contact").String()
+}
+
 func loginURL(webBaseURL *url.URL, language mail.Language) string {
 	return webBaseURL.JoinPath(string(language), "login").String()
 }
@@ -178,6 +192,112 @@ func alreadyRegisteredMailContent(language mail.Language, loginURL string) mailC
 		buttonURL:   loginURL,
 		notes: []string{
 			"心当たりがない場合は、このメールを破棄してください。アカウントには何も変更されていません。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
+func emailChangeVerificationMailContent(language mail.Language, verificationURL string) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] Verify your new email address",
+			heading: "Verify your new email address",
+			paragraphs: []string{
+				"We received a request to change the email address of your Cinelier account to this address.",
+				"Click the button below to complete the change.",
+			},
+			buttonLabel: "Change email address",
+			buttonURL:   verificationURL,
+			notes: []string{
+				"This link expires in 24 hours. Until then, your current email address stays the same.",
+				"If you did not request this, you can ignore this email.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】新しいメールアドレスの確認",
+		heading: "新しいメールアドレスの確認",
+		paragraphs: []string{
+			"Cinelier のアカウントのメールアドレスを、このアドレスに変更する申し込みがありました。",
+			"下のボタンを押すと、変更が完了します。",
+		},
+		buttonLabel: "メールアドレスを変更する",
+		buttonURL:   verificationURL,
+		notes: []string{
+			"このリンクの有効期限は24時間です。変更が完了するまでは、今のメールアドレスのままです。",
+			"心当たりがない場合は、このメールを破棄してください。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
+func emailChangeAlreadyRegisteredMailContent(language mail.Language, loginURL string) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] This email address is already registered",
+			heading: "This email address is already registered",
+			paragraphs: []string{
+				"Someone tried to change the email address of a Cinelier account to this address.",
+				"This address is already registered, so the change was not made.",
+			},
+			buttonLabel: "Open the login page",
+			buttonURL:   loginURL,
+			notes: []string{
+				"If this was not you, you can ignore this email. No changes have been made to your account.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】このメールアドレスは登録済みです",
+		heading: "このメールアドレスは登録済みです",
+		paragraphs: []string{
+			"Cinelier のアカウントのメールアドレスを、このアドレスに変更する申し込みがありました。",
+			"このアドレスはすでに登録されているため、変更は行われていません。",
+		},
+		buttonLabel: "ログイン画面を開く",
+		buttonURL:   loginURL,
+		notes: []string{
+			"心当たりがない場合は、このメールを破棄してください。アカウントには何も変更されていません。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
+func emailChangedMailContent(language mail.Language, newEmail user.Email, contactURL string) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] Your email address has been changed",
+			heading: "Your email address has been changed",
+			paragraphs: []string{
+				"The email address of your Cinelier account has been changed.",
+				fmt.Sprintf("New email address: %s", newEmail),
+				"From now on, please log in with the new email address.",
+			},
+			buttonLabel: "Contact us",
+			buttonURL:   contactURL,
+			notes: []string{
+				"If you did not make this change, please contact us from the button above.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】メールアドレスが変更されました",
+		heading: "メールアドレスが変更されました",
+		paragraphs: []string{
+			"Cinelier のアカウントのメールアドレスが変更されました。",
+			fmt.Sprintf("新しいメールアドレス: %s", newEmail),
+			"今後は、新しいメールアドレスでログインしてください。",
+		},
+		buttonLabel: "お問い合わせ",
+		buttonURL:   contactURL,
+		notes: []string{
+			"心当たりがない場合は、上のボタンからお問い合わせください。",
 		},
 		footer: "このメールは、Cinelier から自動で送信されました。",
 	}
