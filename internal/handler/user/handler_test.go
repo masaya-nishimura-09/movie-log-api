@@ -33,6 +33,7 @@ type fakeUsecase struct {
 	resetRequestedLanguage mail.Language
 	resetValue             user.PasswordResetTokenValue
 	resetPassword          user.Password
+	deletedLanguage        mail.Language
 	confirmedPassword      user.Password
 	oldPassword            user.Password
 	newPassword            user.Password
@@ -163,8 +164,10 @@ func (u *fakeUsecase) UpdatePassword(
 func (u *fakeUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
+	language mail.Language,
 ) error {
 	u.deletedUserID = userID
+	u.deletedLanguage = language
 	return u.err
 }
 
@@ -2096,7 +2099,7 @@ func TestDelete(t *testing.T) {
 			c, _ := gin.CreateTestContext(rec)
 			c.Set("userID", userID)
 			c.Request = httptest.NewRequest(
-				http.MethodDelete, "/", nil,
+				http.MethodDelete, "/?language=ja", nil,
 			)
 
 			userHandler.Delete(c)
@@ -2112,11 +2115,13 @@ func TestDelete(t *testing.T) {
 				t.Errorf("Delete(c) body = %v, want %v", rec.Body.String(), want)
 			}
 
-			if usecase.deletedUserID != userID {
+			if usecase.deletedUserID != userID || usecase.deletedLanguage != mail.LanguageJA {
 				t.Errorf(
-					"Delete(c) usecase args = %v, want %v",
+					"Delete(c) usecase args = %v, %v, want %v, %v",
 					usecase.deletedUserID,
+					usecase.deletedLanguage,
 					userID,
+					mail.LanguageJA,
 				)
 			}
 		},

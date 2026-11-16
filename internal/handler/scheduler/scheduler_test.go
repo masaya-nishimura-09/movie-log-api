@@ -125,6 +125,7 @@ func (uu *fakeUserUsecase) UpdatePassword(
 func (uu *fakeUserUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
+	language mail.Language,
 ) error {
 	return nil
 }

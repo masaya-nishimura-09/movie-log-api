@@ -214,7 +214,7 @@ For endpoints that require authentication, send the access token in the
 | PUT    | /users/username | Update the authenticated user's name   | Required |                   |
 | PUT    | /users/email    | Request to change the authenticated user's email (sends a verification email to the new address) | Required | 5 / min per user |
 | PUT    | /users/password | Update the authenticated user's password | Required | 5 / min per user |
-| DELETE | /users/         | Delete the authenticated user          | Required |                   |
+| DELETE | /users/         | Delete the authenticated user (sends a notice email) | Required |     |
 
 `PUT /users/email` and `PUT /users/password` require the current password.
 The rate limit is counted across both endpoints combined.

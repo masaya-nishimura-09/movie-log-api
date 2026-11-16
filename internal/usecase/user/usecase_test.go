@@ -1736,29 +1736,76 @@ func TestUpdatePassword(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	userID := user.ID(1)
+	email := user.Email("test@example.com")
+	language := mail.LanguageJA
 
 	t.Run(
-		"deletes all media of the user",
+		"deletes the user and all media of the user and sends a withdrawn mail",
 		func(t *testing.T) {
+			repo := &fakeRepository{user: &user.User{ID: userID, Email: email}}
 			mediaService := &fakeMediaService{}
+			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
-				&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService,
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
+				repo, &fakeRefreshTokenRepo{}, mediaService,
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
 
-			if err := uu.Delete(ctx, userID); err != nil {
+			if err := uu.Delete(ctx, userID, language); err != nil {
 				t.Fatalf(
-					"Delete(ctx, %v) error = %v",
-					userID, err,
+					"Delete(ctx, %v, %v) error = %v",
+					userID, language, err,
+				)
+			}
+			if repo.deletedUserID != userID {
+				t.Errorf(
+					"Delete(ctx, %v, %v) deleted user %v, want %v",
+					userID, language, repo.deletedUserID, userID,
 				)
 			}
 			if mediaService.deletedAllUserID != userID {
 				t.Errorf(
-					"Delete(ctx, %v) deletes media of user %v, want %v",
-					userID, mediaService.deletedAllUserID, userID,
+					"Delete(ctx, %v, %v) deletes media of user %v, want %v",
+					userID, language, mediaService.deletedAllUserID, userID,
+				)
+			}
+			if len(mailService.sent) != 1 ||
+				mailService.sent[0].To != mail.Address(email) ||
+				mailService.sent[0].Subject != mail.Subject("【Cinelier】退会が完了しました") {
+				t.Errorf(
+					"Delete(ctx, %v, %v) sent %v, want one withdrawn mail to %v",
+					userID, language, mailService.sent, email,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound without deleting when the user does not exist",
+		func(t *testing.T) {
+			repo := &fakeRepository{getErr: exception.ErrNotFound}
+			mailService := &fakeMailService{}
+			uu := NewUserUsecase(
+				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			err := uu.Delete(ctx, userID, language)
+			if !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"Delete(ctx, %v, %v) error = %v, want %v",
+					userID, language, err, exception.ErrNotFound,
+				)
+			}
+			if repo.deletedUserID != 0 || len(mailService.sent) != 0 {
+				t.Errorf(
+					"Delete(ctx, %v, %v) deleted %v and sent %v, want neither",
+					userID, language, repo.deletedUserID, mailService.sent,
 				)
 			}
 		},
@@ -1771,17 +1818,45 @@ func TestDelete(t *testing.T) {
 				err: errors.New("delete media"),
 			}
 			uu := NewUserUsecase(
-				&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService,
+				&fakeRepository{user: &user.User{ID: userID, Email: email}}, &fakeRefreshTokenRepo{}, mediaService,
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
 
-			if err := uu.Delete(ctx, userID); err != nil {
+			if err := uu.Delete(ctx, userID, language); err != nil {
 				t.Fatalf(
-					"Delete(ctx, %v) error = %v, want nil",
-					userID, err,
+					"Delete(ctx, %v, %v) error = %v, want nil",
+					userID, language, err,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"succeeds even when sending the withdrawn mail fails",
+		func(t *testing.T) {
+			repo := &fakeRepository{user: &user.User{ID: userID, Email: email}}
+			uu := NewUserUsecase(
+				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{},
+				&fakeMailService{err: errors.New("send mail")},
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.Delete(ctx, userID, language); err != nil {
+				t.Fatalf(
+					"Delete(ctx, %v, %v) error = %v, want nil",
+					userID, language, err,
+				)
+			}
+			if repo.deletedUserID != userID {
+				t.Errorf(
+					"Delete(ctx, %v, %v) deleted user %v, want %v",
+					userID, language, repo.deletedUserID, userID,
 				)
 			}
 		},
