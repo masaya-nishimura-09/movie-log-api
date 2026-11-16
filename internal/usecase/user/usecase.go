@@ -66,7 +66,7 @@ type Usecase interface {
 		oldPassword user.Password,
 		newPassword user.Password,
 	) (*user.User, error)
-	Delete(ctx context.Context, userID user.ID) error
+	Delete(ctx context.Context, userID user.ID, language mail.Language) error
 	DeleteUnverifiedUsers(ctx context.Context) error
 	DeleteExpiredEmailChangeTokens(ctx context.Context) error
 	DeleteExpiredPasswordResetTokens(ctx context.Context) error
@@ -608,13 +608,33 @@ func (uu *UserUsecase) UpdatePassword(
 	return &u, nil
 }
 
-func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
+func (uu *UserUsecase) Delete(
+	ctx context.Context,
+	userID user.ID,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 
 	if err := uu.mediaService.DeleteAllForUser(ctx, userID); err != nil {
 		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(existingUser.Email),
+		language,
+		logoURL(uu.webBaseURL),
+		withdrawnMailContent(language),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		slog.WarnContext(ctx, "withdrawn_mail_failed", "userId", fmt.Sprint(userID), "message", err.Error())
 	}
 
 	return nil

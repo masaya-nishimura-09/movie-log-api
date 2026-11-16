@@ -383,6 +383,32 @@ func passwordChangedMailContent(language mail.Language, contactURL string) mailC
 	}
 }
 
+func withdrawnMailContent(language mail.Language) mailContent {
+	if language == mail.LanguageEN {
+		return mailContent{
+			subject: "[Cinelier] Your account has been deleted",
+			heading: "Your account has been deleted",
+			paragraphs: []string{
+				"Your Cinelier account has been deleted.",
+				"All of your records and images have been deleted as well.",
+				"Thank you for using Cinelier.",
+			},
+			footer: "This email was sent automatically by Cinelier.",
+		}
+	}
+
+	return mailContent{
+		subject: "【Cinelier】退会が完了しました",
+		heading: "退会が完了しました",
+		paragraphs: []string{
+			"Cinelier のアカウントを削除しました。",
+			"記録や画像も、すべて削除しています。",
+			"これまでご利用いただき、ありがとうございました。",
+		},
+		footer: "このメールは、Cinelier から自動で送信されました。",
+	}
+}
+
 func userVerifiedMailContent(verifiedAt time.Time) mailContent {
 	return mailContent{
 		subject: "[Cinelier] 新しいユーザーの確認",

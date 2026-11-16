@@ -158,6 +158,11 @@ type Service interface {
 - 申し込み API では、確認済みのときだけメールを送るので、確認メールの再送 API と同じく応答の時間の差は残る。
 - トークンが無効なときの応答は 400（`INVALID_PASSWORD_RESET_TOKEN`）。
 
+## 退会の通知
+
+- `DELETE /users/?language=ja` で退会が済んだあと、そのアドレスに「退会が完了しました」と送る。退会する前にユーザーを取り出し、アドレスを控えておく。
+- メールが送れなくても、退会は成功として扱う。退会はもう済んでいるため。退会時の画像の削除と同じく、ログに警告を残す。
+
 ## メールの見た目
 
 - 全体をベージュ（`--card`）一色にし、文字は紺、ボタンは `--primary`（brown）と `--primary-foreground` にする。色はウェブ（movie-log の `src/styles/globals.css`）に揃える。

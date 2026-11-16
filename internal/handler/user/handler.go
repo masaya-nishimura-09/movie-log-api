@@ -606,7 +606,12 @@ func (uh *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	err := uh.userUsecase.Delete(ctx, authUserID)
+	language, ok := getLanguage(c)
+	if !ok {
+		return
+	}
+
+	err := uh.userUsecase.Delete(ctx, authUserID, language)
 	if errors.Is(err, exception.ErrNotFound) {
 		response.UserNotFound(c)
 		return
