@@ -144,6 +144,28 @@ func (u *fakeUserUsecase) DeleteExpiredEmailChangeTokens(
 	return nil
 }
 
+func (u *fakeUserUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	return nil
+}
+
+func (u *fakeUserUsecase) DeleteExpiredPasswordResetTokens(
+	ctx context.Context,
+) error {
+	return nil
+}
+
 func TestJWTAuth(t *testing.T) {
 	t.Run(
 		"calls the next handler with the user ID and role in the context when the access token is valid",

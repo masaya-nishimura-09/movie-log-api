@@ -169,6 +169,60 @@ func (r *fakeEmailChangeTokenRepo) DeleteExpired(
 	return nil
 }
 
+type fakePasswordResetTokenRepo struct {
+	token          *user.PasswordResetToken
+	findErr        error
+	latestToken    *user.PasswordResetToken
+	created        *user.PasswordResetToken
+	deletedUserIDs []user.ID
+	deletedExpired bool
+}
+
+func (r *fakePasswordResetTokenRepo) Create(
+	ctx context.Context,
+	userID user.ID,
+	language mail.Language,
+) (*user.PasswordResetToken, error) {
+	r.created = &user.PasswordResetToken{
+		UserID:   userID,
+		Language: language,
+		Value:    user.PasswordResetTokenValue("testresettokenvalue"),
+	}
+	return r.created, nil
+}
+
+func (r *fakePasswordResetTokenRepo) FindValidByValue(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+) (*user.PasswordResetToken, error) {
+	return r.token, r.findErr
+}
+
+func (r *fakePasswordResetTokenRepo) FindLatestByUserID(
+	ctx context.Context,
+	userID user.ID,
+) (*user.PasswordResetToken, error) {
+	if r.latestToken == nil {
+		return nil, exception.ErrNotFound
+	}
+	return r.latestToken, nil
+}
+
+func (r *fakePasswordResetTokenRepo) DeleteAllForUser(
+	ctx context.Context,
+	userID user.ID,
+) error {
+	r.deletedUserIDs = append(r.deletedUserIDs, userID)
+	return nil
+}
+
+func (r *fakePasswordResetTokenRepo) DeleteExpired(
+	ctx context.Context,
+) error {
+	r.deletedExpired = true
+	return nil
+}
+
 type fakeMailService struct {
 	sent []mail.Message
 	err  error
@@ -299,7 +353,7 @@ func TestCreate(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -376,7 +430,7 @@ func TestCreate(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -431,7 +485,7 @@ func TestCreate(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -493,7 +547,7 @@ func TestCreate(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, mailService,
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -521,7 +575,7 @@ func TestCreate(t *testing.T) {
 			mailService := &fakeMailService{err: errors.New("send mail")}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, mailService,
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -551,7 +605,7 @@ func TestVerifyEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -592,7 +646,7 @@ func TestVerifyEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -622,7 +676,7 @@ func TestVerifyEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -650,7 +704,7 @@ func TestVerifyEmail(t *testing.T) {
 			mailService := &fakeMailService{err: errors.New("send mail")}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -684,7 +738,7 @@ func TestResendVerificationEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -737,7 +791,7 @@ func TestResendVerificationEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				tt.repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				tokenRepo, &fakeEmailChangeTokenRepo{}, mailService,
+				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -756,6 +810,258 @@ func TestResendVerificationEmail(t *testing.T) {
 	}
 }
 
+func TestRequestPasswordReset(t *testing.T) {
+	email := user.Email("test@example.com")
+	language := mail.LanguageJA
+	userID := user.ID(1)
+	verifiedAt := time.Now()
+
+	t.Run(
+		"sends a password reset mail when the user is verified",
+		func(t *testing.T) {
+			repo := &fakeRepository{user: &user.User{ID: userID, Email: email, EmailVerifiedAt: &verifiedAt}}
+			resetTokenRepo := &fakePasswordResetTokenRepo{
+				latestToken: &user.PasswordResetToken{
+					UserID:    userID,
+					CreatedAt: time.Now().Add(-user.PasswordResetRequestInterval - time.Second),
+				},
+			}
+			mailService := &fakeMailService{}
+			uu := NewUserUsecase(
+				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.RequestPasswordReset(ctx, email, language); err != nil {
+				t.Fatalf("RequestPasswordReset(ctx, %v, %v) error = %v", email, language, err)
+			}
+
+			if resetTokenRepo.created == nil ||
+				resetTokenRepo.created.UserID != userID ||
+				resetTokenRepo.created.Language != language {
+				t.Fatalf(
+					"RequestPasswordReset(ctx, %v, %v) created %v, want a token for user %v with %v",
+					email, language, resetTokenRepo.created, userID, language,
+				)
+			}
+			if len(resetTokenRepo.deletedUserIDs) != 1 || resetTokenRepo.deletedUserIDs[0] != userID {
+				t.Errorf(
+					"RequestPasswordReset(ctx, %v, %v) deleted tokens of %v, want %v",
+					email, language, resetTokenRepo.deletedUserIDs, userID,
+				)
+			}
+
+			if len(mailService.sent) != 1 {
+				t.Fatalf(
+					"RequestPasswordReset(ctx, %v, %v) sent %d mails, want 1",
+					email, language, len(mailService.sent),
+				)
+			}
+			m := mailService.sent[0]
+			wantURL := "https://web.example.com/ja/reset-password?token=testresettokenvalue"
+			if m.To != mail.Address(email) ||
+				m.Subject != mail.Subject("【Cinelier】パスワードの再設定") ||
+				!strings.Contains(string(m.TextBody), wantURL) {
+				t.Errorf(
+					"RequestPasswordReset(ctx, %v, %v) sent %v, want a reset mail to %v with %v",
+					email, language, m, email, wantURL,
+				)
+			}
+		},
+	)
+
+	tests := []struct {
+		name        string
+		repo        *fakeRepository
+		latestToken *user.PasswordResetToken
+	}{
+		{
+			name: "does nothing when the user does not exist",
+			repo: &fakeRepository{getByEmailErr: exception.ErrNotFound},
+		},
+		{
+			name: "does nothing when the user is not verified",
+			repo: &fakeRepository{user: &user.User{ID: userID, Email: email}},
+		},
+		{
+			name: "does nothing when the last mail was sent within the request interval",
+			repo: &fakeRepository{user: &user.User{ID: userID, Email: email, EmailVerifiedAt: &verifiedAt}},
+			latestToken: &user.PasswordResetToken{
+				UserID:    userID,
+				CreatedAt: time.Now(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetTokenRepo := &fakePasswordResetTokenRepo{latestToken: tt.latestToken}
+			mailService := &fakeMailService{}
+			uu := NewUserUsecase(
+				tt.repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.RequestPasswordReset(ctx, email, language); err != nil {
+				t.Fatalf("RequestPasswordReset(ctx, %v, %v) error = %v, want nil", email, language, err)
+			}
+			if resetTokenRepo.created != nil || len(mailService.sent) != 0 {
+				t.Errorf(
+					"RequestPasswordReset(ctx, %v, %v) created %v and sent %v, want neither",
+					email, language, resetTokenRepo.created, mailService.sent,
+				)
+			}
+		})
+	}
+}
+
+func TestResetPassword(t *testing.T) {
+	value := user.PasswordResetTokenValue("testresettokenvalue")
+	newPassword := user.Password("newpassword")
+	userID := user.ID(1)
+	email := user.Email("test@example.com")
+
+	t.Run(
+		"updates the password, deletes the tokens, revokes the refresh tokens and notifies the user",
+		func(t *testing.T) {
+			existing := &user.User{
+				ID:             userID,
+				Username:       user.Username("Test"),
+				Email:          email,
+				HashedPassword: hashPassword(t, user.Password("oldpassword")),
+				Role:           user.RoleUser,
+			}
+			repo := &fakeRepository{user: existing}
+			refreshTokenRepo := &fakeRefreshTokenRepo{}
+			resetTokenRepo := &fakePasswordResetTokenRepo{
+				token: &user.PasswordResetToken{UserID: userID, Language: mail.LanguageEN},
+			}
+			mailService := &fakeMailService{}
+			uu := NewUserUsecase(
+				repo, refreshTokenRepo, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.ResetPassword(ctx, value, newPassword); err != nil {
+				t.Fatalf("ResetPassword(ctx, %v, %v) error = %v", value, newPassword, err)
+			}
+
+			got := repo.updated
+			if got == nil || got.ID != userID {
+				t.Fatalf("ResetPassword(ctx, %v, %v) updated %v, want user %v", value, newPassword, got, userID)
+			}
+			if err := bcrypt.CompareHashAndPassword(
+				[]byte(got.HashedPassword),
+				[]byte(newPassword),
+			); err != nil {
+				t.Errorf(
+					"ResetPassword(ctx, %v, %v) HashedPassword = %v, want a bcrypt hash of %v",
+					value, newPassword, got.HashedPassword, newPassword,
+				)
+			}
+			if len(resetTokenRepo.deletedUserIDs) != 1 || resetTokenRepo.deletedUserIDs[0] != userID {
+				t.Errorf(
+					"ResetPassword(ctx, %v, %v) deleted tokens of %v, want %v",
+					value, newPassword, resetTokenRepo.deletedUserIDs, userID,
+				)
+			}
+			if refreshTokenRepo.revokedUserID != userID {
+				t.Errorf(
+					"ResetPassword(ctx, %v, %v) revoked refresh tokens of %v, want %v",
+					value, newPassword, refreshTokenRepo.revokedUserID, userID,
+				)
+			}
+			if len(mailService.sent) != 1 ||
+				mailService.sent[0].To != mail.Address(email) ||
+				mailService.sent[0].Subject != mail.Subject("[Cinelier] Your password has been changed") {
+				t.Errorf(
+					"ResetPassword(ctx, %v, %v) sent %v, want one notice in English to %v",
+					value, newPassword, mailService.sent, email,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when the token is invalid or expired",
+		func(t *testing.T) {
+			repo := &fakeRepository{}
+			resetTokenRepo := &fakePasswordResetTokenRepo{findErr: exception.ErrInvalid}
+			uu := NewUserUsecase(
+				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, &fakeMailService{},
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			err := uu.ResetPassword(ctx, value, newPassword)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf("ResetPassword(ctx, %v, %v) error = %v, want %v", value, newPassword, err, exception.ErrInvalid)
+			}
+			if repo.updated != nil {
+				t.Errorf("ResetPassword(ctx, %v, %v) updated %v, want no update", value, newPassword, repo.updated)
+			}
+		},
+	)
+
+	t.Run(
+		"succeeds even when notifying the user fails",
+		func(t *testing.T) {
+			repo := &fakeRepository{user: &user.User{ID: userID, Email: email}}
+			resetTokenRepo := &fakePasswordResetTokenRepo{
+				token: &user.PasswordResetToken{UserID: userID, Language: mail.LanguageJA},
+			}
+			uu := NewUserUsecase(
+				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo,
+				&fakeMailService{err: errors.New("send mail")},
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.ResetPassword(ctx, value, newPassword); err != nil {
+				t.Fatalf("ResetPassword(ctx, %v, %v) error = %v, want nil", value, newPassword, err)
+			}
+			if repo.updated == nil {
+				t.Errorf("ResetPassword(ctx, %v, %v) did not update the password", value, newPassword)
+			}
+		},
+	)
+}
+
+func TestDeleteExpiredPasswordResetTokens(t *testing.T) {
+	t.Run(
+		"deletes the expired password reset tokens",
+		func(t *testing.T) {
+			resetTokenRepo := &fakePasswordResetTokenRepo{}
+			uu := NewUserUsecase(
+				&fakeRepository{}, &fakeRefreshTokenRepo{}, &fakeMediaService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, &fakeMailService{},
+				testSupportAddress, testAdminAddress, testWebBaseURL,
+			)
+
+			ctx := context.Background()
+
+			if err := uu.DeleteExpiredPasswordResetTokens(ctx); err != nil {
+				t.Fatalf("DeleteExpiredPasswordResetTokens(ctx) error = %v", err)
+			}
+			if !resetTokenRepo.deletedExpired {
+				t.Errorf("DeleteExpiredPasswordResetTokens(ctx) did not delete the expired tokens")
+			}
+		},
+	)
+}
+
 func TestDeleteUnverifiedUsers(t *testing.T) {
 	t.Run(
 		"deletes the unverified users created before the retention period",
@@ -763,7 +1069,7 @@ func TestDeleteUnverifiedUsers(t *testing.T) {
 			repo := &fakeRepository{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -802,7 +1108,7 @@ func TestUpdateUsername(t *testing.T) {
 			repo := &fakeRepository{user: existing}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -835,7 +1141,7 @@ func TestUpdateUsername(t *testing.T) {
 			repo := &fakeRepository{getErr: exception.ErrNotFound}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -878,7 +1184,7 @@ func TestUpdateEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -946,7 +1252,7 @@ func TestUpdateEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -990,7 +1296,7 @@ func TestUpdateEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1026,7 +1332,7 @@ func TestUpdateEmail(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1055,7 +1361,7 @@ func TestUpdateEmail(t *testing.T) {
 			repo := &fakeRepository{getErr: exception.ErrNotFound}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1091,7 +1397,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1137,7 +1443,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1175,7 +1481,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			mailService := &fakeMailService{}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, mailService,
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1201,7 +1507,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			changeTokenRepo := &fakeEmailChangeTokenRepo{findErr: exception.ErrInvalid}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1229,7 +1535,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakeMailService{err: errors.New("send mail")},
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{err: errors.New("send mail")},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1252,7 +1558,7 @@ func TestDeleteExpiredEmailChangeTokens(t *testing.T) {
 			changeTokenRepo := &fakeEmailChangeTokenRepo{}
 			uu := NewUserUsecase(
 				&fakeRepository{}, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1286,7 +1592,7 @@ func TestUpdatePassword(t *testing.T) {
 			repo := &fakeRepository{user: existing}
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1333,7 +1639,7 @@ func TestUpdatePassword(t *testing.T) {
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1369,7 +1675,7 @@ func TestUpdatePassword(t *testing.T) {
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1402,7 +1708,7 @@ func TestUpdatePassword(t *testing.T) {
 			refreshTokenRepo := &fakeRefreshTokenRepo{}
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1437,7 +1743,7 @@ func TestDelete(t *testing.T) {
 			mediaService := &fakeMediaService{}
 			uu := NewUserUsecase(
 				&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService,
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 
@@ -1466,7 +1772,7 @@ func TestDelete(t *testing.T) {
 			}
 			uu := NewUserUsecase(
 				&fakeRepository{}, &fakeRefreshTokenRepo{}, mediaService,
-				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakeMailService{},
+				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
 				testSupportAddress, testAdminAddress, testWebBaseURL,
 			)
 

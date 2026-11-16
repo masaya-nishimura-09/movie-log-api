@@ -50,6 +50,16 @@ type Usecase interface {
 		ctx context.Context,
 		value user.EmailChangeTokenValue,
 	) error
+	RequestPasswordReset(
+		ctx context.Context,
+		email user.Email,
+		language mail.Language,
+	) error
+	ResetPassword(
+		ctx context.Context,
+		value user.PasswordResetTokenValue,
+		newPassword user.Password,
+	) error
 	UpdatePassword(
 		ctx context.Context,
 		userID user.ID,
@@ -59,6 +69,7 @@ type Usecase interface {
 	Delete(ctx context.Context, userID user.ID) error
 	DeleteUnverifiedUsers(ctx context.Context) error
 	DeleteExpiredEmailChangeTokens(ctx context.Context) error
+	DeleteExpiredPasswordResetTokens(ctx context.Context) error
 }
 
 type UserUsecase struct {
@@ -67,6 +78,7 @@ type UserUsecase struct {
 	mediaService               media.Service
 	emailVerificationTokenRepo user.EmailVerificationTokenRepository
 	emailChangeTokenRepo       user.EmailChangeTokenRepository
+	passwordResetTokenRepo     user.PasswordResetTokenRepository
 	mailService                mail.Service
 	supportAddress             mail.Address
 	adminAddress               mail.Address
@@ -79,6 +91,7 @@ func NewUserUsecase(
 	mediaService media.Service,
 	emailVerificationTokenRepo user.EmailVerificationTokenRepository,
 	emailChangeTokenRepo user.EmailChangeTokenRepository,
+	passwordResetTokenRepo user.PasswordResetTokenRepository,
 	mailService mail.Service,
 	supportAddress mail.Address,
 	adminAddress mail.Address,
@@ -90,6 +103,7 @@ func NewUserUsecase(
 		mediaService:               mediaService,
 		emailVerificationTokenRepo: emailVerificationTokenRepo,
 		emailChangeTokenRepo:       emailChangeTokenRepo,
+		passwordResetTokenRepo:     passwordResetTokenRepo,
 		mailService:                mailService,
 		supportAddress:             supportAddress,
 		adminAddress:               adminAddress,
@@ -426,6 +440,119 @@ func (uu *UserUsecase) VerifyEmailChange(
 	)
 	if err := uu.mailService.Send(ctx, m); err != nil {
 		slog.WarnContext(ctx, "email_changed_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if !existingUser.IsEmailVerified() {
+		return nil
+	}
+
+	latestToken, err := uu.passwordResetTokenRepo.FindLatestByUserID(ctx, existingUser.ID)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("find latest password reset token: %w", err)
+	}
+	if latestToken != nil && time.Since(latestToken.CreatedAt) < user.PasswordResetRequestInterval {
+		return nil
+	}
+
+	if err := uu.passwordResetTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete password reset tokens: %w", err)
+	}
+
+	token, err := uu.passwordResetTokenRepo.Create(ctx, existingUser.ID, language)
+	if err != nil {
+		return fmt.Errorf("create password reset token: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(existingUser.Email),
+		language,
+		logoURL(uu.webBaseURL),
+		passwordResetMailContent(language, passwordResetURL(uu.webBaseURL, language, token.Value)),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		return fmt.Errorf("send password reset mail: %w", err)
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	token, err := uu.passwordResetTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find password reset token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("reset password: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	u := user.NewUser(
+		existingUser.Username,
+		existingUser.Email,
+		user.HashedPassword(hashed),
+		existingUser.Role,
+	)
+	u.ID = existingUser.ID
+
+	if err := uu.userRepo.UpdatePassword(ctx, &u); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	if err := uu.passwordResetTokenRepo.DeleteAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("delete password reset tokens: %w", err)
+	}
+
+	if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("revoke refresh tokens: %w", err)
+	}
+
+	m := buildMessage(
+		uu.supportAddress,
+		mail.Address(u.Email),
+		token.Language,
+		logoURL(uu.webBaseURL),
+		passwordChangedMailContent(token.Language, contactURL(uu.webBaseURL, token.Language)),
+	)
+	if err := uu.mailService.Send(ctx, m); err != nil {
+		slog.WarnContext(ctx, "password_changed_mail_failed", "userId", fmt.Sprint(u.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+	if err := uu.passwordResetTokenRepo.DeleteExpired(ctx); err != nil {
+		return fmt.Errorf("delete expired password reset tokens: %w", err)
 	}
 
 	return nil

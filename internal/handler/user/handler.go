@@ -46,6 +46,42 @@ type VerifyEmailChangeReq struct {
 	Token string `json:"token"`
 }
 
+type RequestPasswordResetReq struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordReq struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+func (r RequestPasswordResetReq) toDomain() (
+	userdomain.Email,
+	error,
+) {
+	email, err := userdomain.NewEmail(r.Email)
+	if err != nil {
+		return "", err
+	}
+	return email, nil
+}
+
+func (r ResetPasswordReq) toDomain() (
+	userdomain.PasswordResetTokenValue,
+	userdomain.Password,
+	error,
+) {
+	value, err := userdomain.NewPasswordResetTokenValue(r.Token)
+	if err != nil {
+		return "", "", err
+	}
+	password, err := userdomain.NewPassword(r.Password)
+	if err != nil {
+		return "", "", err
+	}
+	return value, password, nil
+}
+
 func (r VerifyEmailChangeReq) toDomain() (
 	userdomain.EmailChangeTokenValue,
 	error,
@@ -435,6 +471,74 @@ func (uh *UserHandler) VerifyEmailChange(c *gin.Context) {
 	}
 	if verifyEmailChangeErr != nil {
 		logging.Error(c, "request_failed", verifyEmailChangeErr)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (uh *UserHandler) RequestPasswordReset(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req RequestPasswordResetReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	language, ok := getLanguage(c)
+	if !ok {
+		return
+	}
+
+	email, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	if err := uh.userUsecase.RequestPasswordReset(ctx, email, language); err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (uh *UserHandler) ResetPassword(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req ResetPasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.MalformedBody(c)
+		return
+	}
+
+	value, newPassword, err := req.toDomain()
+	if errors.Is(err, exception.ErrInvalid) {
+		response.InvalidInput(c, err)
+		return
+	}
+	if err != nil {
+		logging.Error(c, "request_failed", err)
+		response.InternalServerError(c)
+		return
+	}
+
+	resetPasswordErr := uh.userUsecase.ResetPassword(ctx, value, newPassword)
+	if errors.Is(resetPasswordErr, exception.ErrInvalid) {
+		response.InvalidPasswordResetToken(c)
+		return
+	}
+	if resetPasswordErr != nil {
+		logging.Error(c, "request_failed", resetPasswordErr)
 		response.InternalServerError(c)
 		return
 	}
