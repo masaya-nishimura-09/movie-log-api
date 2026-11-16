@@ -1,0 +1,8 @@
+{{define "content"}}
+{{template "heading" "新しいメールアドレスの確認"}}
+{{template "paragraph" "Cinelier のアカウントのメールアドレスを、このアドレスに変更する申し込みがありました。"}}
+{{template "paragraph" "下のボタンを押すと、変更が完了します。"}}
+{{template "button" (button "メールアドレスを変更する" .URL)}}
+{{template "note" "このリンクの有効期限は24時間です。変更が完了するまでは、今のメールアドレスのままです。"}}
+{{template "note" "心当たりがない場合は、このメールを破棄してください。"}}
+{{end}}

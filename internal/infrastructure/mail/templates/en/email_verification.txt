@@ -1,0 +1,11 @@
+{{define "subject"}}[Cinelier] Verify your email address{{end}}
+{{define "content"}}Verify your email address
+
+Thank you for signing up for Cinelier.
+Click the button below to verify your email address.
+
+Verify email address
+{{.URL}}
+
+This link expires in 24 hours.
+If you did not sign up, you can ignore this email.{{end}}

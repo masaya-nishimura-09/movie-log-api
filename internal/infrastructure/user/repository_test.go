@@ -849,7 +849,7 @@ func TestReplaceUnverified(t *testing.T) {
 			}
 			if got.Email != u1.Email ||
 				got.Role != u1.Role ||
-				got.IsEmailVerified() {
+				got.EmailVerifiedAt != nil {
 				t.Errorf(
 					"GetByID(ctx, %d) (user.User, error) = %v, want Email and Role of %v and not verified",
 					u1.ID, got, u1,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,9 +16,8 @@ import (
 )
 
 var (
-	testSupportAddress = mail.Address("support@example.com")
-	testAdminAddress   = mail.Address("admin@example.com")
-	testWebBaseURL     = &url.URL{Scheme: "https", Host: "web.example.com"}
+	testAdminAddress = mail.Address("admin@example.com")
+	testWebBaseURL   = &url.URL{Scheme: "https", Host: "web.example.com"}
 )
 
 type fakeRepository struct {
@@ -223,17 +221,105 @@ func (r *fakePasswordResetTokenRepo) DeleteExpired(
 	return nil
 }
 
+type sentMail struct {
+	kind     string
+	to       mail.Address
+	language mail.Language
+	url      mail.URL
+	newEmail mail.Address
+}
+
 type fakeMailService struct {
-	sent []mail.Message
+	sent []sentMail
 	err  error
 }
 
-func (s *fakeMailService) Send(ctx context.Context, m mail.Message) error {
+func (s *fakeMailService) record(m sentMail) error {
 	if s.err != nil {
 		return s.err
 	}
 	s.sent = append(s.sent, m)
 	return nil
+}
+
+func (s *fakeMailService) SendEmailVerification(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	verificationURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "EmailVerification", to: to, language: language, url: verificationURL})
+}
+
+func (s *fakeMailService) SendAlreadyRegistered(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	loginURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "AlreadyRegistered", to: to, language: language, url: loginURL})
+}
+
+func (s *fakeMailService) SendUserVerified(
+	ctx context.Context,
+	to mail.Address,
+	verifiedAt time.Time,
+) error {
+	return s.record(sentMail{kind: "UserVerified", to: to})
+}
+
+func (s *fakeMailService) SendEmailChangeVerification(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	verificationURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "EmailChangeVerification", to: to, language: language, url: verificationURL})
+}
+
+func (s *fakeMailService) SendEmailChangeAlreadyRegistered(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	loginURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "EmailChangeAlreadyRegistered", to: to, language: language, url: loginURL})
+}
+
+func (s *fakeMailService) SendEmailChanged(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	newEmail mail.Address,
+	contactURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "EmailChanged", to: to, language: language, url: contactURL, newEmail: newEmail})
+}
+
+func (s *fakeMailService) SendPasswordReset(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	resetURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "PasswordReset", to: to, language: language, url: resetURL})
+}
+
+func (s *fakeMailService) SendPasswordChanged(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+	contactURL mail.URL,
+) error {
+	return s.record(sentMail{kind: "PasswordChanged", to: to, language: language, url: contactURL})
+}
+
+func (s *fakeMailService) SendWithdrawn(
+	ctx context.Context,
+	to mail.Address,
+	language mail.Language,
+) error {
+	return s.record(sentMail{kind: "Withdrawn", to: to, language: language})
 }
 
 func (r *fakeRepository) UpdateUsername(ctx context.Context, u *user.User) error {
@@ -354,7 +440,7 @@ func TestCreate(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -379,7 +465,7 @@ func TestCreate(t *testing.T) {
 					username, email, password, language, got.HashedPassword, password,
 				)
 			}
-			if got.Username != username || got.Email != email || got.Role != user.RoleUser || got.IsEmailVerified() {
+			if got.Username != username || got.Email != email || got.Role != user.RoleUser || got.EmailVerifiedAt != nil {
 				t.Errorf(
 					"Create(ctx, %v, %v, %v, %v) created %v, want an unverified user with role %v",
 					username, email, password, language, got, user.RoleUser,
@@ -400,17 +486,16 @@ func TestCreate(t *testing.T) {
 				)
 			}
 			m := mailService.sent[0]
-			wantURL := "https://web.example.com/ja/verify-email?token=testtokenvalue"
-			wantLogoURL := "https://web.example.com/mail/logo.png"
-			if m.From != testSupportAddress ||
-				m.To != mail.Address(email) ||
-				m.Subject != mail.Subject("【Cinelier】メールアドレスの確認") ||
-				!strings.Contains(string(m.HTMLBody), wantURL) ||
-				!strings.Contains(string(m.HTMLBody), wantLogoURL) ||
-				!strings.Contains(string(m.TextBody), wantURL) {
+			want := sentMail{
+				kind:     "EmailVerification",
+				to:       mail.Address(email),
+				language: language,
+				url:      mail.URL("https://web.example.com/ja/verify-email?token=testtokenvalue"),
+			}
+			if m != want {
 				t.Errorf(
-					"Create(ctx, %v, %v, %v, %v) sent %v, want a verification mail from %v to %v with %v and the logo %v",
-					username, email, password, language, m, testSupportAddress, email, wantURL, wantLogoURL,
+					"Create(ctx, %v, %v, %v, %v) sent %v, want %v",
+					username, email, password, language, m, want,
 				)
 			}
 		},
@@ -431,7 +516,7 @@ func TestCreate(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -458,13 +543,16 @@ func TestCreate(t *testing.T) {
 				)
 			}
 			m := mailService.sent[0]
-			wantURL := "https://web.example.com/en/login"
-			if m.To != mail.Address(email) ||
-				m.Subject != mail.Subject("[Cinelier] This email address is already registered") ||
-				!strings.Contains(string(m.TextBody), wantURL) {
+			want := sentMail{
+				kind:     "AlreadyRegistered",
+				to:       mail.Address(email),
+				language: language,
+				url:      mail.URL("https://web.example.com/en/login"),
+			}
+			if m != want {
 				t.Errorf(
-					"Create(ctx, %v, %v, %v, %v) sent %v, want an already registered mail to %v with %v",
-					username, email, password, language, m, email, wantURL,
+					"Create(ctx, %v, %v, %v, %v) sent %v, want %v",
+					username, email, password, language, m, want,
 				)
 			}
 		},
@@ -486,7 +574,7 @@ func TestCreate(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -528,7 +616,7 @@ func TestCreate(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].Subject != mail.Subject("【Cinelier】メールアドレスの確認") {
+				mailService.sent[0].kind != "EmailVerification" {
 				t.Errorf(
 					"Create(ctx, %v, %v, %v, %v) sent %v, want one verification mail",
 					username, email, password, language, mailService.sent,
@@ -548,7 +636,7 @@ func TestCreate(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -576,7 +664,7 @@ func TestCreate(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -606,7 +694,7 @@ func TestVerifyEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -615,7 +703,7 @@ func TestVerifyEmail(t *testing.T) {
 				t.Fatalf("VerifyEmail(ctx, %v) error = %v", value, err)
 			}
 
-			if repo.verified == nil || repo.verified.ID != userID || !repo.verified.IsEmailVerified() {
+			if repo.verified == nil || repo.verified.ID != userID || repo.verified.EmailVerifiedAt == nil {
 				t.Errorf(
 					"VerifyEmail(ctx, %v) updated %v, want user %v to be verified",
 					value, repo.verified, userID,
@@ -628,10 +716,10 @@ func TestVerifyEmail(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].To != testAdminAddress ||
-				strings.Contains(string(mailService.sent[0].TextBody), "test@example.com") {
+				mailService.sent[0].kind != "UserVerified" ||
+				mailService.sent[0].to != testAdminAddress {
 				t.Errorf(
-					"VerifyEmail(ctx, %v) sent %v, want one mail to %v without the user's email",
+					"VerifyEmail(ctx, %v) sent %v, want one user verified notice to %v",
 					value, mailService.sent, testAdminAddress,
 				)
 			}
@@ -647,7 +735,7 @@ func TestVerifyEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -677,7 +765,7 @@ func TestVerifyEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -705,7 +793,7 @@ func TestVerifyEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -739,7 +827,7 @@ func TestResendVerificationEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -753,7 +841,9 @@ func TestResendVerificationEmail(t *testing.T) {
 					email, language, tokenRepo.deletedUserIDs, tokenRepo.created,
 				)
 			}
-			if len(mailService.sent) != 1 || mailService.sent[0].To != mail.Address(email) {
+			if len(mailService.sent) != 1 ||
+				mailService.sent[0].kind != "EmailVerification" ||
+				mailService.sent[0].to != mail.Address(email) {
 				t.Errorf(
 					"ResendVerificationEmail(ctx, %v, %v) sent %v, want one mail to %v",
 					email, language, mailService.sent, email,
@@ -792,7 +882,7 @@ func TestResendVerificationEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				tt.repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				tokenRepo, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -830,7 +920,7 @@ func TestRequestPasswordReset(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -861,13 +951,16 @@ func TestRequestPasswordReset(t *testing.T) {
 				)
 			}
 			m := mailService.sent[0]
-			wantURL := "https://web.example.com/ja/reset-password?token=testresettokenvalue"
-			if m.To != mail.Address(email) ||
-				m.Subject != mail.Subject("【Cinelier】パスワードの再設定") ||
-				!strings.Contains(string(m.TextBody), wantURL) {
+			want := sentMail{
+				kind:     "PasswordReset",
+				to:       mail.Address(email),
+				language: language,
+				url:      mail.URL("https://web.example.com/ja/reset-password?token=testresettokenvalue"),
+			}
+			if m != want {
 				t.Errorf(
-					"RequestPasswordReset(ctx, %v, %v) sent %v, want a reset mail to %v with %v",
-					email, language, m, email, wantURL,
+					"RequestPasswordReset(ctx, %v, %v) sent %v, want %v",
+					email, language, m, want,
 				)
 			}
 		},
@@ -902,7 +995,7 @@ func TestRequestPasswordReset(t *testing.T) {
 			uu := NewUserUsecase(
 				tt.repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -945,7 +1038,7 @@ func TestResetPassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -980,8 +1073,9 @@ func TestResetPassword(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].To != mail.Address(email) ||
-				mailService.sent[0].Subject != mail.Subject("[Cinelier] Your password has been changed") {
+				mailService.sent[0].kind != "PasswordChanged" ||
+				mailService.sent[0].to != mail.Address(email) ||
+				mailService.sent[0].language != mail.LanguageEN {
 				t.Errorf(
 					"ResetPassword(ctx, %v, %v) sent %v, want one notice in English to %v",
 					value, newPassword, mailService.sent, email,
@@ -998,7 +1092,7 @@ func TestResetPassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1024,7 +1118,7 @@ func TestResetPassword(t *testing.T) {
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo,
 				&fakeMailService{err: errors.New("send mail")},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1047,7 +1141,7 @@ func TestDeleteExpiredPasswordResetTokens(t *testing.T) {
 			uu := NewUserUsecase(
 				&fakeRepository{}, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, resetTokenRepo, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1070,7 +1164,7 @@ func TestDeleteUnverifiedUsers(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1109,7 +1203,7 @@ func TestUpdateUsername(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1142,7 +1236,7 @@ func TestUpdateUsername(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1185,7 +1279,7 @@ func TestUpdateEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1224,13 +1318,16 @@ func TestUpdateEmail(t *testing.T) {
 				)
 			}
 			m := mailService.sent[0]
-			wantURL := "https://web.example.com/ja/verify-email-change?token=testchangetokenvalue"
-			if m.To != mail.Address(newEmail) ||
-				m.Subject != mail.Subject("【Cinelier】新しいメールアドレスの確認") ||
-				!strings.Contains(string(m.TextBody), wantURL) {
+			want := sentMail{
+				kind:     "EmailChangeVerification",
+				to:       mail.Address(newEmail),
+				language: language,
+				url:      mail.URL("https://web.example.com/ja/verify-email-change?token=testchangetokenvalue"),
+			}
+			if m != want {
 				t.Errorf(
-					"UpdateEmail(ctx, %v, %v, %v, %v) sent %v, want a verification mail to %v with %v",
-					userID, newEmail, password, language, m, newEmail, wantURL,
+					"UpdateEmail(ctx, %v, %v, %v, %v) sent %v, want %v",
+					userID, newEmail, password, language, m, want,
 				)
 			}
 		},
@@ -1253,7 +1350,7 @@ func TestUpdateEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1271,8 +1368,8 @@ func TestUpdateEmail(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].To != mail.Address(newEmail) ||
-				mailService.sent[0].Subject != mail.Subject("【Cinelier】このメールアドレスは登録済みです") {
+				mailService.sent[0].kind != "EmailChangeAlreadyRegistered" ||
+				mailService.sent[0].to != mail.Address(newEmail) {
 				t.Errorf(
 					"UpdateEmail(ctx, %v, %v, %v, %v) sent %v, want one already registered mail to %v",
 					userID, newEmail, password, language, mailService.sent, newEmail,
@@ -1297,7 +1394,7 @@ func TestUpdateEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1310,7 +1407,7 @@ func TestUpdateEmail(t *testing.T) {
 			}
 			if changeTokenRepo.created == nil ||
 				len(mailService.sent) != 1 ||
-				mailService.sent[0].Subject != mail.Subject("【Cinelier】新しいメールアドレスの確認") {
+				mailService.sent[0].kind != "EmailChangeVerification" {
 				t.Errorf(
 					"UpdateEmail(ctx, %v, %v, %v, %v) created %v and sent %v, want a token and one verification mail",
 					userID, newEmail, password, language, changeTokenRepo.created, mailService.sent,
@@ -1333,7 +1430,7 @@ func TestUpdateEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1362,7 +1459,7 @@ func TestUpdateEmail(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1398,7 +1495,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1420,8 +1517,10 @@ func TestVerifyEmailChange(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].To != mail.Address(oldEmail) ||
-				mailService.sent[0].Subject != mail.Subject("[Cinelier] Your email address has been changed") {
+				mailService.sent[0].kind != "EmailChanged" ||
+				mailService.sent[0].to != mail.Address(oldEmail) ||
+				mailService.sent[0].language != mail.LanguageEN ||
+				mailService.sent[0].newEmail != mail.Address(newEmail) {
 				t.Errorf(
 					"VerifyEmailChange(ctx, %v) sent %v, want one notice in English to %v",
 					value, mailService.sent, oldEmail,
@@ -1444,7 +1543,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1482,7 +1581,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1508,7 +1607,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1536,7 +1635,7 @@ func TestVerifyEmailChange(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{err: errors.New("send mail")},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1559,7 +1658,7 @@ func TestDeleteExpiredEmailChangeTokens(t *testing.T) {
 			uu := NewUserUsecase(
 				&fakeRepository{}, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, changeTokenRepo, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1593,7 +1692,7 @@ func TestUpdatePassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1640,7 +1739,7 @@ func TestUpdatePassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1676,7 +1775,7 @@ func TestUpdatePassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1709,7 +1808,7 @@ func TestUpdatePassword(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, refreshTokenRepo, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1748,7 +1847,7 @@ func TestDelete(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, mediaService,
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1772,8 +1871,8 @@ func TestDelete(t *testing.T) {
 				)
 			}
 			if len(mailService.sent) != 1 ||
-				mailService.sent[0].To != mail.Address(email) ||
-				mailService.sent[0].Subject != mail.Subject("【Cinelier】退会が完了しました") {
+				mailService.sent[0].kind != "Withdrawn" ||
+				mailService.sent[0].to != mail.Address(email) {
 				t.Errorf(
 					"Delete(ctx, %v, %v) sent %v, want one withdrawn mail to %v",
 					userID, language, mailService.sent, email,
@@ -1790,7 +1889,7 @@ func TestDelete(t *testing.T) {
 			uu := NewUserUsecase(
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, mailService,
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1820,7 +1919,7 @@ func TestDelete(t *testing.T) {
 			uu := NewUserUsecase(
 				&fakeRepository{user: &user.User{ID: userID, Email: email}}, &fakeRefreshTokenRepo{}, mediaService,
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{}, &fakeMailService{},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()
@@ -1842,7 +1941,7 @@ func TestDelete(t *testing.T) {
 				repo, &fakeRefreshTokenRepo{}, &fakeMediaService{},
 				&fakeEmailVerificationTokenRepo{}, &fakeEmailChangeTokenRepo{}, &fakePasswordResetTokenRepo{},
 				&fakeMailService{err: errors.New("send mail")},
-				testSupportAddress, testAdminAddress, testWebBaseURL,
+				testAdminAddress, testWebBaseURL,
 			)
 
 			ctx := context.Background()

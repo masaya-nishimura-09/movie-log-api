@@ -302,7 +302,11 @@ func main() {
 		db,
 		userdomain.PasswordResetTokenTTL,
 	)
-	mailService := mailinfra.NewService(resendClient)
+	mailService := mailinfra.NewService(
+		resendClient,
+		maildomain.Address(mailSupportAddress),
+		webBaseURL,
+	)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -318,7 +322,6 @@ func main() {
 		emailChangeTokenRepo,
 		passwordResetTokenRepo,
 		mailService,
-		maildomain.Address(mailSupportAddress),
 		maildomain.Address(mailAdminAddress),
 		webBaseURL,
 	)

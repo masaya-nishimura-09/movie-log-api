@@ -80,7 +80,6 @@ type UserUsecase struct {
 	emailChangeTokenRepo       user.EmailChangeTokenRepository
 	passwordResetTokenRepo     user.PasswordResetTokenRepository
 	mailService                mail.Service
-	supportAddress             mail.Address
 	adminAddress               mail.Address
 	webBaseURL                 *url.URL
 }
@@ -93,7 +92,6 @@ func NewUserUsecase(
 	emailChangeTokenRepo user.EmailChangeTokenRepository,
 	passwordResetTokenRepo user.PasswordResetTokenRepository,
 	mailService mail.Service,
-	supportAddress mail.Address,
 	adminAddress mail.Address,
 	webBaseURL *url.URL,
 ) *UserUsecase {
@@ -105,7 +103,6 @@ func NewUserUsecase(
 		emailChangeTokenRepo:       emailChangeTokenRepo,
 		passwordResetTokenRepo:     passwordResetTokenRepo,
 		mailService:                mailService,
-		supportAddress:             supportAddress,
 		adminAddress:               adminAddress,
 		webBaseURL:                 webBaseURL,
 	}
@@ -140,15 +137,13 @@ func (uu *UserUsecase) Create(
 		return fmt.Errorf("get user by email: %w", err)
 	}
 
-	if existingUser != nil && existingUser.IsEmailVerified() {
-		m := buildMessage(
-			uu.supportAddress,
+	if existingUser != nil && existingUser.EmailVerifiedAt != nil {
+		if err := uu.mailService.SendAlreadyRegistered(
+			ctx,
 			mail.Address(existingUser.Email),
 			language,
-			logoURL(uu.webBaseURL),
-			alreadyRegisteredMailContent(language, loginURL(uu.webBaseURL, language)),
-		)
-		if err := uu.mailService.Send(ctx, m); err != nil {
+			loginURL(uu.webBaseURL, language),
+		); err != nil {
 			return fmt.Errorf("send already registered mail: %w", err)
 		}
 		return nil
@@ -200,7 +195,7 @@ func (uu *UserUsecase) VerifyEmail(
 		return fmt.Errorf("get user by id: %w", err)
 	}
 
-	if existingUser.IsEmailVerified() {
+	if existingUser.EmailVerifiedAt != nil {
 		if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
 			return fmt.Errorf("delete email verification tokens: %w", err)
 		}
@@ -217,14 +212,7 @@ func (uu *UserUsecase) VerifyEmail(
 		return fmt.Errorf("delete email verification tokens: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
-		uu.adminAddress,
-		mail.LanguageJA,
-		logoURL(uu.webBaseURL),
-		userVerifiedMailContent(verifiedAt),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+	if err := uu.mailService.SendUserVerified(ctx, uu.adminAddress, verifiedAt); err != nil {
 		slog.WarnContext(ctx, "user_verified_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
 	}
 
@@ -244,7 +232,7 @@ func (uu *UserUsecase) ResendVerificationEmail(
 		return fmt.Errorf("get user by email: %w", err)
 	}
 
-	if existingUser.IsEmailVerified() {
+	if existingUser.EmailVerifiedAt != nil {
 		return nil
 	}
 
@@ -277,14 +265,12 @@ func (uu *UserUsecase) sendVerificationMail(
 		return fmt.Errorf("create email verification token: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
+	if err := uu.mailService.SendEmailVerification(
+		ctx,
 		mail.Address(u.Email),
 		language,
-		logoURL(uu.webBaseURL),
-		verificationMailContent(language, verificationURL(uu.webBaseURL, language, token.Value)),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+		verificationURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
 		return fmt.Errorf("send verification mail: %w", err)
 	}
 
@@ -344,15 +330,13 @@ func (uu *UserUsecase) UpdateEmail(
 		return fmt.Errorf("get user by email: %w", err)
 	}
 
-	if otherUser != nil && otherUser.IsEmailVerified() {
-		m := buildMessage(
-			uu.supportAddress,
+	if otherUser != nil && otherUser.EmailVerifiedAt != nil {
+		if err := uu.mailService.SendEmailChangeAlreadyRegistered(
+			ctx,
 			mail.Address(newEmail),
 			language,
-			logoURL(uu.webBaseURL),
-			emailChangeAlreadyRegisteredMailContent(language, loginURL(uu.webBaseURL, language)),
-		)
-		if err := uu.mailService.Send(ctx, m); err != nil {
+			loginURL(uu.webBaseURL, language),
+		); err != nil {
 			return fmt.Errorf("send already registered mail: %w", err)
 		}
 		return nil
@@ -367,17 +351,12 @@ func (uu *UserUsecase) UpdateEmail(
 		return fmt.Errorf("create email change token: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
+	if err := uu.mailService.SendEmailChangeVerification(
+		ctx,
 		mail.Address(newEmail),
 		language,
-		logoURL(uu.webBaseURL),
-		emailChangeVerificationMailContent(
-			language,
-			emailChangeVerificationURL(uu.webBaseURL, language, token.Value),
-		),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+		emailChangeVerificationURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
 		return fmt.Errorf("send email change verification mail: %w", err)
 	}
 
@@ -413,7 +392,7 @@ func (uu *UserUsecase) VerifyEmailChange(
 	}
 
 	if otherUser != nil {
-		if otherUser.IsEmailVerified() {
+		if otherUser.EmailVerifiedAt != nil {
 			return fmt.Errorf("verify email change: %w", exception.ErrAlreadyExists)
 		}
 		if err := uu.userRepo.Delete(ctx, otherUser.ID); err != nil {
@@ -431,14 +410,13 @@ func (uu *UserUsecase) VerifyEmailChange(
 		return fmt.Errorf("delete email change tokens: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
+	if err := uu.mailService.SendEmailChanged(
+		ctx,
 		mail.Address(oldEmail),
 		token.Language,
-		logoURL(uu.webBaseURL),
-		emailChangedMailContent(token.Language, token.NewEmail, contactURL(uu.webBaseURL, token.Language)),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+		mail.Address(token.NewEmail),
+		contactURL(uu.webBaseURL, token.Language),
+	); err != nil {
 		slog.WarnContext(ctx, "email_changed_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
 	}
 
@@ -458,7 +436,7 @@ func (uu *UserUsecase) RequestPasswordReset(
 		return fmt.Errorf("get user by email: %w", err)
 	}
 
-	if !existingUser.IsEmailVerified() {
+	if existingUser.EmailVerifiedAt == nil {
 		return nil
 	}
 
@@ -479,14 +457,12 @@ func (uu *UserUsecase) RequestPasswordReset(
 		return fmt.Errorf("create password reset token: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
+	if err := uu.mailService.SendPasswordReset(
+		ctx,
 		mail.Address(existingUser.Email),
 		language,
-		logoURL(uu.webBaseURL),
-		passwordResetMailContent(language, passwordResetURL(uu.webBaseURL, language, token.Value)),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+		passwordResetURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
 		return fmt.Errorf("send password reset mail: %w", err)
 	}
 
@@ -536,14 +512,12 @@ func (uu *UserUsecase) ResetPassword(
 		return fmt.Errorf("revoke refresh tokens: %w", err)
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
+	if err := uu.mailService.SendPasswordChanged(
+		ctx,
 		mail.Address(u.Email),
 		token.Language,
-		logoURL(uu.webBaseURL),
-		passwordChangedMailContent(token.Language, contactURL(uu.webBaseURL, token.Language)),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+		contactURL(uu.webBaseURL, token.Language),
+	); err != nil {
 		slog.WarnContext(ctx, "password_changed_mail_failed", "userId", fmt.Sprint(u.ID), "message", err.Error())
 	}
 
@@ -626,14 +600,7 @@ func (uu *UserUsecase) Delete(
 		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
 	}
 
-	m := buildMessage(
-		uu.supportAddress,
-		mail.Address(existingUser.Email),
-		language,
-		logoURL(uu.webBaseURL),
-		withdrawnMailContent(language),
-	)
-	if err := uu.mailService.Send(ctx, m); err != nil {
+	if err := uu.mailService.SendWithdrawn(ctx, mail.Address(existingUser.Email), language); err != nil {
 		slog.WarnContext(ctx, "withdrawn_mail_failed", "userId", fmt.Sprint(userID), "message", err.Error())
 	}
 
@@ -647,4 +614,42 @@ func (uu *UserUsecase) DeleteUnverifiedUsers(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func verificationURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.EmailVerificationTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "verify-email")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func emailChangeVerificationURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.EmailChangeTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "verify-email-change")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func passwordResetURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.PasswordResetTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "reset-password")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func contactURL(webBaseURL *url.URL, language mail.Language) mail.URL {
+	return mail.URL(webBaseURL.JoinPath(string(language), "contact").String())
+}
+
+func loginURL(webBaseURL *url.URL, language mail.Language) mail.URL {
+	return mail.URL(webBaseURL.JoinPath(string(language), "login").String())
 }

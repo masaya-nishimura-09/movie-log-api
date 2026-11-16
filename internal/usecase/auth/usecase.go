@@ -84,7 +84,7 @@ func (au *AuthUsecase) Login(
 		return nil, nil, fmt.Errorf("login: %w", exception.ErrInvalid)
 	}
 
-	if !existingUser.IsEmailVerified() {
+	if existingUser.EmailVerifiedAt == nil {
 		return nil, nil, fmt.Errorf("login: %w", exception.ErrForbidden)
 	}
 
