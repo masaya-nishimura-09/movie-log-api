@@ -16,6 +16,7 @@ import (
 	maildomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
+	contacthandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/contact"
 	mediahandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/media"
 	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
@@ -31,6 +32,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	contactusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/contact"
 	mediausecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/media"
 	movieusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/movie"
 	recordusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/record"
@@ -270,6 +272,17 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	contactRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	contactStore := memory.NewStore()
+	contactLimiter := ginlimiter.NewMiddleware(
+		limiter.New(contactStore, contactRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	bodyLimit := middleware.BodyLimit(1024 * 1024)
 
 	// infrastructure
@@ -307,6 +320,11 @@ func main() {
 		maildomain.Address(mailSupportAddress),
 		webBaseURL,
 	)
+	contactService := mailinfra.NewContactService(
+		resendClient,
+		maildomain.Address(mailSupportAddress),
+		webBaseURL,
+	)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -329,6 +347,10 @@ func main() {
 	attachmentUsecase := recordusecase.NewAttachmentUsecase(attachmentRepo, recordRepo, mediaService)
 	movieUsecase := movieusecase.NewMovieUsecase(movieService)
 	mediaUsecase := mediausecase.NewMediaUsecase(mediaService)
+	contactUsecase := contactusecase.NewContactUsecase(
+		contactService,
+		maildomain.Address(mailAdminAddress),
+	)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
@@ -337,6 +359,7 @@ func main() {
 	attachmentHandler := recordhandler.NewAttachmentHandler(attachmentUsecase)
 	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
+	contactHandler := contacthandler.NewContactHandler(contactUsecase)
 	scheduler := schedulerhandler.NewScheduler(authUsecase, userUsecase, cleanupInterval)
 
 	// routing
@@ -414,6 +437,12 @@ func main() {
 	media.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		media.POST("/", mediaLimiter, mediaHandler.Upload)
+	}
+
+	contacts := router.Group("/contacts")
+	contacts.Use(bodyLimit)
+	{
+		contacts.POST("", contactLimiter, contactHandler.Create)
 	}
 
 	if cleanupEnable {

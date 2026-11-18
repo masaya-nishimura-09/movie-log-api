@@ -23,6 +23,7 @@ const (
 	templatePasswordReset                = "password_reset"
 	templatePasswordChanged              = "password_changed"
 	templateWithdrawn                    = "withdrawn"
+	templateContact                      = "contact"
 )
 
 type mailTemplate struct {
@@ -31,11 +32,16 @@ type mailTemplate struct {
 }
 
 type templateData struct {
-	Language   mail.Language
-	LogoURL    string
-	URL        mail.URL
-	NewEmail   mail.Address
-	VerifiedAt string
+	Language        mail.Language
+	LogoURL         string
+	URL             mail.URL
+	NewEmail        mail.Address
+	VerifiedAt      string
+	Email           mail.Address
+	ReceiptNumber   string
+	ReceivedAt      string
+	DisplayLanguage string
+	Message         string
 }
 
 type buttonData struct {
@@ -70,6 +76,7 @@ func mustLoadTemplates() map[string]mailTemplate {
 		}
 	}
 	loaded[templateKey(mail.LanguageJA, templateUserVerified)] = mustLoadTemplate(mail.LanguageJA, templateUserVerified)
+	loaded[templateKey(mail.LanguageJA, templateContact)] = mustLoadTemplate(mail.LanguageJA, templateContact)
 
 	return loaded
 }

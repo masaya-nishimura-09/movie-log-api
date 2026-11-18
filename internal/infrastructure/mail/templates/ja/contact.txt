@@ -1,0 +1,13 @@
+{{define "subject"}}[Cinelier お問い合わせ] #{{.ReceiptNumber}} {{.Email}}{{end}}
+{{define "content"}}新しいお問い合わせ
+
+受付番号: {{.ReceiptNumber}}
+受付日時: {{.ReceivedAt}}（日本時間）
+メールアドレス: {{.Email}}
+表示言語: {{.DisplayLanguage}}
+
+お問い合わせ内容
+----------------
+{{.Message}}
+
+このメールに返信すると、問い合わせた人に届きます。{{end}}

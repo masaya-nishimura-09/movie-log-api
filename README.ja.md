@@ -275,11 +275,20 @@ scripts/              # テーブル定義、初期データ
 |----------|----------------|----------------------------|------|----------------------------|
 | POST     | /media/        | ポスター画像のアップロード | 必要 | 30 回/時間（ユーザー単位） |
 
+### お問い合わせ
+
+| メソッド | エンドポイント | 説明                                   | 認証 | レート制限 |
+|----------|----------------|----------------------------------------|------|------------|
+| POST     | /contacts      | お問い合わせ（管理者にメールを送信）   | 不要 | 10 回/時間 |
+
 ## データモデル
 
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : has
+    users ||--o{ email_verification_tokens : has
+    users ||--o{ email_change_tokens : has
+    users ||--o{ password_reset_tokens : has
     users ||--o{ records : has
     records ||--o{ record_genres : has
     records ||--o{ record_countries : has
@@ -295,6 +304,7 @@ erDiagram
         text email UK
         text hashed_password
         text role
+        timestamptz email_verified_at
     }
     refresh_tokens {
         bigint id PK
@@ -302,6 +312,27 @@ erDiagram
         text hash UK
         timestamptz expires_at
         timestamptz revoked_at
+    }
+    email_verification_tokens {
+        bigint id PK
+        bigint user_id FK
+        text hash UK
+        timestamptz expires_at
+    }
+    email_change_tokens {
+        bigint id PK
+        bigint user_id FK
+        text new_email
+        text language
+        text hash UK
+        timestamptz expires_at
+    }
+    password_reset_tokens {
+        bigint id PK
+        bigint user_id FK
+        text language
+        text hash UK
+        timestamptz expires_at
     }
     records {
         bigint id PK
