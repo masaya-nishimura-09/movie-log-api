@@ -140,15 +140,28 @@ func (s *service) send(
 	name string,
 	data templateData,
 ) error {
-	data.LogoURL = s.logoURL
+	return sendTemplate(ctx, s.client, s.from, s.logoURL, to, replyTo, name, data)
+}
+
+func sendTemplate(
+	ctx context.Context,
+	client *resend.Client,
+	from mail.Address,
+	logoURL string,
+	to mail.Address,
+	replyTo mail.ReplyTo,
+	name string,
+	data templateData,
+) error {
+	data.LogoURL = logoURL
 
 	subject, htmlBody, textBody, err := render(name, data)
 	if err != nil {
 		return fmt.Errorf("render mail: %w", err)
 	}
 
-	_, err = s.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    string(s.from),
+	_, err = client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
+		From:    string(from),
 		To:      []string{string(to)},
 		ReplyTo: string(replyTo),
 		Subject: subject,

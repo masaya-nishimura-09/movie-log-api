@@ -288,11 +288,20 @@ The rate limit is counted across both endpoints combined.
 |--------|----------|--------------------------|----------|--------------------|
 | POST   | /media/  | Upload a poster image    | Required | 30 / hour per user |
 
+### Contacts
+
+| Method | Endpoint  | Description                                  | Auth         | Rate limit |
+|--------|-----------|----------------------------------------------|--------------|------------|
+| POST   | /contacts | Send an inquiry (emails the administrator)   | Not required | 10 / hour  |
+
 ## Data Model
 
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : has
+    users ||--o{ email_verification_tokens : has
+    users ||--o{ email_change_tokens : has
+    users ||--o{ password_reset_tokens : has
     users ||--o{ records : has
     records ||--o{ record_genres : has
     records ||--o{ record_countries : has
@@ -308,6 +317,7 @@ erDiagram
         text email UK
         text hashed_password
         text role
+        timestamptz email_verified_at
     }
     refresh_tokens {
         bigint id PK
@@ -315,6 +325,27 @@ erDiagram
         text hash UK
         timestamptz expires_at
         timestamptz revoked_at
+    }
+    email_verification_tokens {
+        bigint id PK
+        bigint user_id FK
+        text hash UK
+        timestamptz expires_at
+    }
+    email_change_tokens {
+        bigint id PK
+        bigint user_id FK
+        text new_email
+        text language
+        text hash UK
+        timestamptz expires_at
+    }
+    password_reset_tokens {
+        bigint id PK
+        bigint user_id FK
+        text language
+        text hash UK
+        timestamptz expires_at
     }
     records {
         bigint id PK
