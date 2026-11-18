@@ -1,0 +1,7 @@
+{{define "content"}}
+{{template "heading" "This email address is already registered"}}
+{{template "paragraph" "Someone tried to change the email address of a Cinelier account to this address."}}
+{{template "paragraph" "This address is already registered, so the change was not made."}}
+{{template "button" (button "Open the login page" .URL)}}
+{{template "note" "If this was not you, you can ignore this email. No changes have been made to your account."}}
+{{end}}

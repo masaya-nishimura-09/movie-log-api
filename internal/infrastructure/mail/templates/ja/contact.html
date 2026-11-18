@@ -1,0 +1,10 @@
+{{define "content"}}
+{{template "heading" "新しいお問い合わせ"}}
+{{template "paragraph" (printf "受付番号: %s" .ReceiptNumber)}}
+{{template "paragraph" (printf "受付日時: %s（日本時間）" .ReceivedAt)}}
+{{template "paragraph" (printf "メールアドレス: %s" .Email)}}
+{{template "paragraph" (printf "表示言語: %s" .DisplayLanguage)}}
+{{template "heading" "お問い合わせ内容"}}
+{{template "paragraph" .Message}}
+{{template "note" "このメールに返信すると、問い合わせた人に届きます。"}}
+{{end}}

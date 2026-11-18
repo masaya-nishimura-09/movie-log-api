@@ -1,0 +1,18 @@
+{{define "layout"}}<!doctype html><html lang="{{.Language}}"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:40px 16px;background:#faf4e9;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;color:#0a2947">
+<div style="max-width:444px;margin:0 auto">
+<div style="margin:0 0 32px"><img src="{{.LogoURL}}" alt="Cinelier" height="40" style="height:40px;width:auto;border:0"></div>
+<div style="font-size:14px;line-height:1.8">
+{{template "content" .}}
+</div>
+</div>
+<div style="max-width:444px;margin:32px auto 0;padding:16px 0 0;border-top:1px solid #d3d4c0;font-size:11px;color:#566674;line-height:1.6">{{if eq .Language "en"}}This email was sent automatically by Cinelier.{{else}}このメールは、Cinelier から自動で送信されました。{{end}}</div>
+</body></html>{{end}}
+
+{{define "heading"}}<div style="font-size:18px;font-weight:700;margin:0 0 16px">{{.}}</div>{{end}}
+
+{{define "paragraph"}}<p style="margin:0 0 16px;white-space:pre-wrap">{{.}}</p>{{end}}
+
+{{define "button"}}<p style="margin:24px 0"><a href="{{.URL}}" style="display:inline-block;background:#8b5e3c;color:#faf4e9;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:8px">{{.Label}}</a></p>{{end}}
+
+{{define "note"}}<p style="margin:0 0 8px;font-size:13px;color:#566674">{{.}}</p>{{end}}

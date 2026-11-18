@@ -10,23 +10,35 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
 type fakeUsecase struct {
-	user               *user.User
-	gotUserID          user.ID
-	registeredUsername user.Username
-	registeredEmail    user.Email
-	registeredPassword user.Password
-	updatedUserID      user.ID
-	updatedUsername    user.Username
-	updatedEmail       user.Email
-	confirmedPassword  user.Password
-	oldPassword        user.Password
-	newPassword        user.Password
-	deletedUserID      user.ID
-	err                error
+	user                   *user.User
+	gotUserID              user.ID
+	registeredUsername     user.Username
+	registeredEmail        user.Email
+	registeredPassword     user.Password
+	registeredLanguage     mail.Language
+	verifiedValue          user.EmailVerificationTokenValue
+	resentEmail            user.Email
+	resentLanguage         mail.Language
+	updatedUserID          user.ID
+	updatedUsername        user.Username
+	updatedEmail           user.Email
+	updatedLanguage        mail.Language
+	verifiedChangeValue    user.EmailChangeTokenValue
+	resetRequestedEmail    user.Email
+	resetRequestedLanguage mail.Language
+	resetValue             user.PasswordResetTokenValue
+	resetPassword          user.Password
+	deletedLanguage        mail.Language
+	confirmedPassword      user.Password
+	oldPassword            user.Password
+	newPassword            user.Password
+	deletedUserID          user.ID
+	err                    error
 }
 
 func (u *fakeUsecase) GetByID(
@@ -42,12 +54,32 @@ func (u *fakeUsecase) Create(
 	username user.Username,
 	email user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	u.registeredUsername = username
 	u.registeredEmail = email
 	u.registeredPassword = password
+	u.registeredLanguage = language
 
-	return u.user, u.err
+	return u.err
+}
+
+func (u *fakeUsecase) VerifyEmail(
+	ctx context.Context,
+	value user.EmailVerificationTokenValue,
+) error {
+	u.verifiedValue = value
+	return u.err
+}
+
+func (u *fakeUsecase) ResendVerificationEmail(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	u.resentEmail = email
+	u.resentLanguage = language
+	return u.err
 }
 
 func (u *fakeUsecase) UpdateUsername(
@@ -66,12 +98,54 @@ func (u *fakeUsecase) UpdateEmail(
 	userID user.ID,
 	newEmail user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	u.updatedUserID = userID
 	u.updatedEmail = newEmail
 	u.confirmedPassword = password
+	u.updatedLanguage = language
 
-	return u.user, u.err
+	return u.err
+}
+
+func (u *fakeUsecase) VerifyEmailChange(
+	ctx context.Context,
+	value user.EmailChangeTokenValue,
+) error {
+	u.verifiedChangeValue = value
+	return u.err
+}
+
+func (u *fakeUsecase) DeleteExpiredEmailChangeTokens(
+	ctx context.Context,
+) error {
+	return u.err
+}
+
+func (u *fakeUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	u.resetRequestedEmail = email
+	u.resetRequestedLanguage = language
+	return u.err
+}
+
+func (u *fakeUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	u.resetValue = value
+	u.resetPassword = newPassword
+	return u.err
+}
+
+func (u *fakeUsecase) DeleteExpiredPasswordResetTokens(
+	ctx context.Context,
+) error {
+	return u.err
 }
 
 func (u *fakeUsecase) UpdatePassword(
@@ -90,8 +164,16 @@ func (u *fakeUsecase) UpdatePassword(
 func (u *fakeUsecase) Delete(
 	ctx context.Context,
 	userID user.ID,
+	language mail.Language,
 ) error {
 	u.deletedUserID = userID
+	u.deletedLanguage = language
+	return u.err
+}
+
+func (u *fakeUsecase) DeleteUnverifiedUsers(
+	ctx context.Context,
+) error {
 	return u.err
 }
 
@@ -233,18 +315,58 @@ func TestGetByID(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	t.Run(
-		"passes the converted values to the usecase and returns 201 when the request is valid",
+		"passes the converted values to the usecase and returns 204 when the request is valid",
 		func(t *testing.T) {
-			userID := user.ID(1)
 			username := user.Username("Test")
 			email := user.Email("test@example.com")
 			password := user.Password("testpassword")
-			u := user.User{
-				ID:       userID,
-				Username: username,
-				Email:    email,
+			language := mail.LanguageJA
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{
+				"name":"Test",
+				"email":"test@example.com",
+				"password":"testpassword"
+			}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.Create(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"Create(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
 			}
-			usecase := &fakeUsecase{user: &u}
+			if rec.Body.String() != "" {
+				t.Errorf("Create(c) body = %v, want empty", rec.Body.String())
+			}
+
+			if usecase.registeredUsername != username ||
+				usecase.registeredEmail != email ||
+				usecase.registeredPassword != password ||
+				usecase.registeredLanguage != language {
+				t.Errorf(
+					"Create(c) usecase args = %v, %v, %v, %v, want %v, %v, %v, %v",
+					usecase.registeredUsername,
+					usecase.registeredEmail,
+					usecase.registeredPassword,
+					usecase.registeredLanguage,
+					username, email, password, language,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"passes en to the usecase when the language is not given",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
 			userHandler := NewUserHandler(usecase)
 
 			body := `{
@@ -259,26 +381,51 @@ func TestCreate(t *testing.T) {
 			)
 
 			userHandler.Create(c)
-			if rec.Code != http.StatusCreated {
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
 				t.Errorf(
 					"Create(c) code = %v, want %v",
-					rec.Code, http.StatusCreated,
+					rec.Code, http.StatusNoContent,
 				)
 			}
-			want := `{"email":"test@example.com","user_id":"1","username":"Test"}`
-			if rec.Body.String() != want {
-				t.Errorf("Create(c) body = %v, want %v", rec.Body.String(), want)
-			}
-
-			if usecase.registeredUsername != username ||
-				usecase.registeredEmail != email ||
-				usecase.registeredPassword != password {
+			if usecase.registeredLanguage != mail.LanguageEN {
 				t.Errorf(
-					"Create(c) usecase args = %v, %v, %v, want %v, %v, %v",
-					usecase.registeredUsername,
-					usecase.registeredEmail,
-					usecase.registeredPassword,
-					username, email, password,
+					"Create(c) usecase language = %v, want %v",
+					usecase.registeredLanguage, mail.LanguageEN,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the language is not supported",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{
+				"name":"Test",
+				"email":"test@example.com",
+				"password":"testpassword"
+			}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=fr", strings.NewReader(body),
+			)
+
+			userHandler.Create(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"Create(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"Create(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
 				)
 			}
 		},
@@ -353,40 +500,6 @@ func TestCreate(t *testing.T) {
 	)
 
 	t.Run(
-		"returns 409 when the email is already registered",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{err: exception.ErrAlreadyExists}
-			userHandler := NewUserHandler(usecase)
-
-			body := `{
-				"name":"Test",
-				"email":"test@example.com",
-				"password":"testpassword"
-			}`
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = httptest.NewRequest(
-				http.MethodPost, "/", strings.NewReader(body),
-			)
-
-			userHandler.Create(c)
-			if rec.Code != http.StatusConflict {
-				t.Errorf(
-					"Create(c) code = %v, want %v",
-					rec.Code, http.StatusConflict,
-				)
-			}
-			want := `"code":"USER_ALREADY_EXISTS"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"Create(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
 		"returns 500 when the usecase returns an unexpected error",
 		func(t *testing.T) {
 			usecase := &fakeUsecase{err: errors.New("unexpected")}
@@ -415,6 +528,557 @@ func TestCreate(t *testing.T) {
 				t.Errorf(
 					"Create(c) body = %v, want to contain %v",
 					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+}
+
+func TestVerifyEmail(t *testing.T) {
+	t.Run(
+		"passes the token to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmail(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"VerifyEmail(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			want := user.EmailVerificationTokenValue("testtokenvalue")
+			if usecase.verifiedValue != want {
+				t.Errorf(
+					"VerifyEmail(c) usecase args = %v, want %v",
+					usecase.verifiedValue, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is empty",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":""}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmail(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"VerifyEmail(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"VerifyEmail(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is invalid or expired",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrInvalid}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmail(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"VerifyEmail(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_VERIFICATION_TOKEN"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"VerifyEmail(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmail(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"VerifyEmail(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestResendVerificationEmail(t *testing.T) {
+	t.Run(
+		"passes the converted values to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.ResendVerificationEmail(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"ResendVerificationEmail(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			email := user.Email("test@example.com")
+			if usecase.resentEmail != email || usecase.resentLanguage != mail.LanguageJA {
+				t.Errorf(
+					"ResendVerificationEmail(c) usecase args = %v, %v, want %v, %v",
+					usecase.resentEmail, usecase.resentLanguage, email, mail.LanguageJA,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the email is not a valid address",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"invalid"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.ResendVerificationEmail(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ResendVerificationEmail(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ResendVerificationEmail(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.ResendVerificationEmail(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"ResendVerificationEmail(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestVerifyEmailChange(t *testing.T) {
+	t.Run(
+		"passes the token to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmailChange(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			want := user.EmailChangeTokenValue("testtokenvalue")
+			if usecase.verifiedChangeValue != want {
+				t.Errorf(
+					"VerifyEmailChange(c) usecase args = %v, want %v",
+					usecase.verifiedChangeValue, want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is empty",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":""}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmailChange(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"VerifyEmailChange(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is invalid or expired",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrInvalid}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmailChange(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_VERIFICATION_TOKEN"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"VerifyEmailChange(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 409 when the new email is already used by another user",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrAlreadyExists}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmailChange(c)
+			if rec.Code != http.StatusConflict {
+				t.Errorf(
+					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusConflict,
+				)
+			}
+			want := `"code":"USER_ALREADY_EXISTS"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"VerifyEmailChange(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.VerifyEmailChange(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"VerifyEmailChange(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestRequestPasswordReset(t *testing.T) {
+	t.Run(
+		"passes the converted values to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			email := user.Email("test@example.com")
+			if usecase.resetRequestedEmail != email || usecase.resetRequestedLanguage != mail.LanguageJA {
+				t.Errorf(
+					"RequestPasswordReset(c) usecase args = %v, %v, want %v, %v",
+					usecase.resetRequestedEmail, usecase.resetRequestedLanguage, email, mail.LanguageJA,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the email is not a valid address",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"invalid"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"RequestPasswordReset(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"email":"test@example.com"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/?language=ja", strings.NewReader(body),
+			)
+
+			userHandler.RequestPasswordReset(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"RequestPasswordReset(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
+				)
+			}
+		},
+	)
+}
+
+func TestResetPassword(t *testing.T) {
+	t.Run(
+		"passes the converted values to the usecase and returns 204 when the request is valid",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusNoContent,
+				)
+			}
+			value := user.PasswordResetTokenValue("testtokenvalue")
+			password := user.Password("newpassword")
+			if usecase.resetValue != value || usecase.resetPassword != password {
+				t.Errorf(
+					"ResetPassword(c) usecase args = %v, %v, want %v, %v",
+					usecase.resetValue, usecase.resetPassword, value, password,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the password is shorter than 8 characters",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"short"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_INPUT"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ResetPassword(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 400 when the token is invalid or expired",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: exception.ErrInvalid}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusBadRequest,
+				)
+			}
+			want := `"code":"INVALID_PASSWORD_RESET_TOKEN"`
+			if !strings.Contains(rec.Body.String(), want) {
+				t.Errorf(
+					"ResetPassword(c) body = %v, want to contain %v",
+					rec.Body.String(), want,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns 500 when the usecase returns an unexpected error",
+		func(t *testing.T) {
+			usecase := &fakeUsecase{err: errors.New("unexpected")}
+			userHandler := NewUserHandler(usecase)
+
+			body := `{"token":"testtokenvalue","password":"newpassword"}`
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(
+				http.MethodPost, "/", strings.NewReader(body),
+			)
+
+			userHandler.ResetPassword(c)
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf(
+					"ResetPassword(c) code = %v, want %v",
+					rec.Code, http.StatusInternalServerError,
 				)
 			}
 		},
@@ -660,17 +1324,13 @@ func TestUpdateUsername(t *testing.T) {
 
 func TestUpdateEmail(t *testing.T) {
 	t.Run(
-		"passes the converted values to the usecase and returns the updated user and 200 when the request is valid",
+		"passes the converted values to the usecase and returns 204 when the request is valid",
 		func(t *testing.T) {
 			userID := user.ID(1)
 			email := user.Email("test@example.com")
 			password := user.Password("testpassword")
-			u := user.User{
-				ID:       userID,
-				Username: user.Username("Test"),
-				Email:    email,
-			}
-			usecase := &fakeUsecase{user: &u}
+			language := mail.LanguageJA
+			usecase := &fakeUsecase{}
 			userHandler := NewUserHandler(usecase)
 
 			body := `{
@@ -681,33 +1341,32 @@ func TestUpdateEmail(t *testing.T) {
 			c, _ := gin.CreateTestContext(rec)
 			c.Set("userID", userID)
 			c.Request = httptest.NewRequest(
-				http.MethodPut, "/", strings.NewReader(body),
+				http.MethodPut, "/?language=ja", strings.NewReader(body),
 			)
 
 			userHandler.UpdateEmail(c)
-			if rec.Code != http.StatusOK {
+			c.Writer.WriteHeaderNow()
+			if rec.Code != http.StatusNoContent {
 				t.Errorf(
 					"UpdateEmail(c) code = %v, want %v",
-					rec.Code, http.StatusOK,
+					rec.Code, http.StatusNoContent,
 				)
 			}
-			want := `{"email":"test@example.com","user_id":"1","username":"Test"}`
-			if rec.Body.String() != want {
-				t.Errorf(
-					"UpdateEmail(c) body = %v, want %v",
-					rec.Body.String(), want,
-				)
+			if rec.Body.String() != "" {
+				t.Errorf("UpdateEmail(c) body = %v, want empty", rec.Body.String())
 			}
 
 			if usecase.updatedUserID != userID ||
 				usecase.updatedEmail != email ||
-				usecase.confirmedPassword != password {
+				usecase.confirmedPassword != password ||
+				usecase.updatedLanguage != language {
 				t.Errorf(
-					"UpdateEmail(c) usecase args = %v, %v, %v, want %v, %v, %v",
+					"UpdateEmail(c) usecase args = %v, %v, %v, %v, want %v, %v, %v, %v",
 					usecase.updatedUserID,
 					usecase.updatedEmail,
 					usecase.confirmedPassword,
-					userID, email, password,
+					usecase.updatedLanguage,
+					userID, email, password, language,
 				)
 			}
 		},
@@ -977,41 +1636,6 @@ func TestUpdateEmail(t *testing.T) {
 				)
 			}
 			want := `"code":"INVALID_CURRENT_PASSWORD"`
-			if !strings.Contains(rec.Body.String(), want) {
-				t.Errorf(
-					"UpdateEmail(c) body = %v, want to contain %v",
-					rec.Body.String(), want,
-				)
-			}
-		},
-	)
-
-	t.Run(
-		"returns 409 when the email is already registered",
-		func(t *testing.T) {
-			usecase := &fakeUsecase{err: exception.ErrAlreadyExists}
-			userHandler := NewUserHandler(usecase)
-
-			userID := user.ID(1)
-			body := `{
-				"email":"test@example.com",
-				"password":"testpassword"
-			}`
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Set("userID", userID)
-			c.Request = httptest.NewRequest(
-				http.MethodPut, "/", strings.NewReader(body),
-			)
-
-			userHandler.UpdateEmail(c)
-			if rec.Code != http.StatusConflict {
-				t.Errorf(
-					"UpdateEmail(c) code = %v, want %v",
-					rec.Code, http.StatusConflict,
-				)
-			}
-			want := `"code":"USER_ALREADY_EXISTS"`
 			if !strings.Contains(rec.Body.String(), want) {
 				t.Errorf(
 					"UpdateEmail(c) body = %v, want to contain %v",
@@ -1475,7 +2099,7 @@ func TestDelete(t *testing.T) {
 			c, _ := gin.CreateTestContext(rec)
 			c.Set("userID", userID)
 			c.Request = httptest.NewRequest(
-				http.MethodDelete, "/", nil,
+				http.MethodDelete, "/?language=ja", nil,
 			)
 
 			userHandler.Delete(c)
@@ -1491,11 +2115,13 @@ func TestDelete(t *testing.T) {
 				t.Errorf("Delete(c) body = %v, want %v", rec.Body.String(), want)
 			}
 
-			if usecase.deletedUserID != userID {
+			if usecase.deletedUserID != userID || usecase.deletedLanguage != mail.LanguageJA {
 				t.Errorf(
-					"Delete(c) usecase args = %v, want %v",
+					"Delete(c) usecase args = %v, %v, want %v, %v",
 					usecase.deletedUserID,
+					usecase.deletedLanguage,
 					userID,
+					mail.LanguageJA,
 				)
 			}
 		},

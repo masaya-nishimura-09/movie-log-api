@@ -1,0 +1,7 @@
+{{define "content"}}
+{{template "heading" "このメールアドレスは登録済みです"}}
+{{template "paragraph" "このメールアドレスで、Cinelier への新規登録が試みられました。"}}
+{{template "paragraph" "このアドレスはすでに登録されています。ログイン画面からログインしてください。"}}
+{{template "button" (button "ログイン画面を開く" .URL)}}
+{{template "note" "心当たりがない場合は、このメールを破棄してください。アカウントには何も変更されていません。"}}
+{{end}}

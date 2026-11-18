@@ -1,0 +1,8 @@
+{{define "content"}}
+{{template "heading" "Verify your new email address"}}
+{{template "paragraph" "We received a request to change the email address of your Cinelier account to this address."}}
+{{template "paragraph" "Click the button below to complete the change."}}
+{{template "button" (button "Change email address" .URL)}}
+{{template "note" "This link expires in 24 hours. Until then, your current email address stays the same."}}
+{{template "note" "If you did not request this, you can ignore this email."}}
+{{end}}

@@ -138,7 +138,7 @@ Set the following environment variables in `.env`.
 | `JWT_SECRET`              | Required | Signing key for access tokens (at least 32 bytes)                    |
 | `ACCESS_TOKEN_TTL_HOURS`  | Optional | Access token lifetime in hours (default: `1`)                        |
 | `REFRESH_TOKEN_TTL_HOURS` | Optional | Refresh token lifetime in hours (default: `720`)                     |
-| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens (`true` or `false`) |
+| `CLEANUP_ENABLE`          | Required | Whether to run the periodic cleanup of expired refresh tokens, expired email change and password reset tokens, and users left unverified for 7 days (`true` or `false`) |
 | `CLEANUP_INTERVAL_SECOND` | Required | Interval in seconds between cleanups (at least `1`)                  |
 | `AWS_REGION`              | Required | Storage region                                                       |
 | `AWS_ACCESS_KEY_ID`       | Required | Storage access key ID                                                |
@@ -149,6 +149,10 @@ Set the following environment variables in `.env`.
 | `TMDB_ACCESS_TOKEN`       | Required | TMDB API read access token                                           |
 | `TMDB_ENDPOINT`           | Required | Base URL of the TMDB API                                             |
 | `TMDB_POSTER_BASE_URL`    | Required | Base URL of TMDB poster images                                       |
+| `RESEND_API_KEY`          | Required | Resend API key for sending emails                                    |
+| `MAIL_SUPPORT_ADDRESS`    | Required | Sender address of emails                                             |
+| `MAIL_ADMIN_ADDRESS`      | Required | Address that receives notifications for the administrator            |
+| `WEB_BASE_URL`            | Required | Base URL of the web app (used for links in emails)                   |
 | `TRUSTED_PROXIES`         | Optional | Comma-separated IP addresses or CIDRs of trusted proxies             |
 | `APP_VERSION`             | Optional | Version written to logs, such as the Git commit hash                 |
 | `INTERNAL_API_SECRET`     | Optional | Secret shared with the web app. When it matches, the `X-Real-IP` header sent by the web app is used for rate limiting (must match the web app's value) |
@@ -200,12 +204,17 @@ For endpoints that require authentication, send the access token in the
 
 | Method | Endpoint        | Description                            | Auth     | Rate limit        |
 |--------|-----------------|----------------------------------------|----------|-------------------|
-| POST   | /users/register | Register a user                        | Not required | 10 / hour     |
+| POST   | /users/register | Register a user (sends a verification email) | Not required | 10 / hour |
+| POST   | /users/verify-email | Verify an email address            | Not required | 10 / hour     |
+| POST   | /users/verify-email/resend | Resend the verification email | Not required | 10 / hour |
+| POST   | /users/email/verify | Confirm an email address change    | Not required | 10 / hour     |
+| POST   | /users/password/reset-request | Request a password reset (sends a reset email) | Not required | 10 / hour |
+| POST   | /users/password/reset | Set a new password               | Not required | 10 / hour     |
 | GET    | /users/         | Get the authenticated user             | Required |                   |
 | PUT    | /users/username | Update the authenticated user's name   | Required |                   |
-| PUT    | /users/email    | Update the authenticated user's email  | Required | 5 / min per user  |
+| PUT    | /users/email    | Request to change the authenticated user's email (sends a verification email to the new address) | Required | 5 / min per user |
 | PUT    | /users/password | Update the authenticated user's password | Required | 5 / min per user |
-| DELETE | /users/         | Delete the authenticated user          | Required |                   |
+| DELETE | /users/         | Delete the authenticated user (sends a notice email) | Required |     |
 
 `PUT /users/email` and `PUT /users/password` require the current password.
 The rate limit is counted across both endpoints combined.
@@ -279,11 +288,20 @@ The rate limit is counted across both endpoints combined.
 |--------|----------|--------------------------|----------|--------------------|
 | POST   | /media/  | Upload a poster image    | Required | 30 / hour per user |
 
+### Contacts
+
+| Method | Endpoint  | Description                                  | Auth         | Rate limit |
+|--------|-----------|----------------------------------------------|--------------|------------|
+| POST   | /contacts | Send an inquiry (emails the administrator)   | Not required | 10 / hour  |
+
 ## Data Model
 
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : has
+    users ||--o{ email_verification_tokens : has
+    users ||--o{ email_change_tokens : has
+    users ||--o{ password_reset_tokens : has
     users ||--o{ records : has
     records ||--o{ record_genres : has
     records ||--o{ record_countries : has
@@ -299,6 +317,7 @@ erDiagram
         text email UK
         text hashed_password
         text role
+        timestamptz email_verified_at
     }
     refresh_tokens {
         bigint id PK
@@ -306,6 +325,27 @@ erDiagram
         text hash UK
         timestamptz expires_at
         timestamptz revoked_at
+    }
+    email_verification_tokens {
+        bigint id PK
+        bigint user_id FK
+        text hash UK
+        timestamptz expires_at
+    }
+    email_change_tokens {
+        bigint id PK
+        bigint user_id FK
+        text new_email
+        text language
+        text hash UK
+        timestamptz expires_at
+    }
+    password_reset_tokens {
+        bigint id PK
+        bigint user_id FK
+        text language
+        text hash UK
+        timestamptz expires_at
     }
     records {
         bigint id PK

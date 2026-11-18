@@ -4,14 +4,17 @@ import (
 	"time"
 )
 
+const UnverifiedUserRetention = 7 * 24 * time.Hour
+
 type User struct {
-	ID             ID
-	Username       Username
-	Email          Email
-	HashedPassword HashedPassword
-	Role           Role
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID              ID
+	Username        Username
+	Email           Email
+	HashedPassword  HashedPassword
+	Role            Role
+	EmailVerifiedAt *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type ID uint

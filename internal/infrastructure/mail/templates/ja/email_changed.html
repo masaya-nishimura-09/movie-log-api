@@ -1,0 +1,8 @@
+{{define "content"}}
+{{template "heading" "メールアドレスが変更されました"}}
+{{template "paragraph" "Cinelier のアカウントのメールアドレスが変更されました。"}}
+{{template "paragraph" (printf "新しいメールアドレス: %s" .NewEmail)}}
+{{template "paragraph" "今後は、新しいメールアドレスでログインしてください。"}}
+{{template "button" (button "お問い合わせ" .URL)}}
+{{template "note" "心当たりがない場合は、上のボタンからお問い合わせください。"}}
+{{end}}

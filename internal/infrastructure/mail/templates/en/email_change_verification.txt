@@ -1,0 +1,11 @@
+{{define "subject"}}[Cinelier] Verify your new email address{{end}}
+{{define "content"}}Verify your new email address
+
+We received a request to change the email address of your Cinelier account to this address.
+Click the button below to complete the change.
+
+Change email address
+{{.URL}}
+
+This link expires in 24 hours. Until then, your current email address stays the same.
+If you did not request this, you can ignore this email.{{end}}

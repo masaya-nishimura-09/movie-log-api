@@ -129,7 +129,7 @@ API は `http://localhost:8080` で起動します。
 | `JWT_SECRET`              | 必須      | アクセストークンの署名鍵（32 バイト以上）                            |
 | `ACCESS_TOKEN_TTL_HOURS`  | 任意      | アクセストークンの有効期間（時間単位、既定値 `1`）                   |
 | `REFRESH_TOKEN_TTL_HOURS` | 任意      | リフレッシュトークンの有効期間（時間単位、既定値 `720`）             |
-| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークンを定期的に掃除するか（`true` または `false`） |
+| `CLEANUP_ENABLE`          | 必須      | 期限切れのリフレッシュトークン、メールアドレス変更とパスワード再設定のトークン、確認されないまま7日たったユーザーを定期的に掃除するか（`true` または `false`） |
 | `CLEANUP_INTERVAL_SECOND` | 必須      | 掃除の間隔（秒単位、1 以上）                                         |
 | `AWS_REGION`              | 必須      | ストレージのリージョン                                               |
 | `AWS_ACCESS_KEY_ID`       | 必須      | ストレージのアクセスキー ID                                          |
@@ -140,6 +140,10 @@ API は `http://localhost:8080` で起動します。
 | `TMDB_ACCESS_TOKEN`       | 必須      | TMDB API の読み取りアクセストークン                                  |
 | `TMDB_ENDPOINT`           | 必須      | TMDB API のベース URL                                                |
 | `TMDB_POSTER_BASE_URL`    | 必須      | TMDB のポスター画像のベース URL                                      |
+| `RESEND_API_KEY`          | 必須      | メールの送信に使う Resend の API キー                                |
+| `MAIL_SUPPORT_ADDRESS`    | 必須      | メールの送信元アドレス                                               |
+| `MAIL_ADMIN_ADDRESS`      | 必須      | 管理者への通知を送るアドレス                                         |
+| `WEB_BASE_URL`            | 必須      | Web アプリのベース URL（メールに書くリンクに使用）                   |
 | `TRUSTED_PROXIES`         | 任意      | 信頼するプロキシの IP アドレスまたは CIDR（カンマ区切り）            |
 | `APP_VERSION`             | 任意      | ログに記録するバージョン（Git のコミット ID など）                   |
 | `INTERNAL_API_SECRET`     | 任意      | Web アプリとの共有シークレット。一致した場合、Web アプリから送られる `X-Real-IP` をレート制限に使用（Web アプリと同じ値を設定） |
@@ -190,12 +194,17 @@ scripts/              # テーブル定義、初期データ
 
 | メソッド | エンドポイント  | 説明                             | 認証 | レート制限         |
 |----------|-----------------|----------------------------------|------|--------------------|
-| POST     | /users/register | ユーザー登録                     | 不要 | 10 回/時間         |
+| POST     | /users/register | ユーザー登録（確認メールを送信） | 不要 | 10 回/時間         |
+| POST     | /users/verify-email | メールアドレスの確認         | 不要 | 10 回/時間         |
+| POST     | /users/verify-email/resend | 確認メールの再送      | 不要 | 10 回/時間         |
+| POST     | /users/email/verify | メールアドレスの変更の確認   | 不要 | 10 回/時間         |
+| POST     | /users/password/reset-request | パスワード再設定の申し込み（再設定のメールを送信） | 不要 | 10 回/時間 |
+| POST     | /users/password/reset | 新しいパスワードの設定     | 不要 | 10 回/時間         |
 | GET      | /users/         | ログイン中のユーザー情報の取得   | 必要 |                    |
 | PUT      | /users/username | ログイン中のユーザー名の更新     | 必要 |                    |
-| PUT      | /users/email    | ログイン中のユーザーのメールアドレスの更新 | 必要 | 5 回/分（ユーザー単位） |
+| PUT      | /users/email    | ログイン中のユーザーのメールアドレスの変更の申し込み（新しいアドレスに確認メールを送信） | 必要 | 5 回/分（ユーザー単位） |
 | PUT      | /users/password | ログイン中のユーザーのパスワードの更新 | 必要 | 5 回/分（ユーザー単位） |
-| DELETE   | /users/         | ログイン中のユーザーの削除       | 必要 |                    |
+| DELETE   | /users/         | ログイン中のユーザーの削除（退会の通知を送信） | 必要 |              |
 
 `PUT /users/email` と `PUT /users/password` では、現在のパスワードが必要です。
 レート制限の回数は、2 つのエンドポイントの合計で計算されます。
@@ -266,11 +275,20 @@ scripts/              # テーブル定義、初期データ
 |----------|----------------|----------------------------|------|----------------------------|
 | POST     | /media/        | ポスター画像のアップロード | 必要 | 30 回/時間（ユーザー単位） |
 
+### お問い合わせ
+
+| メソッド | エンドポイント | 説明                                   | 認証 | レート制限 |
+|----------|----------------|----------------------------------------|------|------------|
+| POST     | /contacts      | お問い合わせ（管理者にメールを送信）   | 不要 | 10 回/時間 |
+
 ## データモデル
 
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : has
+    users ||--o{ email_verification_tokens : has
+    users ||--o{ email_change_tokens : has
+    users ||--o{ password_reset_tokens : has
     users ||--o{ records : has
     records ||--o{ record_genres : has
     records ||--o{ record_countries : has
@@ -286,6 +304,7 @@ erDiagram
         text email UK
         text hashed_password
         text role
+        timestamptz email_verified_at
     }
     refresh_tokens {
         bigint id PK
@@ -293,6 +312,27 @@ erDiagram
         text hash UK
         timestamptz expires_at
         timestamptz revoked_at
+    }
+    email_verification_tokens {
+        bigint id PK
+        bigint user_id FK
+        text hash UK
+        timestamptz expires_at
+    }
+    email_change_tokens {
+        bigint id PK
+        bigint user_id FK
+        text new_email
+        text language
+        text hash UK
+        timestamptz expires_at
+    }
+    password_reset_tokens {
+        bigint id PK
+        bigint user_id FK
+        text language
+        text hash UK
+        timestamptz expires_at
     }
     records {
         bigint id PK

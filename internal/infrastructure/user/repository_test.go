@@ -796,3 +796,283 @@ func TestDelete(t *testing.T) {
 		},
 	)
 }
+
+func TestReplaceUnverified(t *testing.T) {
+	t.Run(
+		"replaces the username and hashed password of the unverified user",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleUser,
+			}
+			if err := r.Create(ctx, &u1); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
+
+			u2 := user.User{
+				ID:             u1.ID,
+				Username:       user.Username("Test2"),
+				Email:          user.Email("test2@example.com"),
+				HashedPassword: user.HashedPassword("test2password"),
+				Role:           user.RoleAdmin,
+			}
+			if err := r.ReplaceUnverified(ctx, &u2); err != nil {
+				t.Fatalf(
+					"ReplaceUnverified(ctx, %v) error = %v",
+					u2, err,
+				)
+			}
+
+			got, err := r.GetByID(ctx, u1.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v",
+					u1.ID, got, err,
+				)
+			}
+			if got.Username != u2.Username ||
+				got.HashedPassword != u2.HashedPassword {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Username and HashedPassword of %v",
+					u1.ID, got, u2,
+				)
+			}
+			if got.Email != u1.Email ||
+				got.Role != u1.Role ||
+				got.EmailVerifiedAt != nil {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Email and Role of %v and not verified",
+					u1.ID, got, u1,
+				)
+			}
+			if !got.CreatedAt.After(u1.CreatedAt) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want CreatedAt after %v",
+					u1.ID, got, u1.CreatedAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user is already verified",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			verifiedAt := time.Now()
+			u1 := user.User{
+				Username:        user.Username("Test"),
+				Email:           user.Email("test@example.com"),
+				HashedPassword:  user.HashedPassword("testpassword"),
+				Role:            user.RoleUser,
+				EmailVerifiedAt: &verifiedAt,
+			}
+			if err := r.Create(ctx, &u1); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
+
+			u2 := user.User{
+				ID:             u1.ID,
+				Username:       user.Username("Test2"),
+				HashedPassword: user.HashedPassword("test2password"),
+			}
+			if err := r.ReplaceUnverified(ctx, &u2); !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"ReplaceUnverified(ctx, %v) error = %v, want %v",
+					u2, err, exception.ErrNotFound,
+				)
+			}
+
+			got, err := r.GetByID(ctx, u1.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v",
+					u1.ID, got, err,
+				)
+			}
+			if got.Username != u1.Username || got.HashedPassword != u1.HashedPassword {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want the user unchanged",
+					u1.ID, got,
+				)
+			}
+		},
+	)
+}
+
+func TestUpdateEmailVerifiedAt(t *testing.T) {
+	t.Run(
+		"updates only the email verified at",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			u1 := user.User{
+				Username:       user.Username("Test"),
+				Email:          user.Email("test@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleUser,
+			}
+			if err := r.Create(ctx, &u1); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					u1, err,
+				)
+			}
+
+			verifiedAt := time.Now()
+			u2 := user.User{
+				ID:              u1.ID,
+				Username:        user.Username("Test2"),
+				EmailVerifiedAt: &verifiedAt,
+			}
+			if err := r.UpdateEmailVerifiedAt(ctx, &u2); err != nil {
+				t.Fatalf(
+					"UpdateEmailVerifiedAt(ctx, %v) error = %v",
+					u2, err,
+				)
+			}
+
+			got, err := r.GetByID(ctx, u1.ID)
+			if err != nil {
+				t.Fatalf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v",
+					u1.ID, got, err,
+				)
+			}
+			if got.EmailVerifiedAt == nil ||
+				!got.EmailVerifiedAt.Equal(verifiedAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want EmailVerifiedAt %v",
+					u1.ID, got, verifiedAt.Truncate(time.Microsecond),
+				)
+			}
+			if got.Username != u1.Username {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, want Username %v",
+					u1.ID, got, u1.Username,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			verifiedAt := time.Now()
+			u := user.User{
+				ID:              user.ID(999999),
+				EmailVerifiedAt: &verifiedAt,
+			}
+			if err := r.UpdateEmailVerifiedAt(ctx, &u); !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"UpdateEmailVerifiedAt(ctx, %v) error = %v, want %v",
+					u, err, exception.ErrNotFound,
+				)
+			}
+		},
+	)
+}
+
+func TestDeleteUnverifiedCreatedBefore(t *testing.T) {
+	t.Run(
+		"deletes only the unverified users created before the given time",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			r := NewRepository(tx)
+
+			ctx := context.Background()
+
+			verifiedAt := time.Now()
+			oldUnverified := user.User{
+				Username:       user.Username("Old"),
+				Email:          user.Email("old@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleUser,
+			}
+			oldVerified := user.User{
+				Username:        user.Username("Verified"),
+				Email:           user.Email("verified@example.com"),
+				HashedPassword:  user.HashedPassword("testpassword"),
+				Role:            user.RoleUser,
+				EmailVerifiedAt: &verifiedAt,
+			}
+			if err := r.Create(ctx, &oldUnverified); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					oldUnverified, err,
+				)
+			}
+			if err := r.Create(ctx, &oldVerified); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					oldVerified, err,
+				)
+			}
+
+			before := time.Now()
+
+			newUnverified := user.User{
+				Username:       user.Username("New"),
+				Email:          user.Email("new@example.com"),
+				HashedPassword: user.HashedPassword("testpassword"),
+				Role:           user.RoleUser,
+			}
+			if err := r.Create(ctx, &newUnverified); err != nil {
+				t.Fatalf(
+					"Create(ctx, %v) error = %v",
+					newUnverified, err,
+				)
+			}
+
+			if err := r.DeleteUnverifiedCreatedBefore(ctx, before); err != nil {
+				t.Fatalf(
+					"DeleteUnverifiedCreatedBefore(ctx, %v) error = %v",
+					before, err,
+				)
+			}
+
+			if got, err := r.GetByID(ctx, oldUnverified.ID); !errors.Is(err, exception.ErrNotFound) {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v, want %v",
+					oldUnverified.ID, got, err, exception.ErrNotFound,
+				)
+			}
+			if got, err := r.GetByID(ctx, oldVerified.ID); err != nil {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v, want the verified user to remain",
+					oldVerified.ID, got, err,
+				)
+			}
+			if got, err := r.GetByID(ctx, newUnverified.ID); err != nil {
+				t.Errorf(
+					"GetByID(ctx, %d) (user.User, error) = %v, %v, want the new unverified user to remain",
+					newUnverified.ID, got, err,
+				)
+			}
+		},
+	)
+}

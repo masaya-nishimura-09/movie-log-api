@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 )
 
@@ -49,12 +50,134 @@ func (au *fakeAuthUsecase) DeleteExpiredRefreshTokens(
 	return nil
 }
 
+type fakeUserUsecase struct {
+	called                   chan struct{}
+	emailChangeTokenCalled   chan struct{}
+	passwordResetTokenCalled chan struct{}
+}
+
+func (uu *fakeUserUsecase) GetByID(
+	ctx context.Context,
+	userID user.ID,
+) (*user.User, error) {
+	return nil, nil
+}
+
+func (uu *fakeUserUsecase) Create(
+	ctx context.Context,
+	username user.Username,
+	email user.Email,
+	password user.Password,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) VerifyEmail(
+	ctx context.Context,
+	value user.EmailVerificationTokenValue,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) ResendVerificationEmail(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) UpdateUsername(
+	ctx context.Context,
+	userID user.ID,
+	username user.Username,
+) (*user.User, error) {
+	return nil, nil
+}
+
+func (uu *fakeUserUsecase) UpdateEmail(
+	ctx context.Context,
+	userID user.ID,
+	email user.Email,
+	password user.Password,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) VerifyEmailChange(
+	ctx context.Context,
+	value user.EmailChangeTokenValue,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) UpdatePassword(
+	ctx context.Context,
+	userID user.ID,
+	oldPassword user.Password,
+	newPassword user.Password,
+) (*user.User, error) {
+	return nil, nil
+}
+
+func (uu *fakeUserUsecase) Delete(
+	ctx context.Context,
+	userID user.ID,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) DeleteUnverifiedUsers(
+	ctx context.Context,
+) error {
+	uu.called <- struct{}{}
+	return nil
+}
+
+func (uu *fakeUserUsecase) DeleteExpiredEmailChangeTokens(
+	ctx context.Context,
+) error {
+	uu.emailChangeTokenCalled <- struct{}{}
+	return nil
+}
+
+func (uu *fakeUserUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	return nil
+}
+
+func (uu *fakeUserUsecase) DeleteExpiredPasswordResetTokens(
+	ctx context.Context,
+) error {
+	uu.passwordResetTokenCalled <- struct{}{}
+	return nil
+}
+
 func TestRun(t *testing.T) {
 	t.Run(
 		"calls DeleteExpiredRefreshTokens as soon as it starts",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
-			scheduler := NewScheduler(usecase, time.Minute)
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
 
 			ctx := t.Context()
 
@@ -71,7 +194,12 @@ func TestRun(t *testing.T) {
 		"calls DeleteExpiredRefreshTokens again after the interval",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 2)}
-			scheduler := NewScheduler(usecase, 10*time.Millisecond)
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 2),
+				emailChangeTokenCalled:   make(chan struct{}, 2),
+				passwordResetTokenCalled: make(chan struct{}, 2),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, 10*time.Millisecond)
 
 			ctx := t.Context()
 
@@ -87,10 +215,105 @@ func TestRun(t *testing.T) {
 	)
 
 	t.Run(
+		"calls DeleteExpiredEmailChangeTokens as soon as it starts",
+		func(t *testing.T) {
+			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
+
+			ctx := t.Context()
+
+			go scheduler.Run(ctx)
+			select {
+			case <-userUsecase.emailChangeTokenCalled:
+			case <-time.After(time.Second):
+				t.Fatalf("Run(ctx) did not call DeleteExpiredEmailChangeTokens within 1s")
+			}
+		},
+	)
+
+	t.Run(
+		"calls DeleteExpiredPasswordResetTokens as soon as it starts",
+		func(t *testing.T) {
+			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
+
+			ctx := t.Context()
+
+			go scheduler.Run(ctx)
+			select {
+			case <-userUsecase.passwordResetTokenCalled:
+			case <-time.After(time.Second):
+				t.Fatalf("Run(ctx) did not call DeleteExpiredPasswordResetTokens within 1s")
+			}
+		},
+	)
+
+	t.Run(
+		"calls DeleteUnverifiedUsers as soon as it starts",
+		func(t *testing.T) {
+			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, time.Minute)
+
+			ctx := t.Context()
+
+			go scheduler.Run(ctx)
+			select {
+			case <-userUsecase.called:
+			case <-time.After(time.Second):
+				t.Fatalf("Run(ctx) did not call DeleteUnverifiedUsers within 1s")
+			}
+		},
+	)
+
+	t.Run(
+		"calls DeleteUnverifiedUsers again after the interval",
+		func(t *testing.T) {
+			usecase := &fakeAuthUsecase{called: make(chan struct{}, 2)}
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 2),
+				emailChangeTokenCalled:   make(chan struct{}, 2),
+				passwordResetTokenCalled: make(chan struct{}, 2),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, 10*time.Millisecond)
+
+			ctx := t.Context()
+
+			go scheduler.Run(ctx)
+			for range 2 {
+				select {
+				case <-userUsecase.called:
+				case <-time.After(time.Second):
+					t.Fatalf("Run(ctx) did not call DeleteUnverifiedUsers again within 1s")
+				}
+			}
+		},
+	)
+
+	t.Run(
 		"returns when the context is canceled",
 		func(t *testing.T) {
 			usecase := &fakeAuthUsecase{called: make(chan struct{}, 1)}
-			scheduler := NewScheduler(usecase, time.Hour)
+			userUsecase := &fakeUserUsecase{
+				called:                   make(chan struct{}, 1),
+				emailChangeTokenCalled:   make(chan struct{}, 1),
+				passwordResetTokenCalled: make(chan struct{}, 1),
+			}
+			scheduler := NewScheduler(usecase, userUsecase, time.Hour)
 
 			ctx, cancel := context.WithCancel(t.Context())
 

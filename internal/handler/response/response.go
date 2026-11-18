@@ -48,6 +48,27 @@ func InvalidCurrentPassword(c *gin.Context) {
 	})
 }
 
+func InvalidVerificationToken(c *gin.Context) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"code":    "INVALID_VERIFICATION_TOKEN",
+		"message": "invalid or expired verification token",
+	})
+}
+
+func InvalidPasswordResetToken(c *gin.Context) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"code":    "INVALID_PASSWORD_RESET_TOKEN",
+		"message": "invalid or expired password reset token",
+	})
+}
+
+func EmailNotVerified(c *gin.Context) {
+	c.JSON(http.StatusForbidden, gin.H{
+		"code":    "EMAIL_NOT_VERIFIED",
+		"message": "email address is not verified",
+	})
+}
+
 func Unauthenticated(c *gin.Context) {
 	c.JSON(http.StatusUnauthorized, gin.H{
 		"code":    "UNAUTHENTICATED",

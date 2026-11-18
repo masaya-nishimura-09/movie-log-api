@@ -13,7 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/config"
+	maildomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
+	userdomain "github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	authhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/auth"
+	contacthandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/contact"
 	mediahandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/media"
 	moviehandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/movie"
 	recordhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/record"
@@ -21,6 +24,7 @@ import (
 	schedulerhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/scheduler"
 	userhandler "github.com/masaya-nishimura-09/movie-log-api/internal/handler/user"
 	authinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/auth"
+	mailinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/mail"
 	mediainfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/media"
 	movieinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/movie"
 	recordinfra "github.com/masaya-nishimura-09/movie-log-api/internal/infrastructure/record"
@@ -28,6 +32,7 @@ import (
 	"github.com/masaya-nishimura-09/movie-log-api/internal/logging"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/middleware"
 	authusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/auth"
+	contactusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/contact"
 	mediausecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/media"
 	movieusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/movie"
 	recordusecase "github.com/masaya-nishimura-09/movie-log-api/internal/usecase/record"
@@ -100,6 +105,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+	resendClient, err := config.NewResendClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mailSupportAddress, err := config.MailSupportAddress()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mailAdminAddress, err := config.MailAdminAddress()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	webBaseURL, err := config.WebBaseURL()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	trustedProxies, err := config.TrustedProxies()
 	if err != nil {
 		log.Fatal(err)
@@ -159,6 +184,61 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	verifyEmailRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	verifyEmailStore := memory.NewStore()
+	verifyEmailLimiter := ginlimiter.NewMiddleware(
+		limiter.New(verifyEmailStore, verifyEmailRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	resendVerificationEmailRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	resendVerificationEmailStore := memory.NewStore()
+	resendVerificationEmailLimiter := ginlimiter.NewMiddleware(
+		limiter.New(resendVerificationEmailStore, resendVerificationEmailRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	verifyEmailChangeRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	verifyEmailChangeStore := memory.NewStore()
+	verifyEmailChangeLimiter := ginlimiter.NewMiddleware(
+		limiter.New(verifyEmailChangeStore, verifyEmailChangeRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	requestPasswordResetRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	requestPasswordResetStore := memory.NewStore()
+	requestPasswordResetLimiter := ginlimiter.NewMiddleware(
+		limiter.New(requestPasswordResetStore, requestPasswordResetRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
+	resetPasswordRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	resetPasswordStore := memory.NewStore()
+	resetPasswordLimiter := ginlimiter.NewMiddleware(
+		limiter.New(resetPasswordStore, resetPasswordRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	refreshRate := limiter.Rate{
 		Period: 1 * time.Minute,
 		Limit:  30,
@@ -192,6 +272,17 @@ func main() {
 		ginlimiter.WithLimitReachedHandler(limitReached),
 	)
 
+	contactRate := limiter.Rate{
+		Period: 1 * time.Hour,
+		Limit:  10,
+	}
+	contactStore := memory.NewStore()
+	contactLimiter := ginlimiter.NewMiddleware(
+		limiter.New(contactStore, contactRate),
+		ginlimiter.WithKeyGetter(clientKey),
+		ginlimiter.WithLimitReachedHandler(limitReached),
+	)
+
 	bodyLimit := middleware.BodyLimit(1024 * 1024)
 
 	// infrastructure
@@ -212,6 +303,28 @@ func main() {
 		s3Bucket,
 		s3PublicBaseURL,
 	)
+	emailVerificationTokenRepo := userinfra.NewEmailVerificationTokenRepository(
+		db,
+		userdomain.EmailVerificationTokenTTL,
+	)
+	emailChangeTokenRepo := userinfra.NewEmailChangeTokenRepository(
+		db,
+		userdomain.EmailChangeTokenTTL,
+	)
+	passwordResetTokenRepo := userinfra.NewPasswordResetTokenRepository(
+		db,
+		userdomain.PasswordResetTokenTTL,
+	)
+	mailService := mailinfra.NewService(
+		resendClient,
+		maildomain.Address(mailSupportAddress),
+		webBaseURL,
+	)
+	contactService := mailinfra.NewContactService(
+		resendClient,
+		maildomain.Address(mailSupportAddress),
+		webBaseURL,
+	)
 
 	// usecase
 	authUsecase := authusecase.NewAuthUsecase(
@@ -223,11 +336,21 @@ func main() {
 		userRepo,
 		refreshTokenRepo,
 		mediaService,
+		emailVerificationTokenRepo,
+		emailChangeTokenRepo,
+		passwordResetTokenRepo,
+		mailService,
+		maildomain.Address(mailAdminAddress),
+		webBaseURL,
 	)
 	recordUsecase := recordusecase.NewRecordUsecase(recordRepo, attachmentRepo, mediaService)
 	attachmentUsecase := recordusecase.NewAttachmentUsecase(attachmentRepo, recordRepo, mediaService)
 	movieUsecase := movieusecase.NewMovieUsecase(movieService)
 	mediaUsecase := mediausecase.NewMediaUsecase(mediaService)
+	contactUsecase := contactusecase.NewContactUsecase(
+		contactService,
+		maildomain.Address(mailAdminAddress),
+	)
 
 	// handler
 	authHandler := authhandler.NewAuthHandler(authUsecase)
@@ -236,7 +359,8 @@ func main() {
 	attachmentHandler := recordhandler.NewAttachmentHandler(attachmentUsecase)
 	movieHandler := moviehandler.NewMovieHandler(movieUsecase)
 	mediaHandler := mediahandler.NewMediaHandler(mediaUsecase)
-	scheduler := schedulerhandler.NewScheduler(authUsecase, cleanupInterval)
+	contactHandler := contacthandler.NewContactHandler(contactUsecase)
+	scheduler := schedulerhandler.NewScheduler(authUsecase, userUsecase, cleanupInterval)
 
 	// routing
 	router := gin.New()
@@ -264,6 +388,11 @@ func main() {
 	users.Use(bodyLimit)
 	{
 		users.POST("/register", registerLimiter, userHandler.Create)
+		users.POST("/verify-email", verifyEmailLimiter, userHandler.VerifyEmail)
+		users.POST("/verify-email/resend", resendVerificationEmailLimiter, userHandler.ResendVerificationEmail)
+		users.POST("/email/verify", verifyEmailChangeLimiter, userHandler.VerifyEmailChange)
+		users.POST("/password/reset-request", requestPasswordResetLimiter, userHandler.RequestPasswordReset)
+		users.POST("/password/reset", resetPasswordLimiter, userHandler.ResetPassword)
 	}
 
 	authUsers := router.Group("/users")
@@ -308,6 +437,12 @@ func main() {
 	media.Use(middleware.JWTAuth(authUsecase, userUsecase))
 	{
 		media.POST("/", mediaLimiter, mediaHandler.Upload)
+	}
+
+	contacts := router.Group("/contacts")
+	contacts.Use(bodyLimit)
+	{
+		contacts.POST("", contactLimiter, contactHandler.Create)
 	}
 
 	if cleanupEnable {

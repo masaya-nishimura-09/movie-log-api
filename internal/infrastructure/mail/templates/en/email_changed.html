@@ -1,0 +1,8 @@
+{{define "content"}}
+{{template "heading" "Your email address has been changed"}}
+{{template "paragraph" "The email address of your Cinelier account has been changed."}}
+{{template "paragraph" (printf "New email address: %s" .NewEmail)}}
+{{template "paragraph" "From now on, please log in with the new email address."}}
+{{template "button" (button "Contact us" .URL)}}
+{{template "note" "If you did not make this change, please contact us from the button above."}}
+{{end}}

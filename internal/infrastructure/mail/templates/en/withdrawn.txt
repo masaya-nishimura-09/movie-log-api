@@ -1,0 +1,6 @@
+{{define "subject"}}[Cinelier] Your account has been deleted{{end}}
+{{define "content"}}Your account has been deleted
+
+Your Cinelier account has been deleted.
+All of your records and images have been deleted as well.
+Thank you for using Cinelier.{{end}}

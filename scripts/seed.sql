@@ -10,6 +10,7 @@ INSERT INTO
         email,
         hashed_password,
         role,
+        email_verified_at,
         created_at,
         updated_at
     )
@@ -21,6 +22,7 @@ VALUES
         '$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
         'user',
         NOW (),
+        NOW (),
         NOW ()
     ),
     (
@@ -29,6 +31,7 @@ VALUES
         'test2@example.com',
         '$2b$10$u9X60onSaZLwlhp1wAhnzeWPW2bP3qaS0iLjjcP2USk8ZCOLwacuy',
         'user',
+        NOW (),
         NOW (),
         NOW ()
     );

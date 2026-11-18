@@ -2,11 +2,15 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"time"
 
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/auth"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/exception"
+	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/mail"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/media"
 	"github.com/masaya-nishimura-09/movie-log-api/internal/domain/user"
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +23,17 @@ type Usecase interface {
 		username user.Username,
 		email user.Email,
 		password user.Password,
-	) (*user.User, error)
+		language mail.Language,
+	) error
+	VerifyEmail(
+		ctx context.Context,
+		value user.EmailVerificationTokenValue,
+	) error
+	ResendVerificationEmail(
+		ctx context.Context,
+		email user.Email,
+		language mail.Language,
+	) error
 	UpdateUsername(
 		ctx context.Context,
 		userID user.ID,
@@ -30,31 +44,67 @@ type Usecase interface {
 		userID user.ID,
 		email user.Email,
 		password user.Password,
-	) (*user.User, error)
+		language mail.Language,
+	) error
+	VerifyEmailChange(
+		ctx context.Context,
+		value user.EmailChangeTokenValue,
+	) error
+	RequestPasswordReset(
+		ctx context.Context,
+		email user.Email,
+		language mail.Language,
+	) error
+	ResetPassword(
+		ctx context.Context,
+		value user.PasswordResetTokenValue,
+		newPassword user.Password,
+	) error
 	UpdatePassword(
 		ctx context.Context,
 		userID user.ID,
 		oldPassword user.Password,
 		newPassword user.Password,
 	) (*user.User, error)
-	Delete(ctx context.Context, userID user.ID) error
+	Delete(ctx context.Context, userID user.ID, language mail.Language) error
+	DeleteUnverifiedUsers(ctx context.Context) error
+	DeleteExpiredEmailChangeTokens(ctx context.Context) error
+	DeleteExpiredPasswordResetTokens(ctx context.Context) error
 }
 
 type UserUsecase struct {
-	userRepo         user.Repository
-	refreshTokenRepo auth.RefreshTokenRepository
-	mediaService     media.Service
+	userRepo                   user.Repository
+	refreshTokenRepo           auth.RefreshTokenRepository
+	mediaService               media.Service
+	emailVerificationTokenRepo user.EmailVerificationTokenRepository
+	emailChangeTokenRepo       user.EmailChangeTokenRepository
+	passwordResetTokenRepo     user.PasswordResetTokenRepository
+	mailService                mail.Service
+	adminAddress               mail.Address
+	webBaseURL                 *url.URL
 }
 
 func NewUserUsecase(
 	userRepo user.Repository,
 	refreshTokenRepo auth.RefreshTokenRepository,
 	mediaService media.Service,
+	emailVerificationTokenRepo user.EmailVerificationTokenRepository,
+	emailChangeTokenRepo user.EmailChangeTokenRepository,
+	passwordResetTokenRepo user.PasswordResetTokenRepository,
+	mailService mail.Service,
+	adminAddress mail.Address,
+	webBaseURL *url.URL,
 ) *UserUsecase {
 	return &UserUsecase{
-		userRepo:         userRepo,
-		refreshTokenRepo: refreshTokenRepo,
-		mediaService:     mediaService,
+		userRepo:                   userRepo,
+		refreshTokenRepo:           refreshTokenRepo,
+		mediaService:               mediaService,
+		emailVerificationTokenRepo: emailVerificationTokenRepo,
+		emailChangeTokenRepo:       emailChangeTokenRepo,
+		passwordResetTokenRepo:     passwordResetTokenRepo,
+		mailService:                mailService,
+		adminAddress:               adminAddress,
+		webBaseURL:                 webBaseURL,
 	}
 }
 
@@ -75,10 +125,28 @@ func (uu *UserUsecase) Create(
 	username user.Username,
 	email user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if existingUser != nil && existingUser.EmailVerifiedAt != nil {
+		if err := uu.mailService.SendAlreadyRegistered(
+			ctx,
+			mail.Address(existingUser.Email),
+			language,
+			loginURL(uu.webBaseURL, language),
+		); err != nil {
+			return fmt.Errorf("send already registered mail: %w", err)
+		}
+		return nil
 	}
 
 	u := user.NewUser(
@@ -88,11 +156,125 @@ func (uu *UserUsecase) Create(
 		user.RoleUser,
 	)
 
-	if err := uu.userRepo.Create(ctx, &u); err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+	if existingUser != nil {
+		u.ID = existingUser.ID
+		if err := uu.userRepo.ReplaceUnverified(ctx, &u); err != nil {
+			return fmt.Errorf("replace unverified user: %w", err)
+		}
+	} else {
+		err := uu.userRepo.Create(ctx, &u)
+		if errors.Is(err, exception.ErrAlreadyExists) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
 	}
 
-	return &u, nil
+	if err := uu.sendVerificationMail(ctx, &u, language); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) VerifyEmail(
+	ctx context.Context,
+	value user.EmailVerificationTokenValue,
+) error {
+	token, err := uu.emailVerificationTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find email verification token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("verify email: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	if existingUser.EmailVerifiedAt != nil {
+		if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+			return fmt.Errorf("delete email verification tokens: %w", err)
+		}
+		return nil
+	}
+
+	verifiedAt := time.Now()
+	existingUser.EmailVerifiedAt = &verifiedAt
+	if err := uu.userRepo.UpdateEmailVerifiedAt(ctx, existingUser); err != nil {
+		return fmt.Errorf("update email verified at: %w", err)
+	}
+
+	if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete email verification tokens: %w", err)
+	}
+
+	if err := uu.mailService.SendUserVerified(ctx, uu.adminAddress, verifiedAt); err != nil {
+		slog.WarnContext(ctx, "user_verified_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) ResendVerificationEmail(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if existingUser.EmailVerifiedAt != nil {
+		return nil
+	}
+
+	latestToken, err := uu.emailVerificationTokenRepo.FindLatestByUserID(ctx, existingUser.ID)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("find latest email verification token: %w", err)
+	}
+	if latestToken != nil && time.Since(latestToken.CreatedAt) < user.EmailVerificationResendInterval {
+		return nil
+	}
+
+	if err := uu.sendVerificationMail(ctx, existingUser, language); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) sendVerificationMail(
+	ctx context.Context,
+	u *user.User,
+	language mail.Language,
+) error {
+	if err := uu.emailVerificationTokenRepo.DeleteAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("delete email verification tokens: %w", err)
+	}
+
+	token, err := uu.emailVerificationTokenRepo.Create(ctx, u.ID)
+	if err != nil {
+		return fmt.Errorf("create email verification token: %w", err)
+	}
+
+	if err := uu.mailService.SendEmailVerification(
+		ctx,
+		mail.Address(u.Email),
+		language,
+		verificationURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
+		return fmt.Errorf("send verification mail: %w", err)
+	}
+
+	return nil
 }
 
 func (uu *UserUsecase) UpdateUsername(
@@ -125,32 +307,237 @@ func (uu *UserUsecase) UpdateEmail(
 	userID user.ID,
 	newEmail user.Email,
 	password user.Password,
-) (*user.User, error) {
+	language mail.Language,
+) error {
 	existingUser, err := uu.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get user by id: %w", err)
+		return fmt.Errorf("get user by id: %w", err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
 		[]byte(existingUser.HashedPassword),
 		[]byte(password),
 	); err != nil {
-		return nil, fmt.Errorf("login: %w", exception.ErrInvalid)
+		return fmt.Errorf("login: %w", exception.ErrInvalid)
+	}
+
+	if newEmail == existingUser.Email {
+		return nil
+	}
+
+	otherUser, err := uu.userRepo.GetByEmail(ctx, newEmail)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if otherUser != nil && otherUser.EmailVerifiedAt != nil {
+		if err := uu.mailService.SendEmailChangeAlreadyRegistered(
+			ctx,
+			mail.Address(newEmail),
+			language,
+			loginURL(uu.webBaseURL, language),
+		); err != nil {
+			return fmt.Errorf("send already registered mail: %w", err)
+		}
+		return nil
+	}
+
+	if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, userID); err != nil {
+		return fmt.Errorf("delete email change tokens: %w", err)
+	}
+
+	token, err := uu.emailChangeTokenRepo.Create(ctx, userID, newEmail, language)
+	if err != nil {
+		return fmt.Errorf("create email change token: %w", err)
+	}
+
+	if err := uu.mailService.SendEmailChangeVerification(
+		ctx,
+		mail.Address(newEmail),
+		language,
+		emailChangeVerificationURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
+		return fmt.Errorf("send email change verification mail: %w", err)
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) VerifyEmailChange(
+	ctx context.Context,
+	value user.EmailChangeTokenValue,
+) error {
+	token, err := uu.emailChangeTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find email change token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("verify email change: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	otherUser, err := uu.userRepo.GetByEmail(ctx, token.NewEmail)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+	if otherUser != nil && otherUser.ID == existingUser.ID {
+		if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+			return fmt.Errorf("delete email change tokens: %w", err)
+		}
+		return nil
+	}
+
+	if otherUser != nil {
+		if otherUser.EmailVerifiedAt != nil {
+			return fmt.Errorf("verify email change: %w", exception.ErrAlreadyExists)
+		}
+		if err := uu.userRepo.Delete(ctx, otherUser.ID); err != nil {
+			return fmt.Errorf("delete unverified user: %w", err)
+		}
+	}
+
+	oldEmail := existingUser.Email
+	existingUser.Email = token.NewEmail
+	if err := uu.userRepo.UpdateEmail(ctx, existingUser); err != nil {
+		return fmt.Errorf("update email: %w", err)
+	}
+
+	if err := uu.emailChangeTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete email change tokens: %w", err)
+	}
+
+	if err := uu.mailService.SendEmailChanged(
+		ctx,
+		mail.Address(oldEmail),
+		token.Language,
+		mail.Address(token.NewEmail),
+		contactURL(uu.webBaseURL, token.Language),
+	); err != nil {
+		slog.WarnContext(ctx, "email_changed_mail_failed", "userId", fmt.Sprint(existingUser.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) RequestPasswordReset(
+	ctx context.Context,
+	email user.Email,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByEmail(ctx, email)
+	if errors.Is(err, exception.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	if existingUser.EmailVerifiedAt == nil {
+		return nil
+	}
+
+	latestToken, err := uu.passwordResetTokenRepo.FindLatestByUserID(ctx, existingUser.ID)
+	if err != nil && !errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("find latest password reset token: %w", err)
+	}
+	if latestToken != nil && time.Since(latestToken.CreatedAt) < user.PasswordResetRequestInterval {
+		return nil
+	}
+
+	if err := uu.passwordResetTokenRepo.DeleteAllForUser(ctx, existingUser.ID); err != nil {
+		return fmt.Errorf("delete password reset tokens: %w", err)
+	}
+
+	token, err := uu.passwordResetTokenRepo.Create(ctx, existingUser.ID, language)
+	if err != nil {
+		return fmt.Errorf("create password reset token: %w", err)
+	}
+
+	if err := uu.mailService.SendPasswordReset(
+		ctx,
+		mail.Address(existingUser.Email),
+		language,
+		passwordResetURL(uu.webBaseURL, language, token.Value),
+	); err != nil {
+		return fmt.Errorf("send password reset mail: %w", err)
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) ResetPassword(
+	ctx context.Context,
+	value user.PasswordResetTokenValue,
+	newPassword user.Password,
+) error {
+	token, err := uu.passwordResetTokenRepo.FindValidByValue(ctx, value)
+	if err != nil {
+		return fmt.Errorf("find password reset token: %w", err)
+	}
+
+	existingUser, err := uu.userRepo.GetByID(ctx, token.UserID)
+	if errors.Is(err, exception.ErrNotFound) {
+		return fmt.Errorf("reset password: %w", exception.ErrInvalid)
+	}
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
 	}
 
 	u := user.NewUser(
 		existingUser.Username,
-		newEmail,
-		existingUser.HashedPassword,
+		existingUser.Email,
+		user.HashedPassword(hashed),
 		existingUser.Role,
 	)
-	u.ID = userID
+	u.ID = existingUser.ID
 
-	if err := uu.userRepo.UpdateEmail(ctx, &u); err != nil {
-		return nil, fmt.Errorf("update email: %w", err)
+	if err := uu.userRepo.UpdatePassword(ctx, &u); err != nil {
+		return fmt.Errorf("update password: %w", err)
 	}
 
-	return &u, nil
+	if err := uu.passwordResetTokenRepo.DeleteAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("delete password reset tokens: %w", err)
+	}
+
+	if err := uu.refreshTokenRepo.RevokeAllForUser(ctx, u.ID); err != nil {
+		return fmt.Errorf("revoke refresh tokens: %w", err)
+	}
+
+	if err := uu.mailService.SendPasswordChanged(
+		ctx,
+		mail.Address(u.Email),
+		token.Language,
+		contactURL(uu.webBaseURL, token.Language),
+	); err != nil {
+		slog.WarnContext(ctx, "password_changed_mail_failed", "userId", fmt.Sprint(u.ID), "message", err.Error())
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+	if err := uu.passwordResetTokenRepo.DeleteExpired(ctx); err != nil {
+		return fmt.Errorf("delete expired password reset tokens: %w", err)
+	}
+
+	return nil
+}
+
+func (uu *UserUsecase) DeleteExpiredEmailChangeTokens(ctx context.Context) error {
+	if err := uu.emailChangeTokenRepo.DeleteExpired(ctx); err != nil {
+		return fmt.Errorf("delete expired email change tokens: %w", err)
+	}
+
+	return nil
 }
 
 func (uu *UserUsecase) UpdatePassword(
@@ -195,7 +582,16 @@ func (uu *UserUsecase) UpdatePassword(
 	return &u, nil
 }
 
-func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
+func (uu *UserUsecase) Delete(
+	ctx context.Context,
+	userID user.ID,
+	language mail.Language,
+) error {
+	existingUser, err := uu.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user by id: %w", err)
+	}
+
 	if err := uu.userRepo.Delete(ctx, userID); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
@@ -204,5 +600,56 @@ func (uu *UserUsecase) Delete(ctx context.Context, userID user.ID) error {
 		slog.WarnContext(ctx, "media_delete_failed", "userId", fmt.Sprint(userID), "message", err.Error())
 	}
 
+	if err := uu.mailService.SendWithdrawn(ctx, mail.Address(existingUser.Email), language); err != nil {
+		slog.WarnContext(ctx, "withdrawn_mail_failed", "userId", fmt.Sprint(userID), "message", err.Error())
+	}
+
 	return nil
+}
+
+func (uu *UserUsecase) DeleteUnverifiedUsers(ctx context.Context) error {
+	before := time.Now().Add(-user.UnverifiedUserRetention)
+	if err := uu.userRepo.DeleteUnverifiedCreatedBefore(ctx, before); err != nil {
+		return fmt.Errorf("delete unverified users: %w", err)
+	}
+
+	return nil
+}
+
+func verificationURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.EmailVerificationTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "verify-email")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func emailChangeVerificationURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.EmailChangeTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "verify-email-change")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func passwordResetURL(
+	webBaseURL *url.URL,
+	language mail.Language,
+	value user.PasswordResetTokenValue,
+) mail.URL {
+	u := webBaseURL.JoinPath(string(language), "reset-password")
+	u.RawQuery = url.Values{"token": {string(value)}}.Encode()
+	return mail.URL(u.String())
+}
+
+func contactURL(webBaseURL *url.URL, language mail.Language) mail.URL {
+	return mail.URL(webBaseURL.JoinPath(string(language), "contact").String())
+}
+
+func loginURL(webBaseURL *url.URL, language mail.Language) mail.URL {
+	return mail.URL(webBaseURL.JoinPath(string(language), "login").String())
 }
