@@ -115,6 +115,10 @@ S3
 | `S3_PUBLIC_BASE_URL` | `https://<画像バケット名>.s3.ap-southeast-2.amazonaws.com` |
 | `INTERNAL_API_SECRET` | `openssl rand -hex` で生成。Web アプリをデプロイするときに同じ値を渡す |
 | `TRUSTED_PROXIES` | `172.30.0.0/24` |
+| `RESEND_API_KEY` | Resend の本番用のキー `movie-log-api-production`（権限は `Sending access`、ドメインは `cinelier.app`） |
+| `MAIL_SUPPORT_ADDRESS` | `support@cinelier.app`（メールの差出人） |
+| `MAIL_ADMIN_ADDRESS` | 管理者のアドレス（新規ユーザーの通知とお問い合わせの宛先） |
+| `WEB_BASE_URL` | `https://www.cinelier.app`（メールに書くリンクとロゴの URL の元） |
 
 S3 の認証情報は `.env` に書かない。EC2 の IAM ロールから自動で取得される。
 
@@ -172,8 +176,11 @@ cd ~/movie-log-api
 PC で行う。
 
 ```bash
+git checkout main
+git pull
+git status                                   # 何も出ないこと（未コミットの変更があると build-image.sh が失敗する）
 git tag vX.Y.Z
-./scripts/build-image.sh                     # movie-log-api:vX.Y.Z を作る（未コミットの変更があると失敗する）
+./scripts/build-image.sh                     # movie-log-api:vX.Y.Z を作る
 docker save movie-log-api:vX.Y.Z | gzip > movie-log-api-vX.Y.Z.tar.gz
 scp -i ~/.ssh/movie-log-api.pem movie-log-api-vX.Y.Z.tar.gz ec2-user@<Elastic IP>:~/
 ```
@@ -183,8 +190,11 @@ scp -i ~/.ssh/movie-log-api.pem movie-log-api-vX.Y.Z.tar.gz ec2-user@<Elastic IP
 ```bash
 gunzip -c ~/movie-log-api-vX.Y.Z.tar.gz | docker load
 cd ~/movie-log-api
-vim .env                                     # APP_VERSION=vX.Y.Z に変更
+sed -i 's/^APP_VERSION=.*/APP_VERSION=vX.Y.Z/' .env   # .env の APP_VERSION を書き換える
+grep APP_VERSION .env                        # vX.Y.Z になっていること
+unset APP_VERSION                            # シェルに古い値が残っていると .env より優先されるので消す
 docker compose up -d
+docker compose ps                            # api の IMAGE が movie-log-api:vX.Y.Z になっていること
 rm ~/movie-log-api-vX.Y.Z.tar.gz
 ```
 
