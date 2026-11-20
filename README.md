@@ -325,6 +325,7 @@ erDiagram
         text hash UK
         timestamptz expires_at
         timestamptz revoked_at
+        timestamptz rotated_at
     }
     email_verification_tokens {
         bigint id PK

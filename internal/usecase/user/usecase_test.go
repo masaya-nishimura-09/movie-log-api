@@ -353,6 +353,14 @@ func (r *fakeRefreshTokenRepo) Create(
 	return nil, nil
 }
 
+func (r *fakeRefreshTokenRepo) CreateWithExpiresAt(
+	ctx context.Context,
+	principal *auth.Principal,
+	expiresAt time.Time,
+) (*auth.RefreshToken, error) {
+	return nil, nil
+}
+
 func (r *fakeRefreshTokenRepo) FindValidByValue(
 	ctx context.Context,
 	value auth.RefreshTokenValue,
@@ -360,7 +368,21 @@ func (r *fakeRefreshTokenRepo) FindValidByValue(
 	return nil, nil
 }
 
+func (r *fakeRefreshTokenRepo) FindRefreshableByValue(
+	ctx context.Context,
+	value auth.RefreshTokenValue,
+) (*auth.RefreshToken, error) {
+	return nil, nil
+}
+
 func (r *fakeRefreshTokenRepo) Revoke(
+	ctx context.Context,
+	id auth.RefreshTokenID,
+) error {
+	return nil
+}
+
+func (r *fakeRefreshTokenRepo) Rotate(
 	ctx context.Context,
 	id auth.RefreshTokenID,
 ) error {

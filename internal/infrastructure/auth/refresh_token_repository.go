@@ -32,6 +32,7 @@ type refreshTokenDTO struct {
 	ExpiresAt time.Time
 	CreatedAt time.Time
 	RevokedAt *time.Time
+	RotatedAt *time.Time
 }
 
 func (refreshTokenDTO) TableName() string {
@@ -46,12 +47,36 @@ func toDTO(rt *auth.RefreshToken) refreshTokenDTO {
 		ExpiresAt: rt.ExpiresAt,
 		CreatedAt: rt.CreatedAt,
 		RevokedAt: rt.RevokedAt,
+		RotatedAt: rt.RotatedAt,
+	}
+}
+
+func fromDTO(dto *refreshTokenDTO) *auth.RefreshToken {
+	return &auth.RefreshToken{
+		ID: auth.RefreshTokenID(dto.ID),
+		Principal: auth.Principal{
+			UserID: user.ID(dto.UserID),
+			Role:   user.Role(dto.Role),
+		},
+		Hash:      auth.RefreshTokenHash(dto.Hash),
+		ExpiresAt: dto.ExpiresAt,
+		CreatedAt: dto.CreatedAt,
+		RevokedAt: dto.RevokedAt,
+		RotatedAt: dto.RotatedAt,
 	}
 }
 
 func (rtr *refreshTokenRepository) Create(
 	ctx context.Context,
 	principal *auth.Principal,
+) (*auth.RefreshToken, error) {
+	return rtr.CreateWithExpiresAt(ctx, principal, time.Now().Add(rtr.ttl))
+}
+
+func (rtr *refreshTokenRepository) CreateWithExpiresAt(
+	ctx context.Context,
+	principal *auth.Principal,
+	expiresAt time.Time,
 ) (*auth.RefreshToken, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -67,7 +92,7 @@ func (rtr *refreshTokenRepository) Create(
 		Value:     auth.RefreshTokenValue(value),
 		Hash:      auth.RefreshTokenHash(hash),
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(rtr.ttl),
+		ExpiresAt: expiresAt,
 	}
 
 	dto := toDTO(&refreshToken)
@@ -94,6 +119,7 @@ func (rtr *refreshTokenRepository) FindValidByValue(
 		Where("hash = ?", hash).
 		Where("expires_at > ?", time.Now()).
 		Where("revoked_at IS NULL").
+		Where("rotated_at IS NULL").
 		First(&dto)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, exception.ErrInvalid
@@ -102,17 +128,35 @@ func (rtr *refreshTokenRepository) FindValidByValue(
 		return nil, fmt.Errorf("find refresh token: %w", result.Error)
 	}
 
-	return &auth.RefreshToken{
-		ID: auth.RefreshTokenID(dto.ID),
-		Principal: auth.Principal{
-			UserID: user.ID(dto.UserID),
-			Role:   user.Role(dto.Role),
-		},
-		Hash:      auth.RefreshTokenHash(dto.Hash),
-		ExpiresAt: dto.ExpiresAt,
-		CreatedAt: dto.CreatedAt,
-		RevokedAt: dto.RevokedAt,
-	}, nil
+	return fromDTO(&dto), nil
+}
+
+func (rtr *refreshTokenRepository) FindRefreshableByValue(
+	ctx context.Context,
+	value auth.RefreshTokenValue,
+) (*auth.RefreshToken, error) {
+	sum := sha256.Sum256([]byte(value))
+	hash := hex.EncodeToString(sum[:])
+
+	now := time.Now()
+	var dto refreshTokenDTO
+	result := rtr.db.WithContext(ctx).
+		Where("hash = ?", hash).
+		Where("expires_at > ?", now).
+		Where("revoked_at IS NULL").
+		Where(
+			"(rotated_at IS NULL OR rotated_at > ?)",
+			now.Add(-auth.RefreshTokenReuseInterval),
+		).
+		First(&dto)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, exception.ErrInvalid
+	}
+	if result.Error != nil {
+		return nil, fmt.Errorf("find refreshable refresh token: %w", result.Error)
+	}
+
+	return fromDTO(&dto), nil
 }
 
 func (rtr *refreshTokenRepository) Revoke(
@@ -127,6 +171,25 @@ func (rtr *refreshTokenRepository) Revoke(
 		Update("revoked_at", now)
 	if result.Error != nil {
 		return fmt.Errorf("revoke refresh token: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return exception.ErrInvalid
+	}
+	return nil
+}
+
+func (rtr *refreshTokenRepository) Rotate(
+	ctx context.Context,
+	id auth.RefreshTokenID,
+) error {
+	now := time.Now()
+	result := rtr.db.WithContext(ctx).
+		Model(&refreshTokenDTO{}).
+		Where("id = ?", id).
+		Where("revoked_at IS NULL").
+		Update("rotated_at", gorm.Expr("COALESCE(rotated_at, ?)", now))
+	if result.Error != nil {
+		return fmt.Errorf("rotate refresh token: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return exception.ErrInvalid

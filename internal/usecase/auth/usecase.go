@@ -132,7 +132,7 @@ func (au *AuthUsecase) Refresh(
 	ctx context.Context,
 	refreshTokenValue auth.RefreshTokenValue,
 ) (*auth.AccessToken, *auth.RefreshToken, error) {
-	oldRefreshToken, err := au.refreshTokenRepo.FindValidByValue(
+	oldRefreshToken, err := au.refreshTokenRepo.FindRefreshableByValue(
 		ctx,
 		refreshTokenValue,
 	)
@@ -140,11 +140,11 @@ func (au *AuthUsecase) Refresh(
 		return nil, nil, fmt.Errorf("find refresh token: %w", err)
 	}
 
-	if err := au.refreshTokenRepo.Revoke(ctx, oldRefreshToken.ID); err != nil {
+	if err := au.refreshTokenRepo.Rotate(ctx, oldRefreshToken.ID); err != nil {
 		if errors.Is(err, exception.ErrInvalid) {
 			return nil, nil, fmt.Errorf("refresh: %w", exception.ErrInvalid)
 		}
-		return nil, nil, fmt.Errorf("revoke refresh token: %w", err)
+		return nil, nil, fmt.Errorf("rotate refresh token: %w", err)
 	}
 
 	existingUser, err := au.userRepo.GetByID(ctx, oldRefreshToken.Principal.UserID)
@@ -165,7 +165,16 @@ func (au *AuthUsecase) Refresh(
 		return nil, nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	newRefreshToken, err := au.refreshTokenRepo.Create(ctx, &principal)
+	var newRefreshToken *auth.RefreshToken
+	if oldRefreshToken.RotatedAt == nil {
+		newRefreshToken, err = au.refreshTokenRepo.Create(ctx, &principal)
+	} else {
+		newRefreshToken, err = au.refreshTokenRepo.CreateWithExpiresAt(
+			ctx,
+			&principal,
+			oldRefreshToken.ExpiresAt,
+		)
+	}
 	if errors.Is(err, exception.ErrNotFound) {
 		return nil, nil, fmt.Errorf("refresh: %w", exception.ErrInvalid)
 	}
