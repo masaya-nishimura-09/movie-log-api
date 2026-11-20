@@ -155,6 +155,377 @@ func TestCreate(t *testing.T) {
 	)
 }
 
+func newTestRefreshToken(
+	t *testing.T,
+	tx *gorm.DB,
+	rtr auth.RefreshTokenRepository,
+) *auth.RefreshToken {
+	t.Helper()
+	u := newTestUser(t, tx, "test@example.com")
+	principal := auth.Principal{
+		UserID: u.ID,
+		Role:   u.Role,
+	}
+	rt, err := rtr.Create(context.Background(), &principal)
+	if err != nil {
+		t.Fatalf(
+			"Create(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+			principal, rt, err,
+		)
+	}
+	return rt
+}
+
+func setRotatedAt(t *testing.T, tx *gorm.DB, id auth.RefreshTokenID, rotatedAt time.Time) {
+	t.Helper()
+	if err := tx.Model(&refreshTokenDTO{}).
+		Where("id = ?", id).
+		Update("rotated_at", rotatedAt).Error; err != nil {
+		t.Fatalf("Update(rotated_at) error = %v", err)
+	}
+}
+
+func TestCreateWithExpiresAt(t *testing.T) {
+	t.Run(
+		"stores the given expiry",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			ctx := context.Background()
+			u := newTestUser(t, tx, "test@example.com")
+
+			principal := auth.Principal{
+				UserID: u.ID,
+				Role:   u.Role,
+			}
+			expiresAt := time.Now().Add(10 * time.Minute)
+
+			rt, err := rtr.CreateWithExpiresAt(ctx, &principal, expiresAt)
+			if err != nil {
+				t.Fatalf(
+					"CreateWithExpiresAt(ctx, %v, %v) (*auth.RefreshToken, error) = %v, %v",
+					principal, expiresAt, rt, err,
+				)
+			}
+
+			found, err := rtr.FindValidByValue(ctx, rt.Value)
+			if err != nil {
+				t.Fatalf(
+					"FindValidByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					rt.Value, found, err,
+				)
+			}
+			if !found.ExpiresAt.Equal(expiresAt.Truncate(time.Microsecond)) {
+				t.Errorf(
+					"CreateWithExpiresAt(ctx, %v, %v) stored ExpiresAt = %v, want %v",
+					principal, expiresAt, found.ExpiresAt, expiresAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrNotFound when the user does not exist",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			ctx := context.Background()
+			principal := auth.Principal{
+				UserID: user.ID(999999),
+				Role:   user.RoleAdmin,
+			}
+			expiresAt := time.Now().Add(time.Hour)
+
+			got, err := rtr.CreateWithExpiresAt(ctx, &principal, expiresAt)
+			if !errors.Is(err, exception.ErrNotFound) {
+				t.Fatalf(
+					"CreateWithExpiresAt(ctx, %v, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					principal, expiresAt, got, err, exception.ErrNotFound,
+				)
+			}
+		},
+	)
+}
+
+func TestFindRefreshableByValue(t *testing.T) {
+	t.Run(
+		"returns the refresh token when it has not been rotated",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), rt.Value)
+			if err != nil {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					rt.Value, found, err,
+				)
+			}
+			if found.ID != rt.ID || found.RotatedAt != nil {
+				t.Errorf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, want ID %v and nil RotatedAt",
+					rt.Value, found, rt.ID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns the refresh token when it was rotated within the reuse interval",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			setRotatedAt(t, tx, rt.ID, time.Now().Add(-auth.RefreshTokenReuseInterval+time.Second))
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), rt.Value)
+			if err != nil {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					rt.Value, found, err,
+				)
+			}
+			if found.ID != rt.ID || found.RotatedAt == nil {
+				t.Errorf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, want ID %v and non-nil RotatedAt",
+					rt.Value, found, rt.ID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when it was rotated before the reuse interval",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			setRotatedAt(t, tx, rt.ID, time.Now().Add(-auth.RefreshTokenReuseInterval-time.Second))
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), rt.Value)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					rt.Value, found, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when it is revoked even within the reuse interval",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			setRotatedAt(t, tx, rt.ID, time.Now())
+			if err := rtr.RevokeAllForUser(context.Background(), rt.Principal.UserID); err != nil {
+				t.Fatalf(
+					"RevokeAllForUser(ctx, %d) error = %v",
+					rt.Principal.UserID, err,
+				)
+			}
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), rt.Value)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					rt.Value, found, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when refresh token is expired",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, -time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), rt.Value)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					rt.Value, found, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when value does not exist",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			fakeValue := auth.RefreshTokenValue(
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			)
+
+			found, err := rtr.FindRefreshableByValue(context.Background(), fakeValue)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					fakeValue, found, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			value := auth.RefreshTokenValue(
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			)
+
+			got, err := rtr.FindRefreshableByValue(ctx, value)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					value, got, err, context.Canceled,
+				)
+			}
+		},
+	)
+}
+
+func TestRotate(t *testing.T) {
+	t.Run(
+		"sets rotated_at and makes the token unusable for logout",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			ctx := context.Background()
+
+			if err := rtr.Rotate(ctx, rt.ID); err != nil {
+				t.Fatalf("Rotate(ctx, %d) error = %v", rt.ID, err)
+			}
+
+			found, err := rtr.FindRefreshableByValue(ctx, rt.Value)
+			if err != nil {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					rt.Value, found, err,
+				)
+			}
+			if found.RotatedAt == nil {
+				t.Errorf(
+					"Rotate(ctx, %d) left RotatedAt nil, want non-nil",
+					rt.ID,
+				)
+			}
+
+			found, err = rtr.FindValidByValue(ctx, rt.Value)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"FindValidByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v, want %v",
+					rt.Value, found, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"keeps the first rotated_at when the token is rotated again",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			ctx := context.Background()
+			firstRotatedAt := time.Now().Add(-5 * time.Second).Truncate(time.Microsecond)
+			setRotatedAt(t, tx, rt.ID, firstRotatedAt)
+
+			if err := rtr.Rotate(ctx, rt.ID); err != nil {
+				t.Fatalf("Rotate(ctx, %d) error = %v", rt.ID, err)
+			}
+
+			found, err := rtr.FindRefreshableByValue(ctx, rt.Value)
+			if err != nil {
+				t.Fatalf(
+					"FindRefreshableByValue(ctx, %v) (*auth.RefreshToken, error) = %v, %v",
+					rt.Value, found, err,
+				)
+			}
+			if found.RotatedAt == nil || !found.RotatedAt.Equal(firstRotatedAt) {
+				t.Errorf(
+					"Rotate(ctx, %d) RotatedAt = %v, want %v",
+					rt.ID, found.RotatedAt, firstRotatedAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when the refresh token is revoked",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+			rt := newTestRefreshToken(t, tx, rtr)
+			ctx := context.Background()
+
+			if err := rtr.Revoke(ctx, rt.ID); err != nil {
+				t.Fatalf("Revoke(ctx, %d) error = %v", rt.ID, err)
+			}
+
+			if err := rtr.Rotate(ctx, rt.ID); !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"Rotate(ctx, %d) error = %v, want %v",
+					rt.ID, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid when refresh token is not found",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			id := auth.RefreshTokenID(1)
+
+			if err := rtr.Rotate(context.Background(), id); !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"Rotate(ctx, %d) error = %v, want %v",
+					id, err, exception.ErrInvalid,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns a wrapped error when the context is canceled",
+		func(t *testing.T) {
+			tx := testutil.BeginTx(t, testDB)
+			rtr := NewRefreshTokenRepository(tx, time.Hour)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			id := auth.RefreshTokenID(1)
+
+			if err := rtr.Rotate(ctx, id); !errors.Is(err, context.Canceled) {
+				t.Fatalf(
+					"Rotate(ctx, %d) error = %v, want %v",
+					id, err, context.Canceled,
+				)
+			}
+		},
+	)
+}
+
 func TestFindValidByValue(t *testing.T) {
 	t.Run(
 		"returns the refresh token when valid value is given",

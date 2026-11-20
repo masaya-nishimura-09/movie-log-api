@@ -55,7 +55,8 @@ CREATE TABLE refresh_tokens (
     hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),
-    revoked_at TIMESTAMPTZ DEFAULT NULL
+    revoked_at TIMESTAMPTZ DEFAULT NULL,
+    rotated_at TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE UNIQUE INDEX refresh_tokens_hash_idx ON refresh_tokens (hash);

@@ -84,13 +84,26 @@ func (r *fakeAccessTokenService) Validate(
 
 type fakeRefreshTokenRepo struct {
 	refreshToken *auth.RefreshToken
-	revokedID    auth.RefreshTokenID
+	rotatedID    auth.RefreshTokenID
+	rotateErr    error
+	created      bool
+	expiresAt    *time.Time
 }
 
 func (r *fakeRefreshTokenRepo) Create(
 	ctx context.Context,
 	principal *auth.Principal,
 ) (*auth.RefreshToken, error) {
+	r.created = true
+	return nil, nil
+}
+
+func (r *fakeRefreshTokenRepo) CreateWithExpiresAt(
+	ctx context.Context,
+	principal *auth.Principal,
+	expiresAt time.Time,
+) (*auth.RefreshToken, error) {
+	r.expiresAt = &expiresAt
 	return nil, nil
 }
 
@@ -101,12 +114,26 @@ func (r *fakeRefreshTokenRepo) FindValidByValue(
 	return r.refreshToken, nil
 }
 
+func (r *fakeRefreshTokenRepo) FindRefreshableByValue(
+	ctx context.Context,
+	value auth.RefreshTokenValue,
+) (*auth.RefreshToken, error) {
+	return r.refreshToken, nil
+}
+
 func (r *fakeRefreshTokenRepo) Revoke(
 	ctx context.Context,
 	id auth.RefreshTokenID,
 ) error {
-	r.revokedID = id
 	return nil
+}
+
+func (r *fakeRefreshTokenRepo) Rotate(
+	ctx context.Context,
+	id auth.RefreshTokenID,
+) error {
+	r.rotatedID = id
+	return r.rotateErr
 }
 
 func (r *fakeRefreshTokenRepo) RevokeAllForUser(
@@ -287,7 +314,7 @@ func TestLogin(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	t.Run(
-		"revokes the old refresh token and builds the principal from the user when a valid value is given",
+		"rotates the old refresh token and builds the principal from the user when a valid value is given",
 		func(t *testing.T) {
 			userID := user.ID(1)
 			role := user.RoleUser
@@ -331,10 +358,120 @@ func TestRefresh(t *testing.T) {
 				)
 			}
 
-			if refreshTokenRepo.revokedID != oldRefreshTokenID {
+			if refreshTokenRepo.rotatedID != oldRefreshTokenID {
 				t.Errorf(
-					"Refresh(ctx, %v) revoked ID = %v, want %v",
-					oldRefreshTokenValue, refreshTokenRepo.revokedID, oldRefreshTokenID,
+					"Refresh(ctx, %v) rotated ID = %v, want %v",
+					oldRefreshTokenValue, refreshTokenRepo.rotatedID, oldRefreshTokenID,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"issues a refresh token with a new expiry when the old one has not been rotated",
+		func(t *testing.T) {
+			u := user.User{ID: user.ID(1), Role: user.RoleUser}
+			oldRefreshTokenValue := auth.RefreshTokenValue("refreshtokenvalue")
+			oldRefreshToken := auth.RefreshToken{
+				ID:        auth.RefreshTokenID(1),
+				ExpiresAt: time.Now().Add(time.Hour),
+			}
+
+			userRepo := &fakeUserRepo{user: &u}
+			accessTokenService := &fakeAccessTokenService{}
+			refreshTokenRepo := &fakeRefreshTokenRepo{
+				refreshToken: &oldRefreshToken,
+			}
+			au := NewAuthUsecase(userRepo, accessTokenService, refreshTokenRepo)
+
+			ctx := context.Background()
+
+			_, _, err := au.Refresh(ctx, oldRefreshTokenValue)
+			if err != nil {
+				t.Fatalf(
+					"Refresh(ctx, %v) (*auth.AccessToken, *auth.RefreshToken, error) = %v",
+					oldRefreshTokenValue, err,
+				)
+			}
+			if !refreshTokenRepo.created || refreshTokenRepo.expiresAt != nil {
+				t.Errorf(
+					"Refresh(ctx, %v) created = %v, expiresAt = %v, want Create to be called",
+					oldRefreshTokenValue, refreshTokenRepo.created, refreshTokenRepo.expiresAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"issues a refresh token with the same expiry when the old one has been rotated",
+		func(t *testing.T) {
+			u := user.User{ID: user.ID(1), Role: user.RoleUser}
+			oldRefreshTokenValue := auth.RefreshTokenValue("refreshtokenvalue")
+			rotatedAt := time.Now()
+			oldExpiresAt := time.Now().Add(time.Hour)
+			oldRefreshToken := auth.RefreshToken{
+				ID:        auth.RefreshTokenID(1),
+				ExpiresAt: oldExpiresAt,
+				RotatedAt: &rotatedAt,
+			}
+
+			userRepo := &fakeUserRepo{user: &u}
+			accessTokenService := &fakeAccessTokenService{}
+			refreshTokenRepo := &fakeRefreshTokenRepo{
+				refreshToken: &oldRefreshToken,
+			}
+			au := NewAuthUsecase(userRepo, accessTokenService, refreshTokenRepo)
+
+			ctx := context.Background()
+
+			_, _, err := au.Refresh(ctx, oldRefreshTokenValue)
+			if err != nil {
+				t.Fatalf(
+					"Refresh(ctx, %v) (*auth.AccessToken, *auth.RefreshToken, error) = %v",
+					oldRefreshTokenValue, err,
+				)
+			}
+			if refreshTokenRepo.created ||
+				refreshTokenRepo.expiresAt == nil ||
+				!refreshTokenRepo.expiresAt.Equal(oldExpiresAt) {
+				t.Errorf(
+					"Refresh(ctx, %v) created = %v, expiresAt = %v, want %v",
+					oldRefreshTokenValue, refreshTokenRepo.created, refreshTokenRepo.expiresAt, oldExpiresAt,
+				)
+			}
+		},
+	)
+
+	t.Run(
+		"returns ErrInvalid without issuing tokens when the old refresh token cannot be rotated",
+		func(t *testing.T) {
+			u := user.User{ID: user.ID(1), Role: user.RoleUser}
+			oldRefreshTokenValue := auth.RefreshTokenValue("refreshtokenvalue")
+			oldRefreshToken := auth.RefreshToken{ID: auth.RefreshTokenID(1)}
+
+			userRepo := &fakeUserRepo{user: &u}
+			accessTokenService := &fakeAccessTokenService{}
+			refreshTokenRepo := &fakeRefreshTokenRepo{
+				refreshToken: &oldRefreshToken,
+				rotateErr:    exception.ErrInvalid,
+			}
+			au := NewAuthUsecase(userRepo, accessTokenService, refreshTokenRepo)
+
+			ctx := context.Background()
+
+			_, _, err := au.Refresh(ctx, oldRefreshTokenValue)
+			if !errors.Is(err, exception.ErrInvalid) {
+				t.Fatalf(
+					"Refresh(ctx, %v) err = %v, want %v",
+					oldRefreshTokenValue, err, exception.ErrInvalid,
+				)
+			}
+			if accessTokenService.principal != nil ||
+				refreshTokenRepo.created ||
+				refreshTokenRepo.expiresAt != nil {
+				t.Errorf(
+					"Refresh(ctx, %v) issued tokens, want none",
+					oldRefreshTokenValue,
 				)
 			}
 		},
