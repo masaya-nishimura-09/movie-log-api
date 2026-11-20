@@ -2,6 +2,8 @@ package auth
 
 import "time"
 
+const RefreshTokenReuseInterval = 10 * time.Second
+
 type RefreshToken struct {
 	ID        RefreshTokenID
 	Principal Principal
@@ -10,6 +12,7 @@ type RefreshToken struct {
 	ExpiresAt time.Time
 	CreatedAt time.Time
 	RevokedAt *time.Time
+	RotatedAt *time.Time
 }
 
 type RefreshTokenID uint
